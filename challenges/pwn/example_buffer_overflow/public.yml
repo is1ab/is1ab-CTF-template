@@ -1,0 +1,22 @@
+title: Example Buffer Overflow
+author: GZTime
+difficulty: baby
+category: pwn
+description: 一個簡單的緩衝區溢位題目，適合初學者練習基本的漏洞利用技巧
+challenge_type: nc_challenge
+source_code_provided: false
+files: []
+status: planning
+points: 50
+tags:
+  - pwn
+  - buffer_overflow
+  - beginner
+created_at: '2024-08-02T00:00:00'
+deploy_info:
+  port: null
+  url: null
+  requires_build: true
+  nc_port: 9999
+  timeout: 60
+  connection_type: nc

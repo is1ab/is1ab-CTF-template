@@ -1,0 +1,72 @@
+name: 📋 Update README Progress
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'challenges/**'
+      - 'config.yml'
+  pull_request:
+    types: [ closed ]
+    branches: [ main ]
+  workflow_dispatch:  # 允許手動觸發
+
+jobs:
+  update-readme:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🔍 Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: 📦 Install Dependencies
+      run: |
+        pip install -r requirements.txt
+    
+    - name: 📊 Update README Progress
+      run: |
+        python scripts/update-readme.py
+        
+    - name: 🔍 Check for Changes
+      id: verify-changed-files
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: 📝 Commit and Push Changes
+      if: steps.verify-changed-files.outputs.changed == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add README.md
+        git commit -m "📊 Auto-update README progress
+        
+        🤖 Generated with GitHub Actions
+        
+        Co-Authored-By: GitHub Action <action@github.com>"
+        git push
+    
+    - name: 📢 Create Comment (if PR)
+      if: github.event_name == 'pull_request' && steps.verify-changed-files.outputs.changed == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '📊 **README 進度已自動更新！**\n\n🤖 題目資訊已同步到主頁面。'
+          })
