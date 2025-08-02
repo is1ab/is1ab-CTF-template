@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>進度查看 - IS1AB CTF 管理介面</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <!-- 導航列 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <i class="bi bi-shield-check"></i> IS1AB CTF 管理
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">
+                            <i class="bi bi-house"></i> 首頁
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="create-challenge.html">
+                            <i class="bi bi-plus-circle"></i> 創建題目
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="progress.html">
+                            <i class="bi bi-graph-up"></i> 進度查看
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light btn-sm" onclick="refreshData()">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 頁面標題 -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-6">
+                    <i class="bi bi-graph-up text-primary"></i> 進度追蹤
+                </h1>
+                <p class="lead text-muted">詳細的題目開發進度和統計資訊</p>
+            </div>
+        </div>
+
+        <!-- 過濾器 -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row align-items-end">
+                            <div class="col-md-3">
+                                <label for="filterCategory" class="form-label">分類篩選</label>
+                                <select class="form-select" id="filterCategory" onchange="applyFilters()">
+                                    <option value="">所有分類</option>
+                                    <option value="web">Web</option>
+                                    <option value="pwn">Pwn</option>
+                                    <option value="reverse">Reverse</option>
+                                    <option value="crypto">Crypto</option>
+                                    <option value="forensic">Forensic</option>
+                                    <option value="misc">Misc</option>
+                                    <option value="general">General</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="filterStatus" class="form-label">狀態篩選</label>
+                                <select class="form-select" id="filterStatus" onchange="applyFilters()">
+                                    <option value="">所有狀態</option>
+                                    <option value="planning">規劃中</option>
+                                    <option value="developing">開發中</option>
+                                    <option value="testing">測試中</option>
+                                    <option value="completed">已完成</option>
+                                    <option value="deployed">已部署</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="filterDifficulty" class="form-label">難度篩選</label>
+                                <select class="form-select" id="filterDifficulty" onchange="applyFilters()">
+                                    <option value="">所有難度</option>
+                                    <option value="baby">Baby</option>
+                                    <option value="easy">Easy</option>
+                                    <option value="middle">Middle</option>
+                                    <option value="hard">Hard</option>
+                                    <option value="impossible">Impossible</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="searchQuery" class="form-label">搜尋</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="searchQuery" placeholder="搜尋題目..." onkeyup="applyFilters()">
+                                    <button class="btn btn-outline-secondary" onclick="clearSearch()">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 統計摘要 -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-bar-chart"></i> 進度概覽</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col">
+                                <div class="mb-2">
+                                    <div class="fs-3 text-secondary">📝</div>
+                                    <div class="fw-bold fs-5" id="planningCount">-</div>
+                                    <small class="text-muted">規劃中</small>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="mb-2">
+                                    <div class="fs-3 text-warning">🔨</div>
+                                    <div class="fw-bold fs-5" id="developingCount">-</div>
+                                    <small class="text-muted">開發中</small>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="mb-2">
+                                    <div class="fs-3 text-info">🧪</div>
+                                    <div class="fw-bold fs-5" id="testingCount">-</div>
+                                    <small class="text-muted">測試中</small>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="mb-2">
+                                    <div class="fs-3 text-success">✅</div>
+                                    <div class="fw-bold fs-5" id="completedCount">-</div>
+                                    <small class="text-muted">已完成</small>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="mb-2">
+                                    <div class="fs-3 text-primary">🚀</div>
+                                    <div class="fw-bold fs-5" id="deployedCount">-</div>
+                                    <small class="text-muted">已部署</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 進度條 -->
+                        <div class="mt-4">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small>整體完成度</small>
+                                <small id="overallProgress">0%</small>
+                            </div>
+                            <div class="progress">
+                                <div id="progressBar" class="progress-bar bg-success" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-pie-chart"></i> 類型分布</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="typeDistribution">
+                            <!-- 將由 JavaScript 動態填入 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 詳細題目列表 -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list"></i> 題目詳細列表
+                            <span class="badge bg-secondary ms-2" id="totalChallengesCount">0</span>
+                        </h5>
+                        <div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="changeView('table')">
+                                    <i class="bi bi-table"></i> 表格
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm active" onclick="changeView('card')">
+                                    <i class="bi bi-card-list"></i> 卡片
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- 表格檢視 -->
+                        <div id="tableView" class="d-none">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>題目</th>
+                                            <th>分類</th>
+                                            <th>難度</th>
+                                            <th>類型</th>
+                                            <th>狀態</th>
+                                            <th>作者</th>
+                                            <th>原始碼</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="challengeTableBody">
+                                        <!-- 將由 JavaScript 動態填入 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 卡片檢視 -->
+                        <div id="cardView" class="p-3">
+                            <div id="challengeCards" class="row">
+                                <!-- 將由 JavaScript 動態填入 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分類進度矩陣 -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-grid"></i> 分類進度矩陣</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered text-center" id="progressMatrix">
+                                <thead class="table-dark">
+                                    <tr id="matrixHeader">
+                                        <!-- 將由 JavaScript 動態填入 -->
+                                    </tr>
+                                </thead>
+                                <tbody id="matrixBody">
+                                    <!-- 將由 JavaScript 動態填入 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- 圖例 -->
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <h6 class="mb-2">圖例說明：</h6>
+                            <div class="row small">
+                                <div class="col-md-6">
+                                    <div><span class="badge bg-success me-1">✅🚀</span> 已完成並部署</div>
+                                    <div><span class="badge bg-warning me-1">🔨🧪</span> 開發/測試中</div>
+                                    <div><span class="badge bg-secondary me-1">📝</span> 規劃中</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div><span class="badge bg-danger me-1">❌</span> 尚未開始</div>
+                                    <div><span class="badge bg-primary me-1">🔌</span> NC 題目</div>
+                                    <div><span class="badge bg-info me-1">🐳</span> 容器題目</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 題目詳情 Modal -->
+    <div class="modal fade" id="challengeModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="challengeModalTitle">題目詳情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="challengeModalBody">
+                    <!-- 將由 JavaScript 動態填入 -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                    <button type="button" class="btn btn-primary" onclick="editChallenge()">編輯</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="api.js"></script>
+    <script>
+        // 全域變數
+        let challengeData = {};
+        let filteredChallenges = [];
+        let currentView = 'card';
+        let selectedChallenge = null;
+
+        // 頁面載入完成後初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProgressData();
+        });
+
+        // 載入進度資料
+        async function loadProgressData() {
+            try {
+                const progress = await api.getProgress();
+                challengeData = progress;
+                updateProgressSummary(progress.stats);
+                updateTypeDistribution(progress.stats);
+                updateProgressMatrix(progress);
+                updateChallengeList(progress.challenges);
+            } catch (error) {
+                console.error('載入進度失敗:', error);
+                // 使用模擬資料
+                challengeData = getMockProgressData();
+                updateProgressSummary(challengeData.stats);
+                updateTypeDistribution(challengeData.stats);
+                updateProgressMatrix(challengeData);
+                updateChallengeList(challengeData.challenges);
+            }
+        }
+
+        // 模擬進度資料
+        function getMockProgressData() {
+            return {
+                challenges: {
+                    pwn: [
+                        {
+                            title: "Example Buffer Overflow",
+                            status: "planning",
+                            difficulty: "baby",
+                            challenge_type: "nc_challenge",
+                            author: "GZTime",
+                            source_code_provided: false,
+                            description: "簡單的緩衝區溢位題目",
+                            created_at: "2024-08-02T00:00:00",
+                            path: "challenges/pwn/example_buffer_overflow"
+                        }
+                    ]
+                },
+                stats: {
+                    total_challenges: 1,
+                    status_counts: { planning: 1, developing: 0, testing: 0, completed: 0, deployed: 0 },
+                    type_counts: { static_attachment: 0, static_container: 0, dynamic_attachment: 0, dynamic_container: 0, nc_challenge: 1 },
+                    difficulty_counts: { baby: 1, easy: 0, middle: 0, hard: 0, impossible: 0 },
+                    source_code_counts: { provided: 0, not_provided: 1 }
+                }
+            };
+        }
+
+        // 更新進度摘要
+        function updateProgressSummary(stats) {
+            document.getElementById('planningCount').textContent = stats.status_counts?.planning || 0;
+            document.getElementById('developingCount').textContent = stats.status_counts?.developing || 0;
+            document.getElementById('testingCount').textContent = stats.status_counts?.testing || 0;
+            document.getElementById('completedCount').textContent = stats.status_counts?.completed || 0;
+            document.getElementById('deployedCount').textContent = stats.status_counts?.deployed || 0;
+
+            // 計算整體完成度
+            const completed = (stats.status_counts?.completed || 0) + (stats.status_counts?.deployed || 0);
+            const total = stats.total_challenges || 0;
+            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+            
+            document.getElementById('overallProgress').textContent = `${percentage}%`;
+            document.getElementById('progressBar').style.width = `${percentage}%`;
+        }
+
+        // 更新類型分布
+        function updateTypeDistribution(stats) {
+            const types = [
+                { name: '📎 靜態附件', count: stats.type_counts?.static_attachment || 0, color: 'primary' },
+                { name: '🐳 靜態容器', count: stats.type_counts?.static_container || 0, color: 'info' },
+                { name: '📋 動態附件', count: stats.type_counts?.dynamic_attachment || 0, color: 'warning' },
+                { name: '🔄 動態容器', count: stats.type_counts?.dynamic_container || 0, color: 'success' },
+                { name: '🔌 NC 題目', count: stats.type_counts?.nc_challenge || 0, color: 'danger' }
+            ];
+
+            const total = types.reduce((sum, type) => sum + type.count, 0);
+            
+            let html = '';
+            types.forEach(type => {
+                const percentage = total > 0 ? Math.round((type.count / total) * 100) : 0;
+                if (type.count > 0) {
+                    html += `
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">${type.name}</span>
+                            <span class="badge bg-${type.color}">${type.count}</span>
+                        </div>
+                        <div class="progress mb-3" style="height: 8px;">
+                            <div class="progress-bar bg-${type.color}" style="width: ${percentage}%"></div>
+                        </div>
+                    `;
+                }
+            });
+
+            if (html === '') {
+                html = '<p class="text-muted text-center">暫無資料</p>';
+            }
+
+            document.getElementById('typeDistribution').innerHTML = html;
+        }
+
+        // 更新進度矩陣
+        function updateProgressMatrix(data) {
+            const categories = ['General', 'Web', 'Pwn', 'Reverse', 'Crypto', 'Forensic', 'Misc'];
+            const maxChallenges = 6; // A-F
+
+            // 表頭
+            let headerHtml = '<th>分類</th>';
+            for (let i = 0; i < maxChallenges; i++) {
+                headerHtml += `<th>${String.fromCharCode(65 + i)}</th>`;
+            }
+            document.getElementById('matrixHeader').innerHTML = headerHtml;
+
+            // 表格內容
+            let bodyHtml = '';
+            categories.forEach(category => {
+                const categoryKey = category.toLowerCase();
+                const challenges = data.challenges?.[categoryKey] || [];
+                
+                bodyHtml += `<tr><td class="fw-bold">${category}</td>`;
+                
+                for (let i = 0; i < maxChallenges; i++) {
+                    if (i < challenges.length) {
+                        const challenge = challenges[i];
+                        const status = challenge.status || 'planning';
+                        const challengeType = challenge.challenge_type || 'static_attachment';
+                        const sourceCode = challenge.source_code_provided;
+                        
+                        const statusIcon = getStatusIcon(status);
+                        const typeIcon = getTypeIcon(challengeType);
+                        const sourceIcon = sourceCode ? '📄' : '🔒';
+                        
+                        bodyHtml += `
+                            <td class="challenge-cell" 
+                                data-challenge='${JSON.stringify(challenge)}'
+                                onclick="showChallengeDetails('${categoryKey}', ${i})"
+                                style="cursor: pointer;"
+                                title="${challenge.title || 'Challenge ' + String.fromCharCode(65 + i)}">
+                                <div class="fs-5">${statusIcon}${typeIcon}</div>
+                                <small class="text-muted">${sourceIcon}</small>
+                            </td>
+                        `;
+                    } else {
+                        bodyHtml += '<td class="text-muted"><div class="fs-5">❌</div></td>';
+                    }
+                }
+                
+                bodyHtml += '</tr>';
+            });
+
+            document.getElementById('matrixBody').innerHTML = bodyHtml;
+        }
+
+        // 更新題目列表
+        function updateChallengeList(challenges) {
+            // 平坦化題目列表便於篩選
+            filteredChallenges = [];
+            Object.entries(challenges).forEach(([category, challengeList]) => {
+                challengeList.forEach(challenge => {
+                    filteredChallenges.push({
+                        ...challenge,
+                        category: category
+                    });
+                });
+            });
+
+            applyFilters();
+        }
+
+        // 應用篩選器
+        function applyFilters() {
+            const categoryFilter = document.getElementById('filterCategory').value;
+            const statusFilter = document.getElementById('filterStatus').value;
+            const difficultyFilter = document.getElementById('filterDifficulty').value;
+            const searchQuery = document.getElementById('searchQuery').value.toLowerCase();
+
+            let filtered = filteredChallenges.filter(challenge => {
+                const matchCategory = !categoryFilter || challenge.category === categoryFilter;
+                const matchStatus = !statusFilter || challenge.status === statusFilter;
+                const matchDifficulty = !difficultyFilter || challenge.difficulty === difficultyFilter;
+                const matchSearch = !searchQuery || 
+                    challenge.title.toLowerCase().includes(searchQuery) ||
+                    challenge.description.toLowerCase().includes(searchQuery) ||
+                    challenge.author.toLowerCase().includes(searchQuery);
+
+                return matchCategory && matchStatus && matchDifficulty && matchSearch;
+            });
+
+            // 更新計數
+            document.getElementById('totalChallengesCount').textContent = filtered.length;
+
+            // 更新顯示
+            if (currentView === 'table') {
+                updateTableView(filtered);
+            } else {
+                updateCardView(filtered);
+            }
+        }
+
+        // 更新表格檢視
+        function updateTableView(challenges) {
+            let html = '';
+            
+            challenges.forEach(challenge => {
+                const statusColor = getStatusColor(challenge.status);
+                const difficultyIcon = getDifficultyIcon(challenge.difficulty);
+                const typeIcon = getTypeIcon(challenge.challenge_type);
+                const sourceIcon = challenge.source_code_provided ? '📄' : '🔒';
+                
+                html += `
+                    <tr onclick="showChallengeDetails('${challenge.category}', '${challenge.folder_name}')" style="cursor: pointer;">
+                        <td class="fw-bold">${challenge.title}</td>
+                        <td><span class="badge bg-secondary">${challenge.category}</span></td>
+                        <td>${difficultyIcon}</td>
+                        <td>${typeIcon}</td>
+                        <td><span class="badge bg-${statusColor}">${getStatusIcon(challenge.status)} ${challenge.status}</span></td>
+                        <td>${challenge.author}</td>
+                        <td>${sourceIcon}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); editChallenge('${challenge.category}', '${challenge.folder_name}')">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (html === '') {
+                html = '<tr><td colspan="8" class="text-center text-muted py-4">沒有符合條件的題目</td></tr>';
+            }
+
+            document.getElementById('challengeTableBody').innerHTML = html;
+        }
+
+        // 更新卡片檢視
+        function updateCardView(challenges) {
+            let html = '';
+            
+            challenges.forEach(challenge => {
+                const statusColor = getStatusColor(challenge.status);
+                const difficultyIcon = getDifficultyIcon(challenge.difficulty);
+                const typeIcon = getTypeIcon(challenge.challenge_type);
+                const sourceIcon = challenge.source_code_provided ? '📄' : '🔒';
+                
+                html += `
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100 challenge-card" onclick="showChallengeDetails('${challenge.category}', '${challenge.folder_name}')" style="cursor: pointer;">
+                            <div class="card-header bg-${statusColor} text-white d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">${challenge.title}</h6>
+                                <span class="badge bg-light text-dark">${challenge.category}</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text small text-muted">${challenge.description.substring(0, 100)}${challenge.description.length > 100 ? '...' : ''}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        ${difficultyIcon} ${typeIcon} ${sourceIcon}
+                                    </small>
+                                    <small class="text-muted">${challenge.author}</small>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-transparent">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-${statusColor}">${getStatusIcon(challenge.status)} ${challenge.status}</span>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); editChallenge('${challenge.category}', '${challenge.folder_name}')">
+                                        <i class="bi bi-pencil"></i> 編輯
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (html === '') {
+                html = '<div class="col-12 text-center text-muted py-5">沒有符合條件的題目</div>';
+            }
+
+            document.getElementById('challengeCards').innerHTML = html;
+        }
+
+        // 切換檢視模式
+        function changeView(view) {
+            currentView = view;
+            
+            // 更新按鈕狀態
+            document.querySelectorAll('.btn-group .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 切換檢視
+            if (view === 'table') {
+                document.getElementById('tableView').classList.remove('d-none');
+                document.getElementById('cardView').classList.add('d-none');
+            } else {
+                document.getElementById('tableView').classList.add('d-none');
+                document.getElementById('cardView').classList.remove('d-none');
+            }
+            
+            applyFilters();
+        }
+
+        // 顯示題目詳情
+        function showChallengeDetails(category, challengeIndex) {
+            let challenge;
+            
+            if (typeof challengeIndex === 'number') {
+                // 從矩陣點擊
+                challenge = challengeData.challenges[category]?.[challengeIndex];
+            } else {
+                // 從列表點擊 (challengeIndex 是 folder_name)
+                challenge = challengeData.challenges[category]?.find(c => c.folder_name === challengeIndex);
+            }
+            
+            if (!challenge) return;
+            
+            selectedChallenge = { category, challenge };
+            
+            // 更新 Modal 內容
+            document.getElementById('challengeModalTitle').textContent = challenge.title;
+            
+            const modalBody = document.getElementById('challengeModalBody');
+            modalBody.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">基本資訊</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>分類:</strong></td><td><span class="badge bg-secondary">${category}</span></td></tr>
+                            <tr><td><strong>難度:</strong></td><td>${getDifficultyIcon(challenge.difficulty)} ${challenge.difficulty}</td></tr>
+                            <tr><td><strong>類型:</strong></td><td>${getTypeIcon(challenge.challenge_type)} ${getTypeName(challenge.challenge_type)}</td></tr>
+                            <tr><td><strong>狀態:</strong></td><td><span class="badge bg-${getStatusColor(challenge.status)}">${getStatusIcon(challenge.status)} ${challenge.status}</span></td></tr>
+                            <tr><td><strong>作者:</strong></td><td>${challenge.author}</td></tr>
+                            <tr><td><strong>原始碼:</strong></td><td>${challenge.source_code_provided ? '✅ 提供' : '❌ 不提供'}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">詳細資訊</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>分數:</strong></td><td>${challenge.points || '未設定'}</td></tr>
+                            <tr><td><strong>建立時間:</strong></td><td>${challenge.created_at ? new Date(challenge.created_at).toLocaleDateString() : '未知'}</td></tr>
+                            <tr><td><strong>標籤:</strong></td><td>${challenge.tags ? challenge.tags.join(', ') : '無'}</td></tr>
+                            <tr><td><strong>路徑:</strong></td><td><code>${challenge.path || '未知'}</code></td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col">
+                        <h6 class="text-primary">描述</h6>
+                        <p class="bg-light p-3 rounded">${challenge.description || '無描述'}</p>
+                    </div>
+                </div>
+                ${challenge.learning_objectives ? `
+                <div class="row">
+                    <div class="col">
+                        <h6 class="text-primary">學習目標</h6>
+                        <p class="bg-light p-3 rounded">${challenge.learning_objectives}</p>
+                    </div>
+                </div>
+                ` : ''}
+                ${challenge.challenge_type === 'nc_challenge' ? `
+                <div class="row">
+                    <div class="col">
+                        <h6 class="text-primary">NC 設定</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>端口:</strong></td><td>${challenge.deploy_info?.nc_port || 9999}</td></tr>
+                            <tr><td><strong>超時:</strong></td><td>${challenge.deploy_info?.timeout || 60} 秒</td></tr>
+                        </table>
+                    </div>
+                </div>
+                ` : ''}
+            `;
+            
+            // 顯示 Modal
+            const modal = new bootstrap.Modal(document.getElementById('challengeModal'));
+            modal.show();
+        }
+
+        // 編輯題目
+        function editChallenge(category, name) {
+            if (category && name) {
+                showToast('編輯題目', `編輯功能開發中 - ${category}/${name}`, 'info');
+            } else if (selectedChallenge) {
+                showToast('編輯題目', `編輯功能開發中 - ${selectedChallenge.category}/${selectedChallenge.challenge.folder_name}`, 'info');
+            }
+        }
+
+        // 清除搜尋
+        function clearSearch() {
+            document.getElementById('searchQuery').value = '';
+            applyFilters();
+        }
+
+        // 刷新資料
+        function refreshData() {
+            loadProgressData();
+            showToast('資料已刷新', '進度資料已重新載入', 'success');
+        }
+
+        // 輔助函數
+        function getStatusIcon(status) {
+            const icons = {
+                'planning': '📝',
+                'developing': '🔨',
+                'testing': '🧪',
+                'completed': '✅',
+                'deployed': '🚀'
+            };
+            return icons[status] || '❓';
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'planning': 'secondary',
+                'developing': 'warning',
+                'testing': 'info',
+                'completed': 'success',
+                'deployed': 'primary'
+            };
+            return colors[status] || 'secondary';
+        }
+
+        function getTypeIcon(challengeType) {
+            const icons = {
+                'nc_challenge': '🔌',
+                'static_container': '🐳',
+                'dynamic_container': '🔄',
+                'static_attachment': '📎',
+                'dynamic_attachment': '📋'
+            };
+            return icons[challengeType] || '📎';
+        }
+
+        function getTypeName(challengeType) {
+            const names = {
+                'nc_challenge': 'NC 題目',
+                'static_container': '靜態容器',
+                'dynamic_container': '動態容器',
+                'static_attachment': '靜態附件',
+                'dynamic_attachment': '動態附件'
+            };
+            return names[challengeType] || challengeType;
+        }
+
+        function getDifficultyIcon(difficulty) {
+            const icons = {
+                'baby': '🍼',
+                'easy': '⭐',
+                'middle': '⭐⭐',
+                'hard': '⭐⭐⭐',
+                'impossible': '💀'
+            };
+            return icons[difficulty] || '❓';
+        }
+
+        // 顯示 Toast 通知
+        function showToast(title, message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toastId = 'toast-' + Date.now();
+            
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type} border-0`;
+            toast.id = toastId;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong><br>${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            // 自動移除
+            setTimeout(() => {
+                if (document.getElementById(toastId)) {
+                    toastContainer.removeChild(toast);
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

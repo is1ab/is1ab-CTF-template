@@ -1,0 +1,594 @@
+/**
+ * IS1AB CTF 管理介面 - 自訂樣式
+ * 增強 Bootstrap 的視覺效果和使用者體驗
+ */
+
+/* 全域樣式 */
+:root {
+    --ctf-primary: #0d6efd;
+    --ctf-success: #198754;
+    --ctf-warning: #ffc107;
+    --ctf-danger: #dc3545;
+    --ctf-info: #0dcaf0;
+    --ctf-dark: #212529;
+    --ctf-light: #f8f9fa;
+    --ctf-border-radius: 8px;
+    --ctf-box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --ctf-box-shadow-lg: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    color: #495057;
+}
+
+/* 導航列樣式增強 */
+.navbar-brand {
+    font-weight: 600;
+    font-size: 1.25rem;
+}
+
+.navbar-brand i {
+    margin-right: 0.5rem;
+    color: var(--ctf-success);
+}
+
+.navbar-nav .nav-link {
+    font-weight: 500;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: var(--ctf-border-radius);
+}
+
+.navbar-nav .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: var(--ctf-border-radius);
+}
+
+/* 卡片樣式增強 */
+.card {
+    border: none;
+    border-radius: var(--ctf-border-radius);
+    box-shadow: var(--ctf-box-shadow);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: var(--ctf-box-shadow-lg);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: var(--ctf-border-radius) var(--ctf-border-radius) 0 0 !important;
+    font-weight: 600;
+}
+
+/* 統計卡片特殊樣式 */
+.card.bg-primary,
+.card.bg-success,
+.card.bg-warning,
+.card.bg-info,
+.card.bg-danger {
+    border: none;
+    box-shadow: var(--ctf-box-shadow-lg);
+}
+
+.card.bg-primary:hover,
+.card.bg-success:hover,
+.card.bg-warning:hover,
+.card.bg-info:hover,
+.card.bg-danger:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.2);
+}
+
+/* 按鈕樣式增強 */
+.btn {
+    font-weight: 500;
+    border-radius: var(--ctf-border-radius);
+    transition: all 0.3s ease;
+    box-shadow: var(--ctf-box-shadow);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--ctf-box-shadow-lg);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%);
+    border: none;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+    border: none;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #ffb000 100%);
+    border: none;
+    color: #000;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+    border: none;
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #0dcaf0 0%, #087990 100%);
+    border: none;
+    color: #000;
+}
+
+/* 表單樣式增強 */
+.form-control,
+.form-select {
+    border-radius: var(--ctf-border-radius);
+    border: 1px solid #ced4da;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--ctf-primary);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.form-control.is-valid {
+    border-color: var(--ctf-success);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='m2.3 6.73.4.27 4.25-4.25-.27-.4L2.3 6.73z'/%3e%3c/svg%3e");
+}
+
+.form-control.is-invalid {
+    border-color: var(--ctf-danger);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 4.6 2.4 2.4m0-2.4L5.8 7'/%3e%3c/svg%3e");
+}
+
+/* 表單步驟樣式 */
+.form-step {
+    display: none;
+    animation: fadeInUp 0.5s ease;
+}
+
+.form-step.active {
+    display: block;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 進度條樣式 */
+.progress {
+    border-radius: var(--ctf-border-radius);
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    border-radius: var(--ctf-border-radius);
+    transition: width 0.6s ease;
+}
+
+/* Badge 樣式增強 */
+.badge {
+    font-weight: 500;
+    padding: 0.5em 0.75em;
+    border-radius: var(--ctf-border-radius);
+}
+
+/* 表格樣式增強 */
+.table {
+    border-radius: var(--ctf-border-radius);
+    overflow: hidden;
+}
+
+.table thead th {
+    border-top: none;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    letter-spacing: 0.05em;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+/* 題目卡片特殊樣式 */
+.challenge-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.challenge-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.15);
+}
+
+.challenge-cell {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.challenge-cell:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+    cursor: pointer;
+}
+
+/* Toast 通知樣式 */
+.toast {
+    border-radius: var(--ctf-border-radius);
+    box-shadow: var(--ctf-box-shadow-lg);
+}
+
+/* Modal 樣式增強 */
+.modal-content {
+    border: none;
+    border-radius: var(--ctf-border-radius);
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: var(--ctf-border-radius) var(--ctf-border-radius) 0 0;
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 0 0 var(--ctf-border-radius) var(--ctf-border-radius);
+}
+
+/* 載入動畫 */
+.spinner-border {
+    animation: spinner-border 0.75s linear infinite;
+}
+
+@keyframes spinner-border {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 狀態指示器 */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+.status-indicator.planning {
+    background-color: #6c757d;
+}
+
+.status-indicator.developing {
+    background-color: #ffc107;
+}
+
+.status-indicator.testing {
+    background-color: #0dcaf0;
+}
+
+.status-indicator.completed {
+    background-color: #198754;
+}
+
+.status-indicator.deployed {
+    background-color: #0d6efd;
+}
+
+/* 響應式設計增強 */
+@media (max-width: 768px) {
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-group .btn {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .modal-dialog {
+        margin: 1rem;
+    }
+    
+    .display-6 {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .container {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn {
+        font-size: 0.875rem;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .table {
+        font-size: 0.8rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1.1rem;
+    }
+}
+
+/* 深色模式支援 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --ctf-light: #343a40;
+        --ctf-dark: #f8f9fa;
+    }
+    
+    body {
+        background-color: #121212;
+        color: #e9ecef;
+    }
+    
+    .card {
+        background-color: #1e1e1e;
+        color: #e9ecef;
+    }
+    
+    .table {
+        --bs-table-bg: #1e1e1e;
+        --bs-table-color: #e9ecef;
+    }
+    
+    .form-control,
+    .form-select {
+        background-color: #2d3238;
+        border-color: #495057;
+        color: #e9ecef;
+    }
+    
+    .form-control:focus,
+    .form-select:focus {
+        background-color: #2d3238;
+        border-color: var(--ctf-primary);
+        color: #e9ecef;
+    }
+}
+
+/* 動畫效果 */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.slide-up {
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 特殊效果 */
+.glow {
+    box-shadow: 0 0 20px rgba(13, 110, 253, 0.5);
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* 程式碼區塊樣式 */
+code {
+    background-color: #f8f9fa;
+    color: #e83e8c;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+}
+
+pre {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: var(--ctf-border-radius);
+    padding: 1rem;
+    overflow-x: auto;
+}
+
+/* 圖表容器樣式 */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* 自訂滾動條 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* 工具提示樣式 */
+.tooltip {
+    font-size: 0.875rem;
+}
+
+.tooltip-inner {
+    background-color: #000;
+    color: #fff;
+    border-radius: var(--ctf-border-radius);
+    padding: 0.5rem 0.75rem;
+}
+
+/* 下拉選單樣式 */
+.dropdown-menu {
+    border: none;
+    border-radius: var(--ctf-border-radius);
+    box-shadow: var(--ctf-box-shadow-lg);
+}
+
+.dropdown-item {
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.dropdown-item:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+    color: var(--ctf-primary);
+}
+
+/* 頁面載入動畫 */
+.page-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.page-loader.fade-out {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+/* 成功/錯誤狀態樣式 */
+.success-indicator {
+    color: var(--ctf-success);
+    animation: bounce 1s ease-in-out;
+}
+
+.error-indicator {
+    color: var(--ctf-danger);
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 20%, 60%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    80% {
+        transform: translateY(-5px);
+    }
+}
+
+@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-5px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(5px);
+    }
+}
+
+/* 隱藏/顯示工具類別 */
+.hidden {
+    display: none !important;
+}
+
+.invisible {
+    visibility: hidden !important;
+}
+
+.transparent {
+    opacity: 0 !important;
+}
+
+/* 打印樣式 */
+@media print {
+    .navbar,
+    .btn,
+    .modal,
+    .toast-container {
+        display: none !important;
+    }
+    
+    .card {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #dee2e6;
+    }
+    
+    .table {
+        font-size: 0.875rem;
+    }
+    
+    body {
+        background-color: white !important;
+        color: black !important;
+    }
+}

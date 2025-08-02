@@ -22,20 +22,21 @@ jobs:
         with:
           fetch-depth: 0
           
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v4
+      - name: 🐍 Setup Python with uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: '3.9'
-          cache: 'pip'
+          enable-cache: true
+          cache-dependency-glob: "requirements.txt"
           
       - name: 📦 Install dependencies
         run: |
-          pip install -r requirements.txt
+          uv venv
+          uv pip install -r requirements.txt
           
       - name: 📊 Update README and progress
         run: |
-          python scripts/update-readme.py
-          python scripts/generate-progress-json.py
+          uv run scripts/update-readme.py
+          uv run scripts/generate-progress-json.py
           
       - name: 🔄 Sync to public repository
         if: github.ref == 'refs/heads/main'
@@ -43,7 +44,7 @@ jobs:
           PUBLIC_REPO_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
           PUBLIC_REPO: ${{ secrets.PUBLIC_REPO }}
         run: |
-          python scripts/sync-to-public.py
+          uv run scripts/sync-to-public.py
           
       - name: 💾 Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -70,26 +71,28 @@ jobs:
       - name: 🔄 Checkout code
         uses: actions/checkout@v4
         
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v4
+      - name: 🐍 Setup Python with uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: '3.9'
-          cache: 'pip'
+          enable-cache: true
+          cache-dependency-glob: "requirements.txt"
           
       - name: 📦 Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          uv venv
+          uv pip install -r requirements.txt
         
       - name: 🔍 Validate challenge structure
         run: |
-          python scripts/validate-challenge.py --pr ${{ github.event.number }}
+          uv run scripts/validate-challenge.py --pr ${{ github.event.number }}
           
       - name: 🔒 Check for sensitive data
         run: |
-          python scripts/check-sensitive.py
+          uv run scripts/check-sensitive.py
           
       - name: 📝 Validate public.yml format
         run: |
-          python scripts/validate-public-yml.py
+          uv run scripts/validate-public-yml.py
 
   test-docker:
     runs-on: ubuntu-latest
@@ -104,7 +107,7 @@ jobs:
         
       - name: 🔨 Test Docker builds
         run: |
-          python scripts/test-docker-builds.py --pr ${{ github.event.number }}
+          uv run scripts/test-docker-builds.py --pr ${{ github.event.number }}
 
   security-scan:
     runs-on: ubuntu-latest
@@ -169,7 +172,7 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: |
-          python scripts/deploy-containers.py
+          uv run scripts/deploy-containers.py
           
       - name: 📢 Notify deployment
         if: success()

@@ -29,13 +29,19 @@ cd 2024-is1ab-CTF
 ### 2. 安裝依賴
 
 ```bash
-# 安裝 Python 依賴
-pip install -r requirements.txt
+# 安裝 uv (推薦的 Python 包管理工具)
+curl -LsSf https://astral.sh/uv/install.sh | sh  # Linux/macOS
+# 或 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
 
-# 或使用虛擬環境 (推薦)
+# 創建虛擬環境並安裝依賴
+uv venv
+source .venv/bin/activate  # Linux/macOS
+# 或 .venv\Scripts\activate  # Windows
+uv pip install -r requirements.txt
+
+# 或傳統方式 (仍然支援)
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
-# 或 venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
@@ -69,7 +75,7 @@ deployment:
 
 ```bash
 # 執行初始化腳本
-python scripts/init-project.py --year 2024
+uv run scripts/init-project.py --year 2024
 
 # 創建基本目錄結構
 mkdir -p challenges/{web,pwn,reverse,crypto,forensic,misc,general}
@@ -113,7 +119,7 @@ Settings → Manage access → Invite collaborators
 
 ```bash
 # 創建一個簡單的 Web 題目
-python scripts/create-challenge.py web welcome baby --author YourName
+uv run scripts/create-challenge.py web welcome baby --author YourName
 
 # 檢查生成的檔案
 ls -la challenges/web/welcome/
@@ -136,7 +142,7 @@ nano challenges/web/welcome/src/app.py
 
 ```bash
 # 驗證題目格式
-python scripts/validate-challenge.py challenges/web/welcome/
+uv run scripts/validate-challenge.py challenges/web/welcome/
 
 # 提交 PR
 git add challenges/web/welcome/
@@ -188,8 +194,11 @@ docker-compose down
 # 進入 web 介面目錄
 cd web-interface/
 
-# 啟動簡單 HTTP 伺服器
-python -m http.server 8000
+# 啟動 Python Web 服務器
+uv run web-interface/server.py --host localhost --port 8000
+
+# 或啟動簡單 HTTP 伺服器
+uv run python -m http.server 8000
 
 # 或使用 Node.js
 npx serve .
@@ -202,11 +211,11 @@ npx serve .
 如果需要完整的 API 功能：
 
 ```bash
-# 安裝 Flask
-pip install flask flask-cors
+# 安裝 Flask (如果尚未安裝)
+uv pip install flask flask-cors
 
 # 啟動 API 伺服器
-python api/server.py
+uv run api/server.py
 ```
 
 ## 🔍 驗證設置
@@ -215,10 +224,10 @@ python api/server.py
 
 ```bash
 # 驗證所有腳本
-python scripts/validate-challenge.py --all
+uv run scripts/validate-challenge.py --all
 
 # 更新 README
-python scripts/update-readme.py
+uv run scripts/update-readme.py
 
 # 檢查生成的檔案
 cat README.md
@@ -235,9 +244,9 @@ cat progress.json
 
 ```bash
 # 常用操作
-python scripts/create-challenge.py <category> <name> <difficulty>
-python scripts/validate-challenge.py <path>
-python scripts/update-readme.py
+uv run scripts/create-challenge.py <category> <name> <difficulty>
+uv run scripts/validate-challenge.py <path>
+uv run scripts/update-readme.py
 git checkout -b challenge/<category>/<name>
 
 # Docker 操作
@@ -246,22 +255,24 @@ docker-compose logs -f
 docker-compose down
 
 # 專案管理
-python scripts/sync-to-public.py
-python scripts/check-sensitive.py
+uv run scripts/sync-to-public.py
+uv run scripts/check-sensitive.py
 ```
 
 ## 🐛 常見問題
 
 ### Q: Python 依賴安裝失敗
 ```bash
-# 升級 pip
+# 使用 uv (推薦)
+uv pip install -r requirements.txt
+
+# 使用鏡像源 (如果需要)
+uv pip install -r requirements.txt --index-url https://pypi.tuna.tsinghua.edu.cn/simple/
+
+# 傳統方式
 pip install --upgrade pip
-
-# 清除快取
 pip cache purge
-
-# 使用鏡像源
-pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install -r requirements.txt
 ```
 
 ### Q: Docker 權限錯誤
@@ -282,7 +293,7 @@ sudo docker-compose up -d
 ### Q: 題目驗證失敗
 ```bash
 # 檢查詳細錯誤
-python scripts/validate-challenge.py challenges/web/example/ --verbose
+uv run scripts/validate-challenge.py challenges/web/example/ --verbose
 
 # 檢查檔案權限
 chmod +x scripts/*.py
@@ -353,7 +364,7 @@ git checkout -b fix/issue-description
 
 ```bash
 # 使用腳本創建題目
-python scripts/create-challenge.py web example easy
+uv run scripts/create-challenge.py web example easy
 
 # 開發題目內容
 # 1. 編輯 public.yml
@@ -362,7 +373,7 @@ python scripts/create-challenge.py web example easy
 # 4. 準備檔案
 
 # 本地測試
-python scripts/validate-challenge.py challenges/web/example/
+uv run scripts/validate-challenge.py challenges/web/example/
 cd challenges/web/example/docker/
 docker-compose up -d
 # 測試題目功能
@@ -376,10 +387,10 @@ docker-compose down
 nano scripts/your-script.py
 
 # 測試修改
-python scripts/your-script.py
+uv run scripts/your-script.py
 
 # 執行單元測試 (如果有)
-python -m pytest tests/
+uv run python -m pytest tests/
 ```
 
 ### 4. 提交代碼
@@ -552,7 +563,7 @@ CMD ["python", "app.py"]
 
 ```bash
 # 結構驗證
-python scripts/validate-challenge.py challenges/web/example/
+uv run scripts/validate-challenge.py challenges/web/example/
 
 # Docker 測試
 cd challenges/web/example/docker/
@@ -568,11 +579,11 @@ docker-compose down
 
 ```bash
 # 單元測試
-python -m pytest tests/test_create_challenge.py
+uv run python -m pytest tests/test_create_challenge.py
 
 # 整合測試
-python scripts/update-readme.py --dry-run
-python scripts/validate-challenge.py --all
+uv run scripts/update-readme.py --dry-run
+uv run scripts/validate-challenge.py --all
 ```
 
 ## 🐛 問題回報

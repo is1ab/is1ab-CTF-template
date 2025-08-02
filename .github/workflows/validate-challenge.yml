@@ -16,15 +16,16 @@ jobs:
       with:
         fetch-depth: 0
     
-    - name: 🐍 Setup Python
-      uses: actions/setup-python@v4
+    - name: 🐍 Setup Python with uv
+      uses: astral-sh/setup-uv@v3
       with:
-        python-version: '3.11'
-        cache: 'pip'
+        enable-cache: true
+        cache-dependency-glob: "requirements.txt"
     
     - name: 📦 Install Dependencies
       run: |
-        pip install -r requirements.txt
+        uv venv
+        uv pip install -r requirements.txt
     
     - name: 🔍 Get Changed Files
       id: changed-files
@@ -43,7 +44,7 @@ jobs:
           if [[ "$file" == challenges/*/public.yml ]]; then
             challenge_dir=$(dirname "$file")
             echo "🎯 Validating challenge: $challenge_dir"
-            python scripts/validate-challenge.py "$challenge_dir"
+            uv run scripts/validate-challenge.py "$challenge_dir"
           fi
         done
     

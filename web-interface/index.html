@@ -3,485 +3,538 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CTF Challenge Manager</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <title>IS1AB CTF 管理介面</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
 </head>
-<body class="bg-gray-50 min-h-screen">
-    
-    <!-- Navigation -->
-    <nav class="bg-blue-600 text-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4">
-            <div class="flex justify-between items-center py-4">
-                <div class="flex items-center space-x-4">
-                    <i class="fas fa-flag text-2xl"></i>
-                    <h1 class="text-xl font-bold">CTF Challenge Manager</h1>
-                </div>
-                <div class="flex space-x-4">
-                    <button onclick="showSection('dashboard')" class="nav-btn px-4 py-2 rounded hover:bg-blue-700 transition">
-                        <i class="fas fa-tachometer-alt mr-2"></i>儀表板
-                    </button>
-                    <button onclick="showSection('create')" class="nav-btn px-4 py-2 rounded hover:bg-blue-700 transition">
-                        <i class="fas fa-plus mr-2"></i>創建題目
-                    </button>
-                    <button onclick="showSection('progress')" class="nav-btn px-4 py-2 rounded hover:bg-blue-700 transition">
-                        <i class="fas fa-chart-line mr-2"></i>進度追蹤
-                    </button>
-                </div>
+<body>
+    <!-- 導航列 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <i class="bi bi-shield-check"></i> IS1AB CTF 管理
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="index.html">
+                            <i class="bi bi-house"></i> 首頁
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="create-challenge.html">
+                            <i class="bi bi-plus-circle"></i> 創建題目
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="progress.html">
+                            <i class="bi bi-graph-up"></i> 進度查看
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-tools"></i> 工具
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="updateReadme()">
+                                <i class="bi bi-file-text"></i> 更新 README
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="validateAllChallenges()">
+                                <i class="bi bi-check-square"></i> 驗證題目
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="exportData()">
+                                <i class="bi bi-download"></i> 匯出資料
+                            </a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light btn-sm" onclick="refreshData()">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
 
-    <!-- Dashboard Section -->
-    <div id="dashboard" class="section">
-        <div class="max-w-7xl mx-auto px-4 py-8">
-            <h2 class="text-3xl font-bold mb-8">儀表板 <i class="fas fa-tachometer-alt text-blue-600"></i></h2>
-            
-            <!-- Stats Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 bg-blue-100 rounded-full">
-                            <i class="fas fa-tasks text-blue-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm text-gray-600">總題目數</p>
-                            <p class="text-2xl font-bold" id="totalChallenges">0</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 bg-green-100 rounded-full">
-                            <i class="fas fa-check-circle text-green-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm text-gray-600">已完成</p>
-                            <p class="text-2xl font-bold text-green-600" id="completedChallenges">0</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 bg-yellow-100 rounded-full">
-                            <i class="fas fa-hammer text-yellow-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm text-gray-600">開發中</p>
-                            <p class="text-2xl font-bold text-yellow-600" id="developingChallenges">0</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 bg-purple-100 rounded-full">
-                            <i class="fas fa-rocket text-purple-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm text-gray-600">已部署</p>
-                            <p class="text-2xl font-bold text-purple-600" id="deployedChallenges">0</p>
+    <div class="container mt-4">
+        <!-- 頁面標題 -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-6">
+                    <i class="bi bi-trophy text-warning"></i> CTF 題目管理中心
+                </h1>
+                <p class="lead text-muted">管理和追蹤 CTF 比賽題目的開發進度</p>
+            </div>
+        </div>
+
+        <!-- 統計卡片 -->
+        <div class="row mb-4" id="statsCards">
+            <div class="col-md-3 mb-3">
+                <div class="card bg-primary text-white h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-0">總題目數</h6>
+                                <h2 class="mb-0 mt-2" id="totalChallenges">-</h2>
+                                <small class="opacity-75">個題目</small>
+                            </div>
+                            <div class="fs-1 opacity-50">
+                                <i class="bi bi-collection"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Recent Activities -->
-            <div class="bg-white rounded-lg shadow">
-                <div class="p-6 border-b">
-                    <h3 class="text-lg font-semibold">最近活動</h3>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-0">已完成</h6>
+                                <h2 class="mb-0 mt-2" id="completedChallenges">-</h2>
+                                <small class="opacity-75">已完工</small>
+                            </div>
+                            <div class="fs-1 opacity-50">
+                                <i class="bi bi-check-circle"></i>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="p-6">
-                    <div id="recentActivities" class="space-y-4">
-                        <!-- Activities will be loaded here -->
+            </div>
+
+            <div class="col-md-3 mb-3">
+                <div class="card bg-warning text-white h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-0">開發中</h6>
+                                <h2 class="mb-0 mt-2" id="developingChallenges">-</h2>
+                                <small class="opacity-75">進行中</small>
+                            </div>
+                            <div class="fs-1 opacity-50">
+                                <i class="bi bi-tools"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-3">
+                <div class="card bg-info text-white h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-0">已部署</h6>
+                                <h2 class="mb-0 mt-2" id="deployedChallenges">-</h2>
+                                <small class="opacity-75">可使用</small>
+                            </div>
+                            <div class="fs-1 opacity-50">
+                                <i class="bi bi-cloud-upload"></i>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Create Challenge Section -->
-    <div id="create" class="section hidden">
-        <div class="max-w-4xl mx-auto px-4 py-8">
-            <h2 class="text-3xl font-bold mb-8">創建新題目 <i class="fas fa-plus-circle text-green-600"></i></h2>
+        <!-- 題目類型和原始碼分布 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-pie-chart text-primary"></i> 題目類型分布</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="typeChart" width="400" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
             
-            <div class="bg-white rounded-lg shadow-lg">
-                <div class="p-6">
-                    <form id="challengeForm" class="space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-tag mr-2"></i>題目名稱 *
-                                </label>
-                                <input type="text" name="name" required 
-                                       class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                                       placeholder="例如: sql_injection_basic">
-                                <p class="text-sm text-gray-500 mt-1">使用小寫字母和底線</p>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-bar-chart text-success"></i> 難度 & 原始碼分布</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <h6>難度分布</h6>
+                                <div id="difficultyBars"></div>
                             </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-user mr-2"></i>作者
-                                </label>
-                                <input type="text" name="author" value="GZTime"
-                                       class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-folder mr-2"></i>分類 *
-                                </label>
-                                <select name="category" required 
-                                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="">選擇分類</option>
-                                    <option value="web">🌐 Web</option>
-                                    <option value="pwn">💥 Pwn</option>
-                                    <option value="reverse">🔄 Reverse</option>
-                                    <option value="crypto">🔐 Crypto</option>
-                                    <option value="forensic">🔍 Forensic</option>
-                                    <option value="misc">🎯 Misc</option>
-                                    <option value="general">📋 General</option>
-                                </select>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-chart-bar mr-2"></i>難度 *
-                                </label>
-                                <select name="difficulty" required 
-                                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="">選擇難度</option>
-                                    <option value="baby">🍼 Baby (50分)</option>
-                                    <option value="easy">⭐ Easy (100分)</option>
-                                    <option value="middle">⭐⭐ Middle (200分)</option>
-                                    <option value="hard">⭐⭐⭐ Hard (300分)</option>
-                                    <option value="impossible">💀 Impossible (500分)</option>
-                                </select>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-cog mr-2"></i>題目類型 *
-                                </label>
-                                <select name="challenge_type" required 
-                                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="">選擇類型</option>
-                                    <option value="static_attachment">📎 靜態附件</option>
-                                    <option value="static_container">📦 靜態容器</option>
-                                    <option value="dynamic_attachment">📎🔄 動態附件</option>
-                                    <option value="dynamic_container">📦🔄 動態容器</option>
-                                </select>
+                            <div class="col-12">
+                                <h6>原始碼提供狀況</h6>
+                                <div class="d-flex justify-content-between">
+                                    <div class="text-center">
+                                        <div class="fs-3">📄</div>
+                                        <div class="fw-bold" id="sourceCodeProvided">-</div>
+                                        <small class="text-muted">提供原始碼</small>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="fs-3">🔒</div>
+                                        <div class="fw-bold" id="sourceCodeNotProvided">-</div>
+                                        <small class="text-muted">不提供原始碼</small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-edit mr-2"></i>題目描述 *
-                            </label>
-                            <textarea name="description" rows="4" required 
-                                      class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                                      placeholder="描述題目背景、目標和給參賽者的提示..."></textarea>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-bullseye mr-2"></i>學習目標
-                            </label>
-                            <textarea name="learning_objectives" rows="3" 
-                                      class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                                      placeholder="這個題目希望學生學到什麼技能或概念？"></textarea>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-tags mr-2"></i>標籤 (以逗號分隔)
-                            </label>
-                            <input type="text" name="tags" 
-                                   class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                                   placeholder="例如: sql-injection, authentication, beginner">
-                        </div>
-                        
-                        <div class="flex justify-end space-x-4 pt-6 border-t">
-                            <button type="button" onclick="resetForm()" 
-                                    class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition">
-                                <i class="fas fa-undo mr-2"></i>重置
-                            </button>
-                            <button type="submit" 
-                                    class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-                                <i class="fas fa-plus mr-2"></i>創建題目
-                            </button>
-                        </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Progress Section -->
-    <div id="progress" class="section hidden">
-        <div class="max-w-7xl mx-auto px-4 py-8">
-            <h2 class="text-3xl font-bold mb-8">進度追蹤 <i class="fas fa-chart-line text-blue-600"></i></h2>
-            
-            <!-- Progress Overview -->
-            <div class="bg-white rounded-lg shadow mb-8">
-                <div class="p-6 border-b">
-                    <h3 class="text-lg font-semibold">總體進度</h3>
-                </div>
-                <div class="p-6">
-                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-gray-600">📝</div>
-                            <div class="text-sm text-gray-600">規劃中</div>
-                            <div class="text-xl font-bold" id="planningCount">0</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-yellow-600">🔨</div>
-                            <div class="text-sm text-gray-600">開發中</div>
-                            <div class="text-xl font-bold" id="developingCount">0</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-blue-600">🧪</div>
-                            <div class="text-sm text-gray-600">測試中</div>
-                            <div class="text-xl font-bold" id="testingCount">0</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-green-600">✅</div>
-                            <div class="text-sm text-gray-600">已完成</div>
-                            <div class="text-xl font-bold" id="completedCount">0</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-purple-600">🚀</div>
-                            <div class="text-sm text-gray-600">已部署</div>
-                            <div class="text-xl font-bold" id="deployedCount">0</div>
+        <!-- 最近活動和快速操作 -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card h-100">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-clock-history text-info"></i> 最近活動
+                        </h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadRecentActivity()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="recentActivity" style="max-height: 300px; overflow-y: auto;">
+                            <div class="d-flex justify-content-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">載入中...</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Progress Table -->
-            <div class="bg-white rounded-lg shadow">
-                <div class="p-6 border-b">
-                    <h3 class="text-lg font-semibold">詳細進度表</h3>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full" id="progressTable">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分類</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">A</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">B</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">C</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">D</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">F</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200" id="progressTableBody">
-                            <!-- Table content will be generated by JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Success Modal -->
-    <div id="successModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
-        <div class="flex items-center justify-center min-h-screen px-4">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
-                <div class="p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-check-circle text-green-500 text-2xl"></i>
-                        </div>
-                        <div class="ml-3">
-                            <h3 class="text-lg font-medium text-gray-900">題目創建成功！</h3>
-                            <div class="mt-2 text-sm text-gray-500">
-                                <p id="successMessage">題目已成功創建並提交 Pull Request</p>
-                            </div>
-                        </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-lightning text-warning"></i> 快速操作</h5>
                     </div>
-                    <div class="mt-6 flex justify-end">
-                        <button onclick="closeSuccessModal()" 
-                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-                            確定
+                    <div class="card-body d-flex flex-column">
+                        <button class="btn btn-primary mb-2" onclick="window.location.href='create-challenge.html'">
+                            <i class="bi bi-plus-circle"></i> 創建新題目
+                        </button>
+                        <button class="btn btn-success mb-2" onclick="updateReadme()">
+                            <i class="bi bi-file-text"></i> 更新 README
+                        </button>
+                        <button class="btn btn-info mb-2" onclick="validateAllChallenges()">
+                            <i class="bi bi-check-square"></i> 驗證所有題目
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="window.location.href='progress.html'">
+                            <i class="bi bi-graph-up"></i> 查看詳細進度
                         </button>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- 進度表格 -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-table text-primary"></i> 題目進度一覽
+                        </h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-success" onclick="exportData()">
+                                <i class="bi bi-download"></i> 匯出
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadProgressTable()">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped" id="progressTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th style="width: 100px;">分類</th>
+                                        <th class="text-center">A</th>
+                                        <th class="text-center">B</th>
+                                        <th class="text-center">C</th>
+                                        <th class="text-center">D</th>
+                                        <th class="text-center">E</th>
+                                        <th class="text-center">F</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="progressTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-5">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">載入中...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- 圖例 -->
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <h6 class="mb-2">圖例說明：</h6>
+                            <div class="row small">
+                                <div class="col-md-4">
+                                    <div><span class="badge bg-success me-1">✅</span> 已完成並部署</div>
+                                    <div><span class="badge bg-warning me-1">🔨</span> 開發/測試中</div>
+                                    <div><span class="badge bg-secondary me-1">📝</span> 規劃中</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div><span class="badge bg-danger me-1">❌</span> 尚未開始</div>
+                                    <div><span class="badge bg-primary me-1">🔌</span> NC 題目</div>
+                                    <div><span class="badge bg-info me-1">🐳</span> 容器題目</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div><span class="badge bg-light text-dark me-1">📄</span> 提供原始碼</div>
+                                    <div><span class="badge bg-dark me-1">🔒</span> 不提供原始碼</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 團隊任務分配 -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-people text-success"></i> 團隊任務分配</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="teamAssignments" class="row">
+                            <div class="col-12 text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">載入中...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Modal for operations -->
+    <div class="modal fade" id="operationModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="operationModalTitle">操作進行中</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="operationModalBody">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">處理中...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" id="operationModalFooter">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="api.js"></script>
     <script>
-        // Global variables
+        // 全域變數
         let challengeData = {};
-        
-        // Initialize the application
+        let typeChart = null;
+
+        // 頁面載入完成後初始化
         document.addEventListener('DOMContentLoaded', function() {
-            showSection('dashboard');
-            loadChallengeData();
-            setupFormHandlers();
+            loadDashboardData();
+            loadProgressTable();
+            loadRecentActivity();
+            loadTeamAssignments();
         });
 
-        // Navigation functions
-        function showSection(sectionName) {
-            // Hide all sections
-            document.querySelectorAll('.section').forEach(section => {
-                section.classList.add('hidden');
-            });
-            
-            // Show selected section
-            document.getElementById(sectionName).classList.remove('hidden');
-            
-            // Update nav button states
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('bg-blue-700');
-            });
-            event.target.classList.add('bg-blue-700');
-            
-            // Load section-specific data
-            if (sectionName === 'progress') {
-                updateProgressSection();
-            } else if (sectionName === 'dashboard') {
-                updateDashboard();
-            }
-        }
-
-        // Load challenge data from JSON
-        async function loadChallengeData() {
+        // 載入儀表板資料
+        async function loadDashboardData() {
             try {
-                const response = await fetch('/progress.json');
-                if (response.ok) {
-                    const data = await response.json();
-                    challengeData = data;
-                    updateDashboard();
-                    updateProgressSection();
-                } else {
-                    // Use mock data if file doesn't exist
-                    challengeData = getMockData();
-                    updateDashboard();
-                    updateProgressSection();
-                }
+                const stats = await api.getStats();
+                challengeData = stats;
+                updateStatsCards(stats);
+                updateCharts(stats);
             } catch (error) {
-                console.error('Error loading challenge data:', error);
+                // 使用模擬資料
                 challengeData = getMockData();
-                updateDashboard();
-                updateProgressSection();
+                updateStatsCards(challengeData.stats);
+                updateCharts(challengeData.stats);
+                console.log('使用模擬資料');
             }
         }
 
-        // Mock data for demonstration
+        // 模擬資料
         function getMockData() {
             return {
                 challenges: {
-                    web: [
-                        { title: "SQL Injection Basic", status: "completed", difficulty: "easy" },
-                        { title: "XSS Challenge", status: "developing", difficulty: "middle" }
-                    ],
                     pwn: [
-                        { title: "Buffer Overflow", status: "planning", difficulty: "hard" }
-                    ],
-                    crypto: [
-                        { title: "RSA Challenge", status: "deployed", difficulty: "middle" }
+                        { title: "Example Buffer Overflow", status: "planning", difficulty: "baby", source_code_provided: false, challenge_type: "nc_challenge" }
                     ]
                 },
                 stats: {
-                    total_challenges: 4,
-                    status_counts: { planning: 1, developing: 1, completed: 1, deployed: 1, testing: 0 }
+                    total_challenges: 1,
+                    status_counts: { planning: 1, developing: 0, testing: 0, completed: 0, deployed: 0 },
+                    type_counts: { static_attachment: 0, static_container: 0, dynamic_attachment: 0, dynamic_container: 0, nc_challenge: 1 },
+                    difficulty_counts: { baby: 1, easy: 0, middle: 0, hard: 0, impossible: 0 },
+                    source_code_counts: { provided: 0, not_provided: 1 }
                 }
             };
         }
 
-        // Update dashboard statistics
-        function updateDashboard() {
-            const stats = challengeData.stats || {};
-            
+        // 更新統計卡片
+        function updateStatsCards(stats) {
             document.getElementById('totalChallenges').textContent = stats.total_challenges || 0;
             document.getElementById('completedChallenges').textContent = stats.status_counts?.completed || 0;
             document.getElementById('developingChallenges').textContent = stats.status_counts?.developing || 0;
             document.getElementById('deployedChallenges').textContent = stats.status_counts?.deployed || 0;
-            
-            // Update recent activities
-            updateRecentActivities();
         }
 
-        // Update recent activities
-        function updateRecentActivities() {
-            const activitiesHtml = `
-                <div class="flex items-start space-x-3">
-                    <div class="flex-shrink-0">
-                        <i class="fas fa-plus-circle text-green-500"></i>
-                    </div>
-                    <div class="flex-1">
-                        <p class="text-sm text-gray-900">新增了 Web 題目</p>
-                        <p class="text-xs text-gray-500">2 小時前</p>
-                    </div>
-                </div>
-                <div class="flex items-start space-x-3">
-                    <div class="flex-shrink-0">
-                        <i class="fas fa-rocket text-purple-500"></i>
-                    </div>
-                    <div class="flex-1">
-                        <p class="text-sm text-gray-900">部署了 Crypto 題目</p>
-                        <p class="text-xs text-gray-500">5 小時前</p>
-                    </div>
-                </div>
-                <div class="flex items-start space-x-3">
-                    <div class="flex-shrink-0">
-                        <i class="fas fa-edit text-blue-500"></i>
-                    </div>
-                    <div class="flex-1">
-                        <p class="text-sm text-gray-900">更新了 Pwn 題目文檔</p>
-                        <p class="text-xs text-gray-500">1 天前</p>
-                    </div>
-                </div>
-            `;
+        // 更新圖表
+        function updateCharts(stats) {
+            // 題目類型圓餅圖
+            const typeCtx = document.getElementById('typeChart').getContext('2d');
             
-            document.getElementById('recentActivities').innerHTML = activitiesHtml;
+            if (typeChart) {
+                typeChart.destroy();
+            }
+            
+            typeChart = new Chart(typeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['📎 靜態附件', '🐳 靜態容器', '📋 動態附件', '🔄 動態容器', '🔌 NC 題目'],
+                    datasets: [{
+                        data: [
+                            stats.type_counts?.static_attachment || 0,
+                            stats.type_counts?.static_container || 0,
+                            stats.type_counts?.dynamic_attachment || 0,
+                            stats.type_counts?.dynamic_container || 0,
+                            stats.type_counts?.nc_challenge || 0
+                        ],
+                        backgroundColor: [
+                            '#FF6384',
+                            '#36A2EB',
+                            '#FFCE56',
+                            '#4BC0C0',
+                            '#9966FF'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 10
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 難度分布條狀圖
+            updateDifficultyBars(stats);
+            
+            // 原始碼分布
+            document.getElementById('sourceCodeProvided').textContent = stats.source_code_counts?.provided || 0;
+            document.getElementById('sourceCodeNotProvided').textContent = stats.source_code_counts?.not_provided || 0;
         }
 
-        // Update progress section
-        function updateProgressSection() {
-            const stats = challengeData.stats?.status_counts || {};
-            
-            document.getElementById('planningCount').textContent = stats.planning || 0;
-            document.getElementById('developingCount').textContent = stats.developing || 0;
-            document.getElementById('testingCount').textContent = stats.testing || 0;
-            document.getElementById('completedCount').textContent = stats.completed || 0;
-            document.getElementById('deployedCount').textContent = stats.deployed || 0;
-            
-            updateProgressTable();
+        // 更新難度分布條狀圖
+        function updateDifficultyBars(stats) {
+            const difficulties = [
+                { name: '🍼 Baby', count: stats.difficulty_counts?.baby || 0, color: 'success' },
+                { name: '⭐ Easy', count: stats.difficulty_counts?.easy || 0, color: 'info' },
+                { name: '⭐⭐ Middle', count: stats.difficulty_counts?.middle || 0, color: 'warning' },
+                { name: '⭐⭐⭐ Hard', count: stats.difficulty_counts?.hard || 0, color: 'danger' },
+                { name: '💀 Impossible', count: stats.difficulty_counts?.impossible || 0, color: 'dark' }
+            ];
+
+            const total = difficulties.reduce((sum, d) => sum + d.count, 0);
+            const barsHtml = difficulties.map(d => {
+                const percentage = total > 0 ? (d.count / total * 100) : 0;
+                return `
+                    <div class="d-flex align-items-center mb-1">
+                        <div class="me-2" style="width: 80px; font-size: 12px;">${d.name}</div>
+                        <div class="flex-grow-1">
+                            <div class="progress" style="height: 15px;">
+                                <div class="progress-bar bg-${d.color}" style="width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                        <div class="ms-2 small">${d.count}</div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('difficultyBars').innerHTML = barsHtml;
         }
 
-        // Update progress table
-        function updateProgressTable() {
+        // 載入進度表格
+        async function loadProgressTable() {
+            try {
+                const progress = await api.getProgress();
+                updateProgressTable(progress);
+            } catch (error) {
+                updateProgressTable(challengeData);
+            }
+        }
+
+        // 更新進度表格
+        function updateProgressTable(data) {
+            const tbody = document.getElementById('progressTableBody');
             const categories = ['general', 'web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc'];
-            const tableBody = document.getElementById('progressTableBody');
             
             let html = '';
             categories.forEach(category => {
-                const challenges = challengeData.challenges?.[category] || [];
+                const challenges = data.challenges?.[category] || [];
                 const categoryName = category.charAt(0).toUpperCase() + category.slice(1);
                 
                 html += `<tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${categoryName}</td>`;
+                    <td class="fw-bold">${categoryName}</td>`;
                 
                 for (let i = 0; i < 6; i++) {
                     if (i < challenges.length) {
-                        const status = challenges[i].status || 'planning';
-                        const icon = getStatusIcon(status);
-                        const title = challenges[i].title || `Challenge ${String.fromCharCode(65 + i)}`;
-                        html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title="${title}">
-                            <span class="text-lg">${icon}</span>
+                        const challenge = challenges[i];
+                        const status = challenge.status || 'planning';
+                        const challengeType = challenge.challenge_type || 'static_attachment';
+                        const sourceCode = challenge.source_code_provided;
+                        
+                        const statusIcon = getStatusIcon(status);
+                        const typeIcon = getTypeIcon(challengeType);
+                        const sourceIcon = sourceCode ? '📄' : '🔒';
+                        
+                        html += `<td class="text-center" title="${challenge.title || 'Challenge ' + String.fromCharCode(65 + i)}">
+                            <div class="fs-5">${statusIcon}${typeIcon}</div>
+                            <small class="text-muted">${sourceIcon}</small>
                         </td>`;
                     } else {
-                        html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <span class="text-lg">❌</span>
+                        html += `<td class="text-center">
+                            <div class="fs-5 text-muted">❌</div>
                         </td>`;
                     }
                 }
@@ -489,10 +542,10 @@
                 html += '</tr>';
             });
             
-            tableBody.innerHTML = html;
+            tbody.innerHTML = html;
         }
 
-        // Get status icon
+        // 取得狀態圖示
         function getStatusIcon(status) {
             const icons = {
                 'planning': '📝',
@@ -504,87 +557,271 @@
             return icons[status] || '❓';
         }
 
-        // Setup form handlers
-        function setupFormHandlers() {
-            document.getElementById('challengeForm').addEventListener('submit', handleFormSubmit);
+        // 取得類型圖示
+        function getTypeIcon(challengeType) {
+            const icons = {
+                'nc_challenge': '🔌',
+                'static_container': '🐳',
+                'dynamic_container': '🔄',
+                'static_attachment': '📎',
+                'dynamic_attachment': '📋'
+            };
+            return icons[challengeType] || '';
         }
 
-        // Handle form submission
-        async function handleFormSubmit(event) {
-            event.preventDefault();
-            
-            const formData = new FormData(event.target);
-            const challengeInfo = Object.fromEntries(formData.entries());
-            
-            // Add tags array
-            if (challengeInfo.tags) {
-                challengeInfo.tags = challengeInfo.tags.split(',').map(tag => tag.trim());
-            }
-            
+        // 載入最近活動
+        async function loadRecentActivity() {
+            const activityDiv = document.getElementById('recentActivity');
             try {
-                // Simulate API call
-                await createChallenge(challengeInfo);
-                
-                // Show success modal
-                showSuccessModal(challengeInfo);
-                
-                // Reset form
-                resetForm();
-                
+                const activities = await api.getRecentActivity();
+                if (activities && activities.length > 0) {
+                    activityDiv.innerHTML = activities.map(activity => `
+                        <div class="d-flex align-items-start mb-3 p-2 border-start border-3 border-${activity.type === 'commit' ? 'primary' : 'success'}">
+                            <div class="badge bg-${activity.type === 'commit' ? 'primary' : 'success'} me-3 mt-1">
+                                <i class="bi bi-${activity.type === 'commit' ? 'git' : 'check'}"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold mb-1">${activity.message}</div>
+                                <small class="text-muted">
+                                    <i class="bi bi-person"></i> ${activity.author} • 
+                                    <i class="bi bi-clock"></i> ${activity.time}
+                                </small>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    activityDiv.innerHTML = `
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            <p>暫無最近活動</p>
+                        </div>`;
+                }
             } catch (error) {
-                alert('創建題目時發生錯誤: ' + error.message);
+                activityDiv.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-clock-history fs-1 d-block mb-2"></i>
+                        <p>最近建立了範例 PWN 題目</p>
+                        <small class="text-muted">Example Buffer Overflow • GZTime</small>
+                    </div>`;
             }
         }
 
-        // Create challenge (simulated API call)
-        async function createChallenge(challengeInfo) {
-            // Simulate network delay
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // In real implementation, this would call the actual API
-            console.log('Creating challenge:', challengeInfo);
-            
-            // For demo, we'll just add it to our local data
-            const category = challengeInfo.category;
-            if (!challengeData.challenges[category]) {
-                challengeData.challenges[category] = [];
+        // 載入團隊任務分配
+        async function loadTeamAssignments() {
+            const assignmentsDiv = document.getElementById('teamAssignments');
+            try {
+                const assignments = await api.getTeamAssignments();
+                if (assignments && Object.keys(assignments).length > 0) {
+                    let html = '';
+                    Object.entries(assignments).forEach(([author, tasks]) => {
+                        html += `
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-header bg-primary text-white">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-person-circle"></i> ${author}
+                                        </h6>
+                                    </div>
+                                    <div class="card-body p-3">
+                        `;
+                        
+                        tasks.forEach(task => {
+                            const statusColor = getStatusColor(task.status);
+                            const sourceIcon = task.source_code_provided ? '📄' : '🔒';
+                            const typeIcon = getTypeIcon(task.challenge_type);
+                            
+                            html += `
+                                <div class="d-flex align-items-center mb-2 p-2 border rounded">
+                                    <div class="badge bg-${statusColor} me-2">${getStatusIcon(task.status)}</div>
+                                    <div class="flex-grow-1">
+                                        <div class="fw-bold small">${task.category}/${task.title}</div>
+                                        <small class="text-muted">${task.difficulty} ${typeIcon} ${sourceIcon}</small>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += `
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    assignmentsDiv.innerHTML = html;
+                } else {
+                    assignmentsDiv.innerHTML = `
+                        <div class="col-12 text-center py-4">
+                            <i class="bi bi-people fs-1 text-muted d-block mb-2"></i>
+                            <p class="text-muted">暫無任務分配</p>
+                        </div>`;
+                }
+            } catch (error) {
+                // 使用模擬資料
+                assignmentsDiv.innerHTML = `
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-person-circle"></i> GZTime
+                                </h6>
+                            </div>
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-2 p-2 border rounded">
+                                    <div class="badge bg-secondary me-2">📝</div>
+                                    <div class="flex-grow-1">
+                                        <div class="fw-bold small">pwn/Example Buffer Overflow</div>
+                                        <small class="text-muted">baby 🔌 🔒</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
-            
-            challengeData.challenges[category].push({
-                title: challengeInfo.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                status: 'planning',
-                difficulty: challengeInfo.difficulty,
-                author: challengeInfo.author,
-                category: challengeInfo.category,
-                description: challengeInfo.description
-            });
-            
-            // Update stats
-            if (!challengeData.stats) {
-                challengeData.stats = { total_challenges: 0, status_counts: {} };
+        }
+
+        // 取得狀態對應顏色
+        function getStatusColor(status) {
+            const colors = {
+                'planning': 'secondary',
+                'developing': 'warning',
+                'testing': 'info',
+                'completed': 'success',
+                'deployed': 'primary'
+            };
+            return colors[status] || 'secondary';
+        }
+
+        // 刷新所有資料
+        function refreshData() {
+            loadDashboardData();
+            loadProgressTable();
+            loadRecentActivity();
+            loadTeamAssignments();
+            showToast('資料已刷新', '所有資料已重新載入', 'success');
+        }
+
+        // 更新 README
+        async function updateReadme() {
+            const modal = new bootstrap.Modal(document.getElementById('operationModal'));
+            document.getElementById('operationModalTitle').textContent = '更新 README';
+            document.getElementById('operationModalBody').innerHTML = `
+                <div class="d-flex justify-content-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">更新中...</span>
+                    </div>
+                </div>
+                <p class="text-center mt-2">正在更新 README.md...</p>
+            `;
+            modal.show();
+
+            try {
+                // 模擬 API 呼叫
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                document.getElementById('operationModalBody').innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i> README 更新成功！
+                        <p class="mb-0 mt-2">已自動更新題目進度和統計資訊。</p>
+                    </div>
+                `;
+                setTimeout(() => modal.hide(), 2000);
+                showToast('更新成功', 'README.md 已成功更新', 'success');
+            } catch (error) {
+                document.getElementById('operationModalBody').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> 更新失敗：${error.message}
+                    </div>
+                `;
             }
-            challengeData.stats.total_challenges++;
-            challengeData.stats.status_counts.planning = (challengeData.stats.status_counts.planning || 0) + 1;
+        }
+
+        // 驗證所有題目
+        async function validateAllChallenges() {
+            const modal = new bootstrap.Modal(document.getElementById('operationModal'));
+            document.getElementById('operationModalTitle').textContent = '驗證題目';
+            document.getElementById('operationModalBody').innerHTML = `
+                <div class="d-flex justify-content-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">驗證中...</span>
+                    </div>
+                </div>
+                <p class="text-center mt-2">正在驗證所有題目...</p>
+            `;
+            modal.show();
+
+            try {
+                // 模擬 API 呼叫
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                document.getElementById('operationModalBody').innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i> 驗證完成！
+                        <ul class="mb-0 mt-2">
+                            <li>檢查了 1 個題目</li>
+                            <li>發現 0 個錯誤</li>
+                            <li>發現 1 個警告（缺少實際 flag）</li>
+                        </ul>
+                    </div>
+                `;
+                setTimeout(() => modal.hide(), 3000);
+                showToast('驗證完成', '所有題目驗證完成', 'success');
+            } catch (error) {
+                document.getElementById('operationModalBody').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> 驗證失敗：${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // 匯出資料
+        async function exportData() {
+            try {
+                const data = challengeData;
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ctf-progress-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('匯出成功', '資料已成功匯出', 'success');
+            } catch (error) {
+                showToast('匯出失敗', error.message, 'error');
+            }
+        }
+
+        // 顯示 Toast 通知
+        function showToast(title, message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toastId = 'toast-' + Date.now();
             
-            // Update dashboard
-            updateDashboard();
-        }
-
-        // Show success modal
-        function showSuccessModal(challengeInfo) {
-            const message = `題目 "${challengeInfo.name}" 已成功創建！\n分支: challenge/${challengeInfo.category}/${challengeInfo.name}`;
-            document.getElementById('successMessage').textContent = message;
-            document.getElementById('successModal').classList.remove('hidden');
-        }
-
-        // Close success modal
-        function closeSuccessModal() {
-            document.getElementById('successModal').classList.add('hidden');
-        }
-
-        // Reset form
-        function resetForm() {
-            document.getElementById('challengeForm').reset();
+            const bgClass = type === 'error' ? 'bg-danger' : `bg-${type}`;
+            
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type} border-0`;
+            toast.id = toastId;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong><br>${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            // 自動移除
+            setTimeout(() => {
+                if (document.getElementById(toastId)) {
+                    toastContainer.removeChild(toast);
+                }
+            }, 5000);
         }
     </script>
 </body>

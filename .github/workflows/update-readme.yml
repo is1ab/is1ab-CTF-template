@@ -23,19 +23,20 @@ jobs:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: 🐍 Setup Python
-      uses: actions/setup-python@v4
+    - name: 🐍 Setup Python with uv
+      uses: astral-sh/setup-uv@v3
       with:
-        python-version: '3.11'
-        cache: 'pip'
+        enable-cache: true
+        cache-dependency-glob: "requirements.txt"
     
     - name: 📦 Install Dependencies
       run: |
-        pip install -r requirements.txt
+        uv venv
+        uv pip install -r requirements.txt
     
     - name: 📊 Update README Progress
       run: |
-        python scripts/update-readme.py
+        uv run scripts/update-readme.py
         
     - name: 🔍 Check for Changes
       id: verify-changed-files

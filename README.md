@@ -27,13 +27,16 @@ cd 2024-is1ab-CTF
 
 ```bash
 # 安裝依賴
-pip install -r requirements.txt
+uv venv  # 創建虛擬環境
+source .venv/bin/activate  # 啟動虛擬環境 (Linux/Mac)
+# .venv\Scripts\activate  # 啟動虛擬環境 (Windows)
+uv pip install -r requirements.txt
 
 # 初始化專案配置
-python scripts/init-project.py --year 2024
+uv run scripts/init-project.py --year 2024
 
 # 創建第一個題目
-python scripts/create-challenge.py web welcome baby --author GZTime
+uv run scripts/create-challenge.py web welcome baby --author GZTime
 ```
 
 ### 3. 開始開發
@@ -84,7 +87,7 @@ is1ab-CTF-template/
 │   ├── progress.html             # 進度查看
 │   └── api.js                    # API 接口
 ├── config.yml                    # 專案配置
-├── requirements.txt              # Python 依賴
+├── requirements.txt              # Python 依賴 (uv 管理)
 └── README.md                     # 說明文檔
 ```
 
@@ -117,25 +120,25 @@ is1ab-CTF-template/
 
 ```bash
 # 基本用法
-python scripts/create-challenge.py <category> <name> <difficulty>
+uv run scripts/create-challenge.py <category> <name> <difficulty>
 
 # 範例
-python scripts/create-challenge.py web sql_injection middle
-python scripts/create-challenge.py pwn buffer_overflow hard
-python scripts/create-challenge.py crypto rsa_challenge easy
+uv run scripts/create-challenge.py web sql_injection middle
+uv run scripts/create-challenge.py pwn buffer_overflow hard
+uv run scripts/create-challenge.py crypto rsa_challenge easy
 ```
 
 ### 更新進度
 
 ```bash
 # 手動更新 README
-python scripts/update-readme.py
+uv run scripts/update-readme.py
 
 # 驗證題目結構
-python scripts/validate-challenge.py challenges/web/example/
+uv run scripts/validate-challenge.py challenges/web/example/
 
 # 同步到公開倉庫
-python scripts/sync-to-public.py
+uv run scripts/sync-to-public.py
 ```
 
 ### Web 介面使用
@@ -143,7 +146,10 @@ python scripts/sync-to-public.py
 ```bash
 # 啟動本地 Web 介面
 cd web-interface/
-python -m http.server 8000
+uv run server.py --host localhost --port 8000
+
+# 或使用傳統方式提供靜態檔案
+uv run python -m http.server 8000
 
 # 訪問 http://localhost:8000
 # 使用 Web 介面創建和管理題目
@@ -189,12 +195,13 @@ docker run -p 8080:80 challenge-test
 ```bash
 # 使用 GitHub Actions 自動部署
 # 或手動部署
-python scripts/deploy.py --environment production
+uv run scripts/deploy.py --environment production
 ```
 
 ## 📚 相關文檔
 
 - [📖 設置指南](docs/setup-guide.md) - 詳細的環境設置說明
+- [🚀 UV 設置指南](docs/uv-setup-guide.md) - 現代 Python 包管理工具使用指南
 - [🤝 貢獻指南](docs/contribution-guide.md) - 如何參與開發
 - [🐳 部署指南](docs/deployment-guide.md) - Docker 部署說明
 - [💡 題目開發](docs/challenge-development.md) - 題目開發最佳實踐

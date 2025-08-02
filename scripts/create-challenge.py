@@ -326,7 +326,7 @@ WORKDIR /app
 
 # 安裝依賴
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN uv pip install --no-cache -r requirements.txt
 
 # 複製應用程式
 COPY . .
