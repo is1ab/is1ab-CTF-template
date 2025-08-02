@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTF Challenge Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <!-- Navigation -->
+    <nav class="bg-blue-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-flag text-2xl"></i>
+                    <h1 class="text-xl font-bold">CTF Challenge Manager</h1>
+                </div>
+                <div class="flex space-x-4">
+                    <button onclick="showSection('dashboard')" class="nav-btn px-4 py-2 rounded hover:bg-blue-700 transition">
+                        <i class="fas fa-tachometer-alt mr-2"></i>儀表板
+                    </button>
+                    <button onclick="showSection('create')" class="nav-btn px-4 py-2 rounded hover:bg-blue-700 transition">
+                        <i class="fas fa-plus mr-2"></i>創建題目
+                    </button>
+                    <button onclick="showSection('progress')" class="nav-btn px-4 py-2 rounded hover:bg-blue-700 transition">
+                        <i class="fas fa-chart-line mr-2"></i>進度追蹤
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard" class="section">
+        <div class="max-w-7xl mx-auto px-4 py-8">
+            <h2 class="text-3xl font-bold mb-8">儀表板 <i class="fas fa-tachometer-alt text-blue-600"></i></h2>
+            
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-blue-100 rounded-full">
+                            <i class="fas fa-tasks text-blue-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-600">總題目數</p>
+                            <p class="text-2xl font-bold" id="totalChallenges">0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-green-100 rounded-full">
+                            <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-600">已完成</p>
+                            <p class="text-2xl font-bold text-green-600" id="completedChallenges">0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-yellow-100 rounded-full">
+                            <i class="fas fa-hammer text-yellow-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-600">開發中</p>
+                            <p class="text-2xl font-bold text-yellow-600" id="developingChallenges">0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-purple-100 rounded-full">
+                            <i class="fas fa-rocket text-purple-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-600">已部署</p>
+                            <p class="text-2xl font-bold text-purple-600" id="deployedChallenges">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activities -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="p-6 border-b">
+                    <h3 class="text-lg font-semibold">最近活動</h3>
+                </div>
+                <div class="p-6">
+                    <div id="recentActivities" class="space-y-4">
+                        <!-- Activities will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Challenge Section -->
+    <div id="create" class="section hidden">
+        <div class="max-w-4xl mx-auto px-4 py-8">
+            <h2 class="text-3xl font-bold mb-8">創建新題目 <i class="fas fa-plus-circle text-green-600"></i></h2>
+            
+            <div class="bg-white rounded-lg shadow-lg">
+                <div class="p-6">
+                    <form id="challengeForm" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-tag mr-2"></i>題目名稱 *
+                                </label>
+                                <input type="text" name="name" required 
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="例如: sql_injection_basic">
+                                <p class="text-sm text-gray-500 mt-1">使用小寫字母和底線</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-user mr-2"></i>作者
+                                </label>
+                                <input type="text" name="author" value="GZTime"
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-folder mr-2"></i>分類 *
+                                </label>
+                                <select name="category" required 
+                                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">選擇分類</option>
+                                    <option value="web">🌐 Web</option>
+                                    <option value="pwn">💥 Pwn</option>
+                                    <option value="reverse">🔄 Reverse</option>
+                                    <option value="crypto">🔐 Crypto</option>
+                                    <option value="forensic">🔍 Forensic</option>
+                                    <option value="misc">🎯 Misc</option>
+                                    <option value="general">📋 General</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-chart-bar mr-2"></i>難度 *
+                                </label>
+                                <select name="difficulty" required 
+                                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">選擇難度</option>
+                                    <option value="baby">🍼 Baby (50分)</option>
+                                    <option value="easy">⭐ Easy (100分)</option>
+                                    <option value="middle">⭐⭐ Middle (200分)</option>
+                                    <option value="hard">⭐⭐⭐ Hard (300分)</option>
+                                    <option value="impossible">💀 Impossible (500分)</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-cog mr-2"></i>題目類型 *
+                                </label>
+                                <select name="challenge_type" required 
+                                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">選擇類型</option>
+                                    <option value="static_attachment">📎 靜態附件</option>
+                                    <option value="static_container">📦 靜態容器</option>
+                                    <option value="dynamic_attachment">📎🔄 動態附件</option>
+                                    <option value="dynamic_container">📦🔄 動態容器</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-edit mr-2"></i>題目描述 *
+                            </label>
+                            <textarea name="description" rows="4" required 
+                                      class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                                      placeholder="描述題目背景、目標和給參賽者的提示..."></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-bullseye mr-2"></i>學習目標
+                            </label>
+                            <textarea name="learning_objectives" rows="3" 
+                                      class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                                      placeholder="這個題目希望學生學到什麼技能或概念？"></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-tags mr-2"></i>標籤 (以逗號分隔)
+                            </label>
+                            <input type="text" name="tags" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="例如: sql-injection, authentication, beginner">
+                        </div>
+                        
+                        <div class="flex justify-end space-x-4 pt-6 border-t">
+                            <button type="button" onclick="resetForm()" 
+                                    class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition">
+                                <i class="fas fa-undo mr-2"></i>重置
+                            </button>
+                            <button type="submit" 
+                                    class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+                                <i class="fas fa-plus mr-2"></i>創建題目
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div id="progress" class="section hidden">
+        <div class="max-w-7xl mx-auto px-4 py-8">
+            <h2 class="text-3xl font-bold mb-8">進度追蹤 <i class="fas fa-chart-line text-blue-600"></i></h2>
+            
+            <!-- Progress Overview -->
+            <div class="bg-white rounded-lg shadow mb-8">
+                <div class="p-6 border-b">
+                    <h3 class="text-lg font-semibold">總體進度</h3>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-gray-600">📝</div>
+                            <div class="text-sm text-gray-600">規劃中</div>
+                            <div class="text-xl font-bold" id="planningCount">0</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-yellow-600">🔨</div>
+                            <div class="text-sm text-gray-600">開發中</div>
+                            <div class="text-xl font-bold" id="developingCount">0</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600">🧪</div>
+                            <div class="text-sm text-gray-600">測試中</div>
+                            <div class="text-xl font-bold" id="testingCount">0</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600">✅</div>
+                            <div class="text-sm text-gray-600">已完成</div>
+                            <div class="text-xl font-bold" id="completedCount">0</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-purple-600">🚀</div>
+                            <div class="text-sm text-gray-600">已部署</div>
+                            <div class="text-xl font-bold" id="deployedCount">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Table -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="p-6 border-b">
+                    <h3 class="text-lg font-semibold">詳細進度表</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full" id="progressTable">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分類</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">A</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">B</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">C</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">D</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">F</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="progressTableBody">
+                            <!-- Table content will be generated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-check-circle text-green-500 text-2xl"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-lg font-medium text-gray-900">題目創建成功！</h3>
+                            <div class="mt-2 text-sm text-gray-500">
+                                <p id="successMessage">題目已成功創建並提交 Pull Request</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end">
+                        <button onclick="closeSuccessModal()" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+                            確定
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let challengeData = {};
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            showSection('dashboard');
+            loadChallengeData();
+            setupFormHandlers();
+        });
+
+        // Navigation functions
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName).classList.remove('hidden');
+            
+            // Update nav button states
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-700');
+            });
+            event.target.classList.add('bg-blue-700');
+            
+            // Load section-specific data
+            if (sectionName === 'progress') {
+                updateProgressSection();
+            } else if (sectionName === 'dashboard') {
+                updateDashboard();
+            }
+        }
+
+        // Load challenge data from JSON
+        async function loadChallengeData() {
+            try {
+                const response = await fetch('/progress.json');
+                if (response.ok) {
+                    const data = await response.json();
+                    challengeData = data;
+                    updateDashboard();
+                    updateProgressSection();
+                } else {
+                    // Use mock data if file doesn't exist
+                    challengeData = getMockData();
+                    updateDashboard();
+                    updateProgressSection();
+                }
+            } catch (error) {
+                console.error('Error loading challenge data:', error);
+                challengeData = getMockData();
+                updateDashboard();
+                updateProgressSection();
+            }
+        }
+
+        // Mock data for demonstration
+        function getMockData() {
+            return {
+                challenges: {
+                    web: [
+                        { title: "SQL Injection Basic", status: "completed", difficulty: "easy" },
+                        { title: "XSS Challenge", status: "developing", difficulty: "middle" }
+                    ],
+                    pwn: [
+                        { title: "Buffer Overflow", status: "planning", difficulty: "hard" }
+                    ],
+                    crypto: [
+                        { title: "RSA Challenge", status: "deployed", difficulty: "middle" }
+                    ]
+                },
+                stats: {
+                    total_challenges: 4,
+                    status_counts: { planning: 1, developing: 1, completed: 1, deployed: 1, testing: 0 }
+                }
+            };
+        }
+
+        // Update dashboard statistics
+        function updateDashboard() {
+            const stats = challengeData.stats || {};
+            
+            document.getElementById('totalChallenges').textContent = stats.total_challenges || 0;
+            document.getElementById('completedChallenges').textContent = stats.status_counts?.completed || 0;
+            document.getElementById('developingChallenges').textContent = stats.status_counts?.developing || 0;
+            document.getElementById('deployedChallenges').textContent = stats.status_counts?.deployed || 0;
+            
+            // Update recent activities
+            updateRecentActivities();
+        }
+
+        // Update recent activities
+        function updateRecentActivities() {
+            const activitiesHtml = `
+                <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-plus-circle text-green-500"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-900">新增了 Web 題目</p>
+                        <p class="text-xs text-gray-500">2 小時前</p>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-rocket text-purple-500"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-900">部署了 Crypto 題目</p>
+                        <p class="text-xs text-gray-500">5 小時前</p>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-edit text-blue-500"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-900">更新了 Pwn 題目文檔</p>
+                        <p class="text-xs text-gray-500">1 天前</p>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('recentActivities').innerHTML = activitiesHtml;
+        }
+
+        // Update progress section
+        function updateProgressSection() {
+            const stats = challengeData.stats?.status_counts || {};
+            
+            document.getElementById('planningCount').textContent = stats.planning || 0;
+            document.getElementById('developingCount').textContent = stats.developing || 0;
+            document.getElementById('testingCount').textContent = stats.testing || 0;
+            document.getElementById('completedCount').textContent = stats.completed || 0;
+            document.getElementById('deployedCount').textContent = stats.deployed || 0;
+            
+            updateProgressTable();
+        }
+
+        // Update progress table
+        function updateProgressTable() {
+            const categories = ['general', 'web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc'];
+            const tableBody = document.getElementById('progressTableBody');
+            
+            let html = '';
+            categories.forEach(category => {
+                const challenges = challengeData.challenges?.[category] || [];
+                const categoryName = category.charAt(0).toUpperCase() + category.slice(1);
+                
+                html += `<tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${categoryName}</td>`;
+                
+                for (let i = 0; i < 6; i++) {
+                    if (i < challenges.length) {
+                        const status = challenges[i].status || 'planning';
+                        const icon = getStatusIcon(status);
+                        const title = challenges[i].title || `Challenge ${String.fromCharCode(65 + i)}`;
+                        html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title="${title}">
+                            <span class="text-lg">${icon}</span>
+                        </td>`;
+                    } else {
+                        html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span class="text-lg">❌</span>
+                        </td>`;
+                    }
+                }
+                
+                html += '</tr>';
+            });
+            
+            tableBody.innerHTML = html;
+        }
+
+        // Get status icon
+        function getStatusIcon(status) {
+            const icons = {
+                'planning': '📝',
+                'developing': '🔨',
+                'testing': '🧪',
+                'completed': '✅',
+                'deployed': '🚀'
+            };
+            return icons[status] || '❓';
+        }
+
+        // Setup form handlers
+        function setupFormHandlers() {
+            document.getElementById('challengeForm').addEventListener('submit', handleFormSubmit);
+        }
+
+        // Handle form submission
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const challengeInfo = Object.fromEntries(formData.entries());
+            
+            // Add tags array
+            if (challengeInfo.tags) {
+                challengeInfo.tags = challengeInfo.tags.split(',').map(tag => tag.trim());
+            }
+            
+            try {
+                // Simulate API call
+                await createChallenge(challengeInfo);
+                
+                // Show success modal
+                showSuccessModal(challengeInfo);
+                
+                // Reset form
+                resetForm();
+                
+            } catch (error) {
+                alert('創建題目時發生錯誤: ' + error.message);
+            }
+        }
+
+        // Create challenge (simulated API call)
+        async function createChallenge(challengeInfo) {
+            // Simulate network delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // In real implementation, this would call the actual API
+            console.log('Creating challenge:', challengeInfo);
+            
+            // For demo, we'll just add it to our local data
+            const category = challengeInfo.category;
+            if (!challengeData.challenges[category]) {
+                challengeData.challenges[category] = [];
+            }
+            
+            challengeData.challenges[category].push({
+                title: challengeInfo.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                status: 'planning',
+                difficulty: challengeInfo.difficulty,
+                author: challengeInfo.author,
+                category: challengeInfo.category,
+                description: challengeInfo.description
+            });
+            
+            // Update stats
+            if (!challengeData.stats) {
+                challengeData.stats = { total_challenges: 0, status_counts: {} };
+            }
+            challengeData.stats.total_challenges++;
+            challengeData.stats.status_counts.planning = (challengeData.stats.status_counts.planning || 0) + 1;
+            
+            // Update dashboard
+            updateDashboard();
+        }
+
+        // Show success modal
+        function showSuccessModal(challengeInfo) {
+            const message = `題目 "${challengeInfo.name}" 已成功創建！\n分支: challenge/${challengeInfo.category}/${challengeInfo.name}`;
+            document.getElementById('successMessage').textContent = message;
+            document.getElementById('successModal').classList.remove('hidden');
+        }
+
+        // Close success modal
+        function closeSuccessModal() {
+            document.getElementById('successModal').classList.add('hidden');
+        }
+
+        // Reset form
+        function resetForm() {
+            document.getElementById('challengeForm').reset();
+        }
+    </script>
+</body>
+</html>

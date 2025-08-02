@@ -1,0 +1,203 @@
+# .github/workflows/update-progress.yml
+name: 📊 Update Progress
+
+on:
+  push:
+    paths:
+      - 'challenges/**/public.yml'
+      - 'scripts/update-readme.py'
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  update-progress:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true || github.event_name != 'pull_request'
+    
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+          
+      - name: 📦 Install dependencies
+        run: |
+          pip install -r requirements.txt
+          
+      - name: 📊 Update README and progress
+        run: |
+          python scripts/update-readme.py
+          python scripts/generate-progress-json.py
+          
+      - name: 🔄 Sync to public repository
+        if: github.ref == 'refs/heads/main'
+        env:
+          PUBLIC_REPO_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+          PUBLIC_REPO: ${{ secrets.PUBLIC_REPO }}
+        run: |
+          python scripts/sync-to-public.py
+          
+      - name: 💾 Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: '🤖 Auto-update: Progress and README [skip ci]'
+          file_pattern: 'README.md progress.json'
+
+---
+
+# .github/workflows/validate-challenge.yml
+name: ✅ Validate Challenge
+
+on:
+  pull_request:
+    paths:
+      - 'challenges/**'
+  workflow_dispatch:
+
+jobs:
+  validate-structure:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+          
+      - name: 📦 Install dependencies
+        run: pip install -r requirements.txt
+        
+      - name: 🔍 Validate challenge structure
+        run: |
+          python scripts/validate-challenge.py --pr ${{ github.event.number }}
+          
+      - name: 🔒 Check for sensitive data
+        run: |
+          python scripts/check-sensitive.py
+          
+      - name: 📝 Validate public.yml format
+        run: |
+          python scripts/validate-public-yml.py
+
+  test-docker:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.changed_files, 'docker/')
+    
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: 🔨 Test Docker builds
+        run: |
+          python scripts/test-docker-builds.py --pr ${{ github.event.number }}
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🔐 Run security scan
+        uses: securecodewarrior/github-action-add-sarif@v1
+        with:
+          sarif-file: 'security-scan-results.sarif'
+          
+      - name: 🚨 Check for hardcoded secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+
+---
+
+# .github/workflows/deploy-container.yml
+name: 🚀 Deploy Containers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'challenges/**/docker/**'
+  workflow_dispatch:
+    inputs:
+      challenge:
+        description: 'Specific challenge to deploy (optional)'
+        required: false
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, '[deploy]') || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: 🐳 Login to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          
+      - name: 🔨 Build and push containers
+        env:
+          DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          python scripts/deploy-containers.py
+          
+      - name: 📢 Notify deployment
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: '🚀 Containers deployed successfully!'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+---
+
+# .github/workflows/auto-assign-reviewers.yml
+name: 👥 Auto Assign Reviewers
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  assign-reviewers:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 👥 Auto assign reviewers
+        uses: kentaro-m/auto-assign-action@v1.2.5
+        with:
+          configuration-path: '.github/auto-assign.yml'
