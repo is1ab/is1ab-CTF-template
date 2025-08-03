@@ -136,5 +136,80 @@ challenge_quota:
 ---
 
 **維護者**: IS1AB Team  
-**最後更新**: 2025年8月4日  
+**最後更新**: 2025 年 8 月 4 日  
 **版本**: 2.0.0 (Web Interface)
+
+1. **使用 WSGI 伺服器**
+```bash
+# 安裝 gunicorn
+uv add gunicorn
+
+# 啟動生產伺服器
+gunicorn -w 4 -b 0.0.0.0:8004 app:app
+```
+
+2. **反向代理設定** (Nginx)
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    
+    location / {
+        proxy_pass http://localhost:8004;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+    
+    location /static {
+        alias /path/to/web-interface/static;
+        expires 1y;
+    }
+}
+```
+
+---
+
+**建立時間**: 2025年8月4日  
+**版本**: 1.0.0  
+**維護者**: IS1AB Team  
+**聯絡方式**: [您的聯絡資訊]
+
+## 專案結構
+
+```
+web-interface/
+├── app.py                 # 主應用程式
+├── pyproject.toml         # 專案配置
+├── templates/             # JinjaX 模板
+│   └── components/        # UI 組件
+├── static/               # 靜態資源
+│   ├── css/              # 樣式檔案
+│   └── js/               # JavaScript 檔案
+└── README.md            # 說明文件
+```
+
+## API 端點
+
+- `GET /` - 儀表板
+- `GET /challenges` - 挑戰列表
+- `GET /create` - 創建挑戰
+- `GET /settings` - 系統設定
+- `GET /api/stats` - 統計資料 API
+- `POST /api/challenges` - 創建挑戰 API
+
+## 開發說明
+
+本專案使用 JinjaX 進行組件化開發，所有 UI 組件都位於 `templates/components/` 目錄中。
+
+### 組件列表
+
+- `Layout.jinja` - 基礎佈局組件
+- `Dashboard.jinja` - 儀表板組件
+- `ChallengesList.jinja` - 挑戰列表組件
+- `CreateChallenge.jinja` - 創建挑戰組件
+- `Settings.jinja` - 設定頁面組件
+- `Error.jinja` - 錯誤頁面組件
+
+## 授權
+
+MIT License

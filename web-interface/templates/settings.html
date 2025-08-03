@@ -1,0 +1,242 @@
+{% extends "base.html" %} {% set title = "系統設定" %} {% block content %}
+<!-- 頁面標題 -->
+<section class="hero is-info is-small">
+  <div class="hero-body">
+    <div class="container">
+      <h1 class="title">
+        <i class="fas fa-cog mr-3"></i>
+        系統設定
+      </h1>
+      <p class="subtitle">配置 CTF 系統參數</p>
+    </div>
+  </div>
+</section>
+
+<!-- 設定內容 -->
+<section class="section">
+  <div class="container">
+    <div class="columns">
+      <!-- 左側選單 -->
+      <div class="column is-one-quarter">
+        <aside class="menu">
+          <p class="menu-label">一般設定</p>
+          <ul class="menu-list">
+            <li><a class="is-active" href="#general">基本資訊</a></li>
+            <li><a href="#categories">挑戰類別</a></li>
+            <li><a href="#difficulties">難度等級</a></li>
+          </ul>
+          <p class="menu-label">進階設定</p>
+          <ul class="menu-list">
+            <li><a href="#scoring">計分系統</a></li>
+            <li><a href="#deployment">部署設定</a></li>
+            <li><a href="#backup">備份與恢復</a></li>
+          </ul>
+        </aside>
+      </div>
+
+      <!-- 右側內容 -->
+      <div class="column is-three-quarters">
+        <!-- 基本資訊 -->
+        <div id="general" class="settings-section">
+          <div class="card">
+            <header class="card-header">
+              <p class="card-header-title">
+                <i class="fas fa-info-circle mr-2"></i>
+                基本資訊
+              </p>
+            </header>
+            <div class="card-content">
+              <div class="field">
+                <label class="label">競賽名稱</label>
+                <div class="control">
+                  <input
+                    class="input"
+                    type="text"
+                    value="{{ config.competition_name }}"
+                    readonly
+                  />
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="label">組織名稱</label>
+                <div class="control">
+                  <input
+                    class="input"
+                    type="text"
+                    value="{{ config.organization }}"
+                    readonly
+                  />
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="label">描述</label>
+                <div class="control">
+                  <textarea class="textarea" readonly>
+{{ config.description }}</textarea
+                  >
+                </div>
+              </div>
+
+              <div class="notification is-info is-light">
+                <i class="fas fa-info-circle mr-2"></i>
+                這些設定來自 config.yml 檔案，請直接編輯該檔案來修改。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 挑戰類別 -->
+        <div id="categories" class="settings-section" style="display: none">
+          <div class="card">
+            <header class="card-header">
+              <p class="card-header-title">
+                <i class="fas fa-tags mr-2"></i>
+                挑戰類別
+              </p>
+            </header>
+            <div class="card-content">
+              <div class="content">
+                <p>目前支援的挑戰類別：</p>
+                <div class="tags">
+                  {% for category in config.categories %}
+                  <span class="tag is-primary is-medium">{{ category }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="notification is-warning is-light">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                要修改類別，請編輯 config.yml 中的 challenge_quota.by_category
+                設定。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 難度等級 -->
+        <div id="difficulties" class="settings-section" style="display: none">
+          <div class="card">
+            <header class="card-header">
+              <p class="card-header-title">
+                <i class="fas fa-chart-line mr-2"></i>
+                難度等級
+              </p>
+            </header>
+            <div class="card-content">
+              <div class="content">
+                <p>目前支援的難度等級：</p>
+                <div class="tags">
+                  {% for difficulty in config.difficulties %}
+                  <span class="tag is-info is-medium">{{ difficulty }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="notification is-warning is-light">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                要修改難度等級，請編輯 config.yml 中的 points 設定。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 計分系統 -->
+        <div id="scoring" class="settings-section" style="display: none">
+          <div class="card">
+            <header class="card-header">
+              <p class="card-header-title">
+                <i class="fas fa-calculator mr-2"></i>
+                計分系統
+              </p>
+            </header>
+            <div class="card-content">
+              <div class="notification is-info is-light">
+                <i class="fas fa-info-circle mr-2"></i>
+                計分系統設定功能開發中...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 部署設定 -->
+        <div id="deployment" class="settings-section" style="display: none">
+          <div class="card">
+            <header class="card-header">
+              <p class="card-header-title">
+                <i class="fas fa-rocket mr-2"></i>
+                部署設定
+              </p>
+            </header>
+            <div class="card-content">
+              <div class="notification is-info is-light">
+                <i class="fas fa-info-circle mr-2"></i>
+                部署設定功能開發中...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 備份與恢復 -->
+        <div id="backup" class="settings-section" style="display: none">
+          <div class="card">
+            <header class="card-header">
+              <p class="card-header-title">
+                <i class="fas fa-database mr-2"></i>
+                備份與恢復
+              </p>
+            </header>
+            <div class="card-content">
+              <div class="buttons">
+                <button class="button is-primary">
+                  <span class="icon">
+                    <i class="fas fa-download"></i>
+                  </span>
+                  <span>創建備份</span>
+                </button>
+                <button class="button is-info">
+                  <span class="icon">
+                    <i class="fas fa-upload"></i>
+                  </span>
+                  <span>恢復備份</span>
+                </button>
+              </div>
+
+              <div class="notification is-info is-light">
+                <i class="fas fa-info-circle mr-2"></i>
+                備份與恢復功能開發中...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // 設定選單切換
+  document.addEventListener("DOMContentLoaded", function () {
+    const menuLinks = document.querySelectorAll(".menu-list a");
+    const sections = document.querySelectorAll(".settings-section");
+
+    menuLinks.forEach((link) => {
+      link.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        // 移除所有active狀態
+        menuLinks.forEach((l) => l.classList.remove("is-active"));
+        // 隱藏所有section
+        sections.forEach((s) => (s.style.display = "none"));
+
+        // 設定當前active狀態
+        this.classList.add("is-active");
+        // 顯示對應的section
+        const targetId = this.getAttribute("href").substring(1);
+        document.getElementById(targetId).style.display = "block";
+      });
+    });
+  });
+</script>
+{% endblock %}

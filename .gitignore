@@ -10,9 +10,24 @@ __pycache__/
 *$py.class
 
 # C extensions
-*.so
+# ================================================
+# 說明：
+# 1. 此 .gitignore 專為 CTF 專案設計
+# 2. 重點保護 Flag、解答、私密設定等敏感資訊
+# 3. 適用於多種開發環境和部署方式
+# 4. 如需要版本控制特定檔案，請在對應行前加 !
+# ================================================
 
-# Distribution / packaging
+# ================== 專案整理 ==================
+# 封存和舊版本檔案
+archive/
+legacy/
+*.backup
+*.old
+
+# Web interface 靜態資源快取
+app/static/.webassets-cache/
+web-interface/static/.webassets-cache/Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -296,3 +311,4 @@ TODO.md
 # 3. 適用於多種開發環境和部署方式
 # 4. 如需要版本控制特定檔案，請在對應行前加 !
 # ================================================
+**/static/.webassets-cache/

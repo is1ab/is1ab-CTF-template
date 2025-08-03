@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }} - {{ config.competition_name }}</title>
+
+    <!-- Bulma CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+    />
+    <!-- Font Awesome -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <!-- 自定義樣式 -->
+    {% assets "css_all" %}
+    <link rel="stylesheet" href="{{ ASSET_URL }}" />
+    {% endassets %}
+
+    <meta name="description" content="{{ config.description }}" />
+    <meta name="author" content="{{ config.organization }}" />
+  </head>
+  <body>
+    <!-- 導航欄 -->
+    <nav
+      class="navbar is-primary"
+      role="navigation"
+      aria-label="main navigation"
+    >
+      <div class="navbar-brand">
+        <a class="navbar-item" href="/">
+          <i class="fas fa-flag mr-2"></i>
+          <strong>{{ config.competition_name }}</strong>
+        </a>
+
+        <a
+          role="button"
+          class="navbar-burger"
+          aria-label="menu"
+          aria-expanded="false"
+          data-target="navbarBasic"
+        >
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+        </a>
+      </div>
+
+      <div id="navbarBasic" class="navbar-menu">
+        <div class="navbar-start">
+          <a class="navbar-item" href="/">
+            <i class="fas fa-tachometer-alt mr-2"></i>
+            儀表板
+          </a>
+          <a class="navbar-item" href="/challenges">
+            <i class="fas fa-puzzle-piece mr-2"></i>
+            挑戰管理
+          </a>
+          <a class="navbar-item" href="/create">
+            <i class="fas fa-plus-circle mr-2"></i>
+            創建挑戰
+          </a>
+          <a class="navbar-item" href="/settings">
+            <i class="fas fa-cog mr-2"></i>
+            設定
+          </a>
+        </div>
+
+        <div class="navbar-end">
+          <div class="navbar-item">
+            <div class="buttons">
+              <a class="button is-primary is-light">
+                <strong>{{ config.organization }}</strong>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- 主要內容區域 -->
+    <main class="main-content">
+      <div class="container is-fluid">{% block content %}{% endblock %}</div>
+    </main>
+
+    <!-- 頁腳 -->
+    <footer class="footer has-background-light">
+      <div class="content has-text-centered">
+        <p>
+          <strong>{{ config.competition_name }}</strong> by
+          <a href="#" target="_blank">{{ config.organization }}</a>. 使用
+          <a href="https://bulma.io" target="_blank">Bulma</a> 和
+          <a href="https://flask.palletsprojects.com/" target="_blank">Flask</a>
+          構建。
+        </p>
+      </div>
+    </footer>
+
+    <!-- JavaScript -->
+    {% assets "js_all" %}
+    <script src="{{ ASSET_URL }}"></script>
+    {% endassets %}
+
+    <script>
+      // Navbar burger toggle
+      document.addEventListener("DOMContentLoaded", () => {
+        const $navbarBurgers = Array.prototype.slice.call(
+          document.querySelectorAll(".navbar-burger"),
+          0
+        );
+
+        if ($navbarBurgers.length > 0) {
+          $navbarBurgers.forEach((el) => {
+            el.addEventListener("click", () => {
+              const target = el.dataset.target;
+              const $target = document.getElementById(target);
+
+              el.classList.toggle("is-active");
+              $target.classList.toggle("is-active");
+            });
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

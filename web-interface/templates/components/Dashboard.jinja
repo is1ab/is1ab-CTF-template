@@ -1,0 +1,203 @@
+{#def config, stats #}
+<Layout title="儀表板" config="{{ config }}">
+    <!-- 頁面標題 -->
+    <section class="hero is-info is-small">
+        <div class="hero-body">
+            <div class="container">
+                <h1 class="title">
+                    <i class="fas fa-tachometer-alt mr-3"></i>
+                    儀表板
+                </h1>
+                <p class="subtitle">
+                    CTF 挑戰管理概覽
+                </p>
+            </div>
+        </div>
+    </section>
+    
+    <!-- 統計卡片 -->
+    <section class="section">
+        <div class="container">
+            <div class="columns is-multiline">
+                <!-- 總挑戰數 -->
+                <div class="column is-one-quarter">
+                    <div class="card has-background-primary">
+                        <div class="card-content has-text-white">
+                            <div class="media">
+                                <div class="media-left">
+                                    <figure class="image is-48x48">
+                                        <i class="fas fa-puzzle-piece fa-2x"></i>
+                                    </figure>
+                                </div>
+                                <div class="media-content">
+                                    <p class="title is-4 has-text-white">{{ stats.total_challenges }}</p>
+                                    <p class="subtitle is-6 has-text-white-ter">總挑戰數</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 總分數 -->
+                <div class="column is-one-quarter">
+                    <div class="card has-background-success">
+                        <div class="card-content has-text-white">
+                            <div class="media">
+                                <div class="media-left">
+                                    <figure class="image is-48x48">
+                                        <i class="fas fa-star fa-2x"></i>
+                                    </figure>
+                                </div>
+                                <div class="media-content">
+                                    <p class="title is-4 has-text-white">{{ stats.total_points }}</p>
+                                    <p class="subtitle is-6 has-text-white-ter">總分數</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 類別數 -->
+                <div class="column is-one-quarter">
+                    <div class="card has-background-warning">
+                        <div class="card-content has-text-white">
+                            <div class="media">
+                                <div class="media-left">
+                                    <figure class="image is-48x48">
+                                        <i class="fas fa-tags fa-2x"></i>
+                                    </figure>
+                                </div>
+                                <div class="media-content">
+                                    <p class="title is-4 has-text-white">{{ stats.by_category|length }}</p>
+                                    <p class="subtitle is-6 has-text-white-ter">類別數</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 難度數 -->
+                <div class="column is-one-quarter">
+                    <div class="card has-background-danger">
+                        <div class="card-content has-text-white">
+                            <div class="media">
+                                <div class="media-left">
+                                    <figure class="image is-48x48">
+                                        <i class="fas fa-chart-line fa-2x"></i>
+                                    </figure>
+                                </div>
+                                <div class="media-content">
+                                    <p class="title is-4 has-text-white">{{ stats.by_difficulty|length }}</p>
+                                    <p class="subtitle is-6 has-text-white-ter">難度級別</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- 詳細統計 -->
+    <section class="section">
+        <div class="container">
+            <div class="columns">
+                <!-- 按類別統計 -->
+                <div class="column is-half">
+                    <div class="card">
+                        <header class="card-header">
+                            <p class="card-header-title">
+                                <i class="fas fa-chart-pie mr-2"></i>
+                                按類別統計
+                            </p>
+                        </header>
+                        <div class="card-content">
+                            <div class="content">
+                                {% for category, count in stats.by_category.items() %}
+                                <div class="level is-mobile mb-3">
+                                    <div class="level-left">
+                                        <div class="level-item">
+                                            <span class="tag is-medium is-primary is-light">{{ category }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="level-right">
+                                        <div class="level-item">
+                                            <span class="title is-5">{{ count }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 按難度統計 -->
+                <div class="column is-half">
+                    <div class="card">
+                        <header class="card-header">
+                            <p class="card-header-title">
+                                <i class="fas fa-chart-bar mr-2"></i>
+                                按難度統計
+                            </p>
+                        </header>
+                        <div class="card-content">
+                            <div class="content">
+                                {% for difficulty, count in stats.by_difficulty.items() %}
+                                <div class="level is-mobile mb-3">
+                                    <div class="level-left">
+                                        <div class="level-item">
+                                            <span class="tag is-medium is-info is-light">{{ difficulty }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="level-right">
+                                        <div class="level-item">
+                                            <span class="title is-5">{{ count }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- 快速操作 -->
+    <section class="section">
+        <div class="container">
+            <div class="card">
+                <header class="card-header">
+                    <p class="card-header-title">
+                        <i class="fas fa-rocket mr-2"></i>
+                        快速操作
+                    </p>
+                </header>
+                <div class="card-content">
+                    <div class="buttons">
+                        <a class="button is-primary is-large" href="/create">
+                            <span class="icon">
+                                <i class="fas fa-plus"></i>
+                            </span>
+                            <span>創建新挑戰</span>
+                        </a>
+                        <a class="button is-info is-large" href="/challenges">
+                            <span class="icon">
+                                <i class="fas fa-list"></i>
+                            </span>
+                            <span>管理挑戰</span>
+                        </a>
+                        <a class="button is-success is-large" href="/settings">
+                            <span class="icon">
+                                <i class="fas fa-cog"></i>
+                            </span>
+                            <span>系統設定</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</Layout>

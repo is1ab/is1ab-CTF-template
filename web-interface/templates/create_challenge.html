@@ -1,0 +1,271 @@
+{% extends "base.html" %} {% set title = "創建挑戰" %} {% block content %}
+<!-- 頁面標題 -->
+<section class="hero is-warning is-small">
+  <div class="hero-body">
+    <div class="container">
+      <h1 class="title">
+        <i class="fas fa-plus-circle mr-3"></i>
+        創建挑戰
+      </h1>
+      <p class="subtitle">創建新的 CTF 挑戰</p>
+    </div>
+  </div>
+</section>
+
+<!-- 創建表單 -->
+<section class="section">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-two-thirds">
+        <div class="card">
+          <div class="card-content">
+            <form id="challengeForm">
+              <!-- 基本資訊 -->
+              <div class="field">
+                <label class="label"
+                  >挑戰名稱 <span class="has-text-danger">*</span></label
+                >
+                <div class="control has-icons-left">
+                  <input
+                    class="input"
+                    type="text"
+                    id="challengeName"
+                    name="name"
+                    placeholder="輸入挑戰名稱"
+                    required
+                  />
+                  <span class="icon is-small is-left">
+                    <i class="fas fa-signature"></i>
+                  </span>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="label"
+                  >挑戰描述 <span class="has-text-danger">*</span></label
+                >
+                <div class="control">
+                  <textarea
+                    class="textarea"
+                    id="challengeDescription"
+                    name="description"
+                    placeholder="輸入挑戰描述"
+                    rows="4"
+                    required
+                  ></textarea>
+                </div>
+              </div>
+
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label"
+                      >類別 <span class="has-text-danger">*</span></label
+                    >
+                    <div class="control has-icons-left">
+                      <div class="select is-fullwidth">
+                        <select id="challengeCategory" name="category" required>
+                          <option value="">請選擇類別</option>
+                          {% for category in config.categories %}
+                          <option value="{{ category }}">{{ category }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <span class="icon is-small is-left">
+                        <i class="fas fa-tags"></i>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="column">
+                  <div class="field">
+                    <label class="label"
+                      >難度 <span class="has-text-danger">*</span></label
+                    >
+                    <div class="control has-icons-left">
+                      <div class="select is-fullwidth">
+                        <select
+                          id="challengeDifficulty"
+                          name="difficulty"
+                          required
+                        >
+                          <option value="">請選擇難度</option>
+                          {% for difficulty in config.difficulties %}
+                          <option value="{{ difficulty }}">
+                            {{ difficulty }}
+                          </option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <span class="icon is-small is-left">
+                        <i class="fas fa-chart-line"></i>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label"
+                      >分數 <span class="has-text-danger">*</span></label
+                    >
+                    <div class="control has-icons-left">
+                      <input
+                        class="input"
+                        type="number"
+                        id="challengePoints"
+                        name="points"
+                        placeholder="挑戰分數"
+                        min="1"
+                        max="1000"
+                        required
+                      />
+                      <span class="icon is-small is-left">
+                        <i class="fas fa-star"></i>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="column">
+                  <div class="field">
+                    <label class="label">作者</label>
+                    <div class="control has-icons-left">
+                      <input
+                        class="input"
+                        type="text"
+                        id="challengeAuthor"
+                        name="author"
+                        placeholder="作者名稱"
+                      />
+                      <span class="icon is-small is-left">
+                        <i class="fas fa-user"></i>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Flag 設定 -->
+              <div class="field">
+                <label class="label">Flag</label>
+                <div class="control has-icons-left">
+                  <input
+                    class="input"
+                    type="text"
+                    id="challengeFlag"
+                    name="flag"
+                    placeholder="flag{example_flag}"
+                    pattern="flag\{.*\}"
+                  />
+                  <span class="icon is-small is-left">
+                    <i class="fas fa-flag"></i>
+                  </span>
+                </div>
+                <p class="help">Flag 格式應為 flag{content}，留空將自動生成</p>
+              </div>
+
+              <!-- 提示 -->
+              <div class="field">
+                <label class="label">提示</label>
+                <div class="control">
+                  <textarea
+                    class="textarea"
+                    id="challengeHints"
+                    name="hints"
+                    placeholder="輸入提示內容（可選）"
+                    rows="2"
+                  ></textarea>
+                </div>
+              </div>
+
+              <!-- 操作按鈕 -->
+              <div class="field is-grouped is-grouped-right">
+                <div class="control">
+                  <button
+                    type="button"
+                    class="button is-light"
+                    onclick="window.history.back()"
+                  >
+                    <span class="icon">
+                      <i class="fas fa-arrow-left"></i>
+                    </span>
+                    <span>取消</span>
+                  </button>
+                </div>
+                <div class="control">
+                  <button
+                    type="submit"
+                    class="button is-primary"
+                    id="submitBtn"
+                  >
+                    <span class="icon">
+                      <i class="fas fa-plus"></i>
+                    </span>
+                    <span>創建挑戰</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // 表單提交
+  document
+    .getElementById("challengeForm")
+    .addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const submitBtn = document.getElementById("submitBtn");
+      const originalText = submitBtn.innerHTML;
+
+      // 顯示載入狀態
+      submitBtn.innerHTML =
+        '<span class="icon"><i class="fas fa-spinner fa-pulse"></i></span><span>創建中...</span>';
+      submitBtn.disabled = true;
+
+      // 收集表單資料
+      const formData = new FormData(this);
+      const challengeData = {};
+
+      for (let [key, value] of formData.entries()) {
+        challengeData[key] = value;
+      }
+
+      // 發送 API 請求
+      fetch("/api/challenges", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(challengeData),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.status === "success") {
+            alert("挑戰創建成功！");
+            window.location.href = "/challenges";
+          } else {
+            alert("創建失敗：" + data.message);
+          }
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+          alert("創建時發生錯誤");
+        })
+        .finally(() => {
+          // 恢復按鈕狀態
+          submitBtn.innerHTML = originalText;
+          submitBtn.disabled = false;
+        });
+    });
+</script>
+{% endblock %}

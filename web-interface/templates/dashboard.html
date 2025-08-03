@@ -1,0 +1,478 @@
+{% extends "base.html" %} {% set title = "儀表板" %} {% block content %}
+<!-- 頁面標題 -->
+<section class="hero is-info is-small">
+  <div class="hero-body">
+    <div class="container">
+      <h1 class="title">
+        <i class="fas fa-tachometer-alt mr-3"></i>
+        儀表板
+      </h1>
+      <p class="subtitle">CTF 挑戰管理概覽</p>
+    </div>
+  </div>
+</section>
+
+<!-- 統計卡片 -->
+<section class="section">
+  <div class="container">
+    <div class="columns is-multiline">
+      <!-- 總挑戰數 -->
+      <div class="column is-one-quarter">
+        <div class="card has-background-primary">
+          <div class="card-content has-text-white">
+            <div class="media">
+              <div class="media-left">
+                <figure class="image is-48x48">
+                  <i class="fas fa-puzzle-piece fa-2x"></i>
+                </figure>
+              </div>
+              <div class="media-content">
+                <p class="title is-4 has-text-white">
+                  {{ stats.total_challenges }}
+                </p>
+                <p class="subtitle is-6 has-text-white-ter">總挑戰數</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 總分數 -->
+      <div class="column is-one-quarter">
+        <div class="card has-background-success">
+          <div class="card-content has-text-white">
+            <div class="media">
+              <div class="media-left">
+                <figure class="image is-48x48">
+                  <i class="fas fa-star fa-2x"></i>
+                </figure>
+              </div>
+              <div class="media-content">
+                <p class="title is-4 has-text-white">
+                  {{ stats.total_points }}
+                </p>
+                <p class="subtitle is-6 has-text-white-ter">總分數</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 類別數 -->
+      <div class="column is-one-quarter">
+        <div class="card has-background-warning">
+          <div class="card-content has-text-white">
+            <div class="media">
+              <div class="media-left">
+                <figure class="image is-48x48">
+                  <i class="fas fa-tags fa-2x"></i>
+                </figure>
+              </div>
+              <div class="media-content">
+                <p class="title is-4 has-text-white">
+                  {{ stats.by_category|length }}
+                </p>
+                <p class="subtitle is-6 has-text-white-ter">類別數</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 難度數 -->
+      <div class="column is-one-quarter">
+        <div class="card has-background-danger">
+          <div class="card-content has-text-white">
+            <div class="media">
+              <div class="media-left">
+                <figure class="image is-48x48">
+                  <i class="fas fa-chart-line fa-2x"></i>
+                </figure>
+              </div>
+              <div class="media-content">
+                <p class="title is-4 has-text-white">
+                  {{ stats.by_difficulty|length }}
+                </p>
+                <p class="subtitle is-6 has-text-white-ter">難度級別</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 題目矩陣 -->
+<section class="section">
+  <div class="container">
+    <div class="card">
+      <header class="card-header">
+        <p class="card-header-title">
+          <i class="fas fa-th mr-2"></i>
+          題目矩陣
+        </p>
+        <div class="card-header-icon">
+          <div class="field is-grouped">
+            <div class="control">
+              <div class="select is-small">
+                <select id="matrixView">
+                  <option value="category">按類別</option>
+                  <option value="difficulty">按難度</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+      <div class="card-content">
+        <div id="challengeMatrix">
+          <!-- 按類別顯示矩陣 -->
+          <div id="categoryMatrix">
+            {% for category in config.categories %}
+            <div class="mb-5">
+              <div class="level is-mobile mb-3">
+                <div class="level-left">
+                  <div class="level-item">
+                    <h5 class="title is-5 has-text-primary mb-0">
+                      <i class="fas fa-tag mr-2"></i>{{ category }}
+                    </h5>
+                  </div>
+                </div>
+                <div class="level-right">
+                  <div class="level-item">
+                    {% set quota_info =
+                    challenge_quota.by_category.get(category, {}) %}
+                    <span class="tag is-info">
+                      {{ quota_info.published_count or 0 }} / {{
+                      quota_info.quota or 0 }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="columns is-multiline">
+                {% set category_challenges = challenges|selectattr('category',
+                'equalto', category)|list %} {% set quota_info =
+                challenge_quota.by_category.get(category, {}) %}
+
+                <!-- 已出題目 -->
+                {% if category_challenges %} {% for challenge in
+                category_challenges %}
+                <div class="column is-2">
+                  <div
+                    class="card challenge-card published-challenge"
+                    data-challenge="{{ challenge.name }}"
+                  >
+                    <div class="card-content p-3">
+                      <div class="has-text-centered">
+                        <p class="title is-6 mb-2">{{ challenge.name }}</p>
+                        <span
+                          class="tag is-small {% if challenge.difficulty == 'Easy' or challenge.difficulty == 'easy' %}is-success {% elif challenge.difficulty == 'Medium' or challenge.difficulty == 'middle' %}is-warning {% elif challenge.difficulty == 'Hard' or challenge.difficulty == 'hard' %}is-danger {% else %}is-info{% endif %}"
+                        >
+                          {{ challenge.difficulty or 'Unknown' }}
+                        </span>
+                        <p class="has-text-weight-semibold mt-2">
+                          {{ challenge.points or 0 }} 分
+                        </p>
+                        <div class="mt-2">
+                          <span class="tag is-success is-small">
+                            <i class="fas fa-check mr-1"></i>已出題
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {% endfor %} {% endif %}
+
+                <!-- 未出題目 (空白卡片) -->
+                {% set remaining = quota_info.remaining or 0 %} {% if remaining
+                > 0 %} {% for i in range(remaining) %}
+                <div class="column is-2">
+                  <div class="card challenge-card unpublished-challenge">
+                    <div class="card-content p-3">
+                      <div class="has-text-centered">
+                        <p class="title is-6 mb-2 has-text-grey-light">
+                          待出題
+                        </p>
+                        <span class="tag is-small is-light"
+                          >{{ category }}</span
+                        >
+                        <p class="has-text-grey-light mt-2">-- 分</p>
+                        <div class="mt-2">
+                          <span class="tag is-warning is-small">
+                            <i class="fas fa-clock mr-1"></i>未出題
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {% endfor %} {% endif %}
+
+                <!-- 如果沒有題目且沒有配額 -->
+                {% if not category_challenges and remaining == 0 %}
+                <div class="column">
+                  <div class="notification is-light">
+                    <p class="has-text-grey">此類別無配額</p>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <!-- 按難度顯示矩陣 -->
+          <div id="difficultyMatrix" style="display: none">
+            {% for difficulty in config.difficulties %}
+            <div class="mb-5">
+              <div class="level is-mobile mb-3">
+                <div class="level-left">
+                  <div class="level-item">
+                    <h5 class="title is-5 has-text-info mb-0">
+                      <i class="fas fa-chart-line mr-2"></i>{{ difficulty }}
+                    </h5>
+                  </div>
+                </div>
+                <div class="level-right">
+                  <div class="level-item">
+                    {% set quota_info =
+                    challenge_quota.by_difficulty.get(difficulty, {}) %}
+                    <span class="tag is-info">
+                      {{ quota_info.published_count or 0 }} / {{
+                      quota_info.quota or 0 }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="columns is-multiline">
+                {% set difficulty_challenges =
+                challenges|selectattr('difficulty', 'equalto', difficulty)|list
+                %} {% set quota_info =
+                challenge_quota.by_difficulty.get(difficulty, {}) %}
+
+                <!-- 已出題目 -->
+                {% if difficulty_challenges %} {% for challenge in
+                difficulty_challenges %}
+                <div class="column is-2">
+                  <div
+                    class="card challenge-card published-challenge"
+                    data-challenge="{{ challenge.name }}"
+                  >
+                    <div class="card-content p-3">
+                      <div class="has-text-centered">
+                        <p class="title is-6 mb-2">{{ challenge.name }}</p>
+                        <span class="tag is-small is-primary"
+                          >{{ challenge.category }}</span
+                        >
+                        <p class="has-text-weight-semibold mt-2">
+                          {{ challenge.points or 0 }} 分
+                        </p>
+                        <div class="mt-2">
+                          <span class="tag is-success is-small">
+                            <i class="fas fa-check mr-1"></i>已出題
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {% endfor %} {% endif %}
+
+                <!-- 未出題目 (空白卡片) -->
+                {% set remaining = quota_info.remaining or 0 %} {% if remaining
+                > 0 %} {% for i in range(remaining) %}
+                <div class="column is-2">
+                  <div class="card challenge-card unpublished-challenge">
+                    <div class="card-content p-3">
+                      <div class="has-text-centered">
+                        <p class="title is-6 mb-2 has-text-grey-light">
+                          待出題
+                        </p>
+                        <span class="tag is-small is-light"
+                          >{{ difficulty }}</span
+                        >
+                        <p class="has-text-grey-light mt-2">-- 分</p>
+                        <div class="mt-2">
+                          <span class="tag is-warning is-small">
+                            <i class="fas fa-clock mr-1"></i>未出題
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {% endfor %} {% endif %}
+
+                <!-- 如果沒有題目且沒有配額 -->
+                {% if not difficulty_challenges and remaining == 0 %}
+                <div class="column">
+                  <div class="notification is-light">
+                    <p class="has-text-grey">此難度無配額</p>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 詳細統計 -->
+<section class="section">
+  <div class="container">
+    <div class="columns">
+      <!-- 按類別統計 -->
+      <div class="column is-half">
+        <div class="card">
+          <header class="card-header">
+            <p class="card-header-title">
+              <i class="fas fa-chart-pie mr-2"></i>
+              按類別統計
+            </p>
+          </header>
+          <div class="card-content">
+            <div class="content">
+              {% for category, count in stats.by_category.items() %}
+              <div class="level is-mobile mb-3">
+                <div class="level-left">
+                  <div class="level-item">
+                    <span class="tag is-medium is-primary is-light"
+                      >{{ category }}</span
+                    >
+                  </div>
+                </div>
+                <div class="level-right">
+                  <div class="level-item">
+                    <span class="title is-5">{{ count }}</span>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 按難度統計 -->
+      <div class="column is-half">
+        <div class="card">
+          <header class="card-header">
+            <p class="card-header-title">
+              <i class="fas fa-chart-bar mr-2"></i>
+              按難度統計
+            </p>
+          </header>
+          <div class="card-content">
+            <div class="content">
+              {% for difficulty, count in stats.by_difficulty.items() %}
+              <div class="level is-mobile mb-3">
+                <div class="level-left">
+                  <div class="level-item">
+                    <span class="tag is-medium is-info is-light"
+                      >{{ difficulty }}</span
+                    >
+                  </div>
+                </div>
+                <div class="level-right">
+                  <div class="level-item">
+                    <span class="title is-5">{{ count }}</span>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 快速操作 -->
+<section class="section">
+  <div class="container">
+    <div class="card">
+      <header class="card-header">
+        <p class="card-header-title">
+          <i class="fas fa-rocket mr-2"></i>
+          快速操作
+        </p>
+      </header>
+      <div class="card-content">
+        <div class="buttons">
+          <a class="button is-primary is-large" href="/create">
+            <span class="icon">
+              <i class="fas fa-plus"></i>
+            </span>
+            <span>創建新挑戰</span>
+          </a>
+          <a class="button is-info is-large" href="/challenges">
+            <span class="icon">
+              <i class="fas fa-list"></i>
+            </span>
+            <span>管理挑戰</span>
+          </a>
+          <a class="button is-success is-large" href="/settings">
+            <span class="icon">
+              <i class="fas fa-cog"></i>
+            </span>
+            <span>系統設定</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // 題目矩陣視圖切換
+  document.addEventListener("DOMContentLoaded", function () {
+    const matrixView = document.getElementById("matrixView");
+    const categoryMatrix = document.getElementById("categoryMatrix");
+    const difficultyMatrix = document.getElementById("difficultyMatrix");
+
+    if (matrixView && categoryMatrix && difficultyMatrix) {
+      matrixView.addEventListener("change", function () {
+        if (this.value === "category") {
+          categoryMatrix.style.display = "block";
+          difficultyMatrix.style.display = "none";
+        } else {
+          categoryMatrix.style.display = "none";
+          difficultyMatrix.style.display = "block";
+        }
+      });
+    }
+
+    // 題目卡片點擊事件
+    const challengeCards = document.querySelectorAll(".challenge-card");
+    challengeCards.forEach((card) => {
+      card.addEventListener("click", function () {
+        const challengeName = this.dataset.challenge;
+        if (challengeName) {
+          window.location.href = `/challenges?highlight=${challengeName}`;
+        }
+      });
+
+      // 添加懸停效果
+      card.addEventListener("mouseenter", function () {
+        this.classList.add("has-shadow");
+        this.style.transform = "translateY(-2px)";
+        this.style.transition = "all 0.2s ease";
+      });
+
+      card.addEventListener("mouseleave", function () {
+        this.classList.remove("has-shadow");
+        this.style.transform = "translateY(0)";
+      });
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %} {% set title = "頁面未找到" %} {% block content %}
+<section class="hero is-danger is-fullheight-with-navbar">
+  <div class="hero-body">
+    <div class="container has-text-centered">
+      <div class="columns is-centered">
+        <div class="column is-half">
+          <!-- 404 錯誤圖標 -->
+          <figure class="image is-128x128 is-inline-block mb-6">
+            <div class="has-text-danger" style="font-size: 6rem">
+              <i class="fas fa-exclamation-triangle"></i>
+            </div>
+          </figure>
+
+          <!-- 錯誤標題 -->
+          <h1 class="title is-1 has-text-danger">404</h1>
+          <h2 class="subtitle is-4 has-text-grey-darker">找不到頁面</h2>
+
+          <!-- 錯誤描述 -->
+          <div class="content">
+            <p class="is-size-5 has-text-grey">
+              抱歉，您請求的頁面不存在或已被移動。
+            </p>
+            <p class="has-text-grey-light">
+              請檢查網址是否正確，或者使用下方連結返回主要頁面。
+            </p>
+          </div>
+
+          <!-- 操作按鈕 -->
+          <div class="buttons is-centered mt-6">
+            <a href="/" class="button is-primary is-large">
+              <span class="icon">
+                <i class="fas fa-home"></i>
+              </span>
+              <span>回到首頁</span>
+            </a>
+            <a href="/challenges" class="button is-link is-large">
+              <span class="icon">
+                <i class="fas fa-flag"></i>
+              </span>
+              <span>瀏覽挑戰</span>
+            </a>
+            <button class="button is-light is-large" onclick="history.back()">
+              <span class="icon">
+                <i class="fas fa-arrow-left"></i>
+              </span>
+              <span>返回上頁</span>
+            </button>
+          </div>
+
+          <!-- 搜尋建議 -->
+          <div class="box mt-6 has-background-light">
+            <p class="has-text-weight-semibold has-text-grey-darker mb-3">
+              <i class="fas fa-lightbulb mr-2"></i>
+              建議操作：
+            </p>
+            <div class="content">
+              <ul class="has-text-left">
+                <li>檢查網址拼寫是否正確</li>
+                <li>使用主選單導航到其他頁面</li>
+                <li>回到首頁重新開始</li>
+                <li>如果問題持續，請聯繫系統管理員</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

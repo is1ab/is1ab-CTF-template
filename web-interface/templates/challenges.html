@@ -1,0 +1,136 @@
+{% extends "base.html" %} {% set title = "挑戰管理" %} {% block content %}
+<!-- 頁面標題 -->
+<section class="hero is-success is-small">
+  <div class="hero-body">
+    <div class="container">
+      <h1 class="title">
+        <i class="fas fa-puzzle-piece mr-3"></i>
+        挑戰管理
+      </h1>
+      <p class="subtitle">管理所有 CTF 挑戰</p>
+    </div>
+  </div>
+</section>
+
+<!-- 挑戰列表 -->
+<section class="section">
+  <div class="container">
+    {% if challenges %}
+    <div class="columns is-multiline">
+      {% for challenge in challenges %}
+      <div class="column is-one-third">
+        <div class="card">
+          <div class="card-content">
+            <div class="media">
+              <div class="media-left">
+                <figure class="image is-48x48">
+                  {% if challenge.category == 'web' %}
+                  <i class="fas fa-globe fa-2x has-text-info"></i>
+                  {% elif challenge.category == 'pwn' %}
+                  <i class="fas fa-bug fa-2x has-text-danger"></i>
+                  {% elif challenge.category == 'crypto' %}
+                  <i class="fas fa-key fa-2x has-text-warning"></i>
+                  {% elif challenge.category == 'misc' %}
+                  <i class="fas fa-question fa-2x has-text-primary"></i>
+                  {% elif challenge.category == 'reverse' %}
+                  <i class="fas fa-undo fa-2x has-text-success"></i>
+                  {% else %}
+                  <i class="fas fa-puzzle-piece fa-2x has-text-grey"></i>
+                  {% endif %}
+                </figure>
+              </div>
+              <div class="media-content">
+                <p class="title is-4">{{ challenge.name }}</p>
+                <p class="subtitle is-6">{{ challenge.category }}</p>
+              </div>
+            </div>
+
+            <div class="content">
+              <p>{{ challenge.get('description', '無描述') }}</p>
+
+              <div class="tags has-addons">
+                <span class="tag is-dark">難度</span>
+                <span class="tag is-info"
+                  >{{ challenge.get('difficulty', 'unknown') }}</span
+                >
+              </div>
+
+              <div class="tags has-addons">
+                <span class="tag is-dark">分數</span>
+                <span class="tag is-success"
+                  >{{ challenge.get('points', 0) }}</span
+                >
+              </div>
+
+              <div class="tags has-addons">
+                <span class="tag is-dark">作者</span>
+                <span class="tag is-primary"
+                  >{{ challenge.get('author', 'unknown') }}</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <footer class="card-footer">
+            <a href="#" class="card-footer-item has-text-info">
+              <i class="fas fa-edit mr-1"></i>
+              編輯
+            </a>
+            <a
+              href="#"
+              class="card-footer-item has-text-success"
+              onclick="validateChallenge('{{ challenge.path }}')"
+            >
+              <i class="fas fa-check mr-1"></i>
+              驗證
+            </a>
+            <a href="#" class="card-footer-item has-text-danger">
+              <i class="fas fa-trash mr-1"></i>
+              刪除
+            </a>
+          </footer>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="notification is-warning">
+      <i class="fas fa-exclamation-triangle mr-2"></i>
+      目前沒有挑戰。<a href="/create">創建第一個挑戰</a>吧！
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- 浮動操作按鈕 -->
+<div class="floating-action">
+  <a href="/create" class="button is-primary is-large is-rounded">
+    <span class="icon">
+      <i class="fas fa-plus"></i>
+    </span>
+  </a>
+</div>
+
+<script>
+  function validateChallenge(challengePath) {
+    fetch(`/api/challenges/${challengePath}/validate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.status === "success") {
+          alert("挑戰驗證成功！");
+        } else {
+          alert("挑戰驗證失敗：" + data.message);
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        alert("驗證時發生錯誤");
+      });
+  }
+</script>
+{% endblock %}
