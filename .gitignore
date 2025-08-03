@@ -65,7 +65,8 @@ env.bak/
 venv.bak/
 
 # UV Python package manager
-uv.lock
+# uv.lock - 保留此文件以確保依賴版本一致性
+.uv/
 
 # ================== CTF 特定檔案 ==================
 # 敏感檔案 - 絕對不能提交！
