@@ -4,7 +4,7 @@
 
 ## 📋 關於此模板
 
-此模板提供完整的 CTF 比賽管理解決方案，包含：
+此模板提供完整的 CTF 題目管理解決方案，包含：
 - 標準化的題目開發流程
 - 自動化進度追蹤
 - Docker 部署配置
@@ -12,42 +12,37 @@
 
 ## 🎯 快速開始
 
-### 1. 使用此模板創建新專案
+### ⚡ 5 分鐘快速體驗
+
+想要立即開始？請參考 [**快速開始指南**](docs/quick-start-guide.md) 在 15 分鐘內創建您的第一個 CTF 題目！
+
+### 📚 完整工作流程
+
+需要了解完整的三階段開發流程？請閱讀 [**工作流程教學**](docs/workflow-tutorial.md)。
+
+### 🚀 基本步驟
 
 ```bash
-# 方法一：使用 GitHub Template
-# 點擊頁面上的 "Use this template" 按鈕
+# 1. 克隆模板
+git clone https://github.com/is1ab/is1ab-CTF-template.git my-ctf-2024
+cd my-ctf-2024
 
-# 方法二：使用 Git
-git clone https://github.com/your-org/is1ab-CTF-template.git 2024-is1ab-CTF
-cd 2024-is1ab-CTF
+# 2. 安裝依賴
+uv venv
+uv sync
+
+# 3. 初始化專案
+# [year]-[org-name]-CTF
+uv run scripts/init-project.py --year 2024 --org your-org-name
+
+# 4. 創建第一個題目
+uv run scripts/create-challenge.py web welcome baby --author YourName
+
+# 5. 啟動 Web 管理介面
+cd web-interface && uv run python server.py
 ```
 
-### 2. 初始化專案
-
-```bash
-# 安裝依賴
-pip install -r requirements.txt
-
-# 初始化專案配置
-python scripts/init-project.py --year 2024
-
-# 創建第一個題目
-python scripts/create-challenge.py web welcome baby --author GZTime
-```
-
-### 3. 開始開發
-
-```bash
-# 創建新分支開發題目
-git checkout -b challenge/web/welcome
-
-# 編輯題目內容
-# 完成後提交 PR
-git add .
-git commit -m "feat(web): add welcome challenge"
-git push origin challenge/web/welcome
-```
+**🎉 完成！** 訪問 http://localhost:8000 查看您的 CTF 管理介面。
 
 ## 📁 專案結構
 
@@ -67,6 +62,7 @@ is1ab-CTF-template/
 │   ├── update-readme.py          # 更新 README
 │   ├── validate-challenge.py     # 驗證題目
 │   ├── sync-to-public.py         # 同步到公開倉庫
+│   ├── prepare-public-release.py # 準備公開發布
 │   └── init-project.py           # 初始化專案
 ├── 📁 templates/                  # 文件模板
 │   ├── README.md.j2              # README 模板
@@ -79,12 +75,14 @@ is1ab-CTF-template/
 │   ├── deployment-guide.md       # 部署指南
 │   └── challenge-development.md  # 題目開發指南
 ├── 📁 web-interface/             # Web 管理介面
-│   ├── index.html                # 主頁面
-│   ├── create-challenge.html     # 創建題目
-│   ├── progress.html             # 進度查看
-│   └── api.js                    # API 接口
+│   ├── index.html                # 主頁面儀表板
+│   ├── create-challenge.html     # 創建題目介面
+│   ├── progress.html             # 進度追蹤頁面
+│   ├── server.py                 # Flask Web 服務器
+│   ├── api.js                    # 前端 API 接口
+│   └── styles.css                # 自訂樣式
 ├── config.yml                    # 專案配置
-├── requirements.txt              # Python 依賴
+├── requirements.txt              # Python 依賴 (uv 管理)
 └── README.md                     # 說明文檔
 ```
 
@@ -97,14 +95,21 @@ is1ab-CTF-template/
 - **Docker 自動部署**: 統一的容器化部署流程
 
 ### 🔒 隱私保護
-- **三層架構**: Template → Private → Public
-- **敏感資料分離**: Flag 和 Writeup 不會意外洩露
-- **自動化同步**: 只同步安全內容到公開倉庫
+- **三階段流程**: Template → Private → Public
+- **敏感資料保護**: 自動檢查並防止 Flag 洩露
+- **智能同步**: 只發布標記為安全的內容到公開倉庫
 
-### 📊 進度管理
-- **視覺化進度表**: 使用表情符號顯示狀態
-- **任務分配追蹤**: 清楚的責任分工
-- **多格式輸出**: README + JSON + Web 介面
+### 📊 Web 管理介面
+- **即時儀表板**: 視覺化進度追蹤和統計圖表
+- **題目矩陣**: 直觀的題目狀態總覽
+- **提示管理系統**: 多層次提示創建和編輯
+- **題目詳情查看**: 完整的題目資訊展示
+- **RESTful API**: 完整的後端 API 支援
+
+### 🎯 進度管理
+- **動態進度追蹤**: 即時更新的進度統計
+- **配額驗證**: 自動檢查題目數量配額
+- **狀態管理**: 從規劃到部署的完整生命週期
 
 ### 🎨 標準化格式
 - **統一題目格式**: Author + Difficulty + Category
@@ -117,25 +122,25 @@ is1ab-CTF-template/
 
 ```bash
 # 基本用法
-python scripts/create-challenge.py <category> <name> <difficulty>
+uv run scripts/create-challenge.py <category> <name> <difficulty>
 
 # 範例
-python scripts/create-challenge.py web sql_injection middle
-python scripts/create-challenge.py pwn buffer_overflow hard
-python scripts/create-challenge.py crypto rsa_challenge easy
+uv run scripts/create-challenge.py web sql_injection middle
+uv run scripts/create-challenge.py pwn buffer_overflow hard
+uv run scripts/create-challenge.py crypto rsa_challenge easy
 ```
 
 ### 更新進度
 
 ```bash
 # 手動更新 README
-python scripts/update-readme.py
+uv run scripts/update-readme.py
 
 # 驗證題目結構
-python scripts/validate-challenge.py challenges/web/example/
+uv run scripts/validate-challenge.py challenges/web/example/
 
 # 同步到公開倉庫
-python scripts/sync-to-public.py
+uv run scripts/sync-to-public.py
 ```
 
 ### Web 介面使用
@@ -143,7 +148,10 @@ python scripts/sync-to-public.py
 ```bash
 # 啟動本地 Web 介面
 cd web-interface/
-python -m http.server 8000
+uv run server.py --host localhost --port 8000
+
+# 或使用傳統方式提供靜態檔案
+uv run python -m http.server 8000
 
 # 訪問 http://localhost:8000
 # 使用 Web 介面創建和管理題目
@@ -189,11 +197,13 @@ docker run -p 8080:80 challenge-test
 ```bash
 # 使用 GitHub Actions 自動部署
 # 或手動部署
-python scripts/deploy.py --environment production
+uv run scripts/deploy.py --environment production
 ```
 
 ## 📚 相關文檔
 
+- [⚡ 快速開始指南](docs/quick-start-guide.md) - 15 分鐘快速上手
+- [🚀 三階段工作流程教學](docs/workflow-tutorial.md) - 完整開發流程指南
 - [📖 設置指南](docs/setup-guide.md) - 詳細的環境設置說明
 - [🤝 貢獻指南](docs/contribution-guide.md) - 如何參與開發
 - [🐳 部署指南](docs/deployment-guide.md) - Docker 部署說明
@@ -238,4 +248,4 @@ MIT License - 詳見 [LICENSE](LICENSE) 檔案
 
 **⭐ 如果這個模板對你有幫助，請給我們一個 Star！**
 
-最後更新：2024-XX-XX | 版本：v1.0.0
+最後更新：2025-08-03 | 版本：v1.0.0

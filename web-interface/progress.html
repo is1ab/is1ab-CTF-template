@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>進度查看 - IS1AB CTF 管理介面</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <!-- 導航列 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <i class="bi bi-shield-check"></i> IS1AB CTF 管理
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">
+                            <i class="bi bi-house"></i> 首頁
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="create-challenge.html">
+                            <i class="bi bi-plus-circle"></i> 創建題目
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="progress.html">
+                            <i class="bi bi-graph-up"></i> 進度查看
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light btn-sm" onclick="refreshData()">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 頁面標題 -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-6">
+                    <i class="bi bi-graph-up text-primary"></i> 進度追蹤
+                </h1>
+                <p class="lead text-muted">詳細的題目開發進度和統計資訊</p>
+            </div>
+        </div>
+
+        <!-- 過濾器 -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row align-items-end">
+                            <div class="col-md-3">
+                                <label for="filterCategory" class="form-label">分類篩選</label>
+                                <select class="form-select" id="filterCategory" onchange="applyFilters()">
+                                    <option value="">所有分類</option>
+                                    <option value="web">Web</option>
+                                    <option value="pwn">Pwn</option>
+                                    <option value="reverse">Reverse</option>
+                                    <option value="crypto">Crypto</option>
+                                    <option value="forensic">Forensic</option>
+                                    <option value="misc">Misc</option>
+                                    <option value="general">General</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="filterStatus" class="form-label">狀態篩選</label>
+                                <select class="form-select" id="filterStatus" onchange="applyFilters()">
+                                    <option value="">所有狀態</option>
+                                    <option value="planning">規劃中</option>
+                                    <option value="developing">開發中</option>
+                                    <option value="testing">測試中</option>
+                                    <option value="completed">已完成</option>
+                                    <option value="deployed">已部署</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="filterDifficulty" class="form-label">難度篩選</label>
+                                <select class="form-select" id="filterDifficulty" onchange="applyFilters()">
+                                    <option value="">所有難度</option>
+                                    <option value="baby">Baby</option>
+                                    <option value="easy">Easy</option>
+                                    <option value="middle">Middle</option>
+                                    <option value="hard">Hard</option>
+                                    <option value="impossible">Impossible</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="searchQuery" class="form-label">搜尋</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="searchQuery" placeholder="搜尋題目..." onkeyup="applyFilters()">
+                                    <button class="btn btn-outline-secondary" onclick="clearSearch()">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 統計摘要 -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-bar-chart"></i> 進度概覽</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col">
+                                <div class="mb-2">
+                                    <div class="fs-3 text-secondary">📝</div>
+                                    <div class="fw-bold fs-5" id="planningCount">-</div>
+                                    <small class="text-muted">規劃中</small>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="mb-2">
+                                    <div class="fs-3 text-warning">🔨</div>
+                                    <div class="fw-bold fs-5" id="developingCount">-</div>
+                                    <small class="text-muted">開發中</small>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="mb-2">
+                                    <div class="fs-3 text-info">🧪</div>
+                                    <div class="fw-bold fs-5" id="testingCount">-</div>
+                                    <small class="text-muted">測試中</small>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="mb-2">
+                                    <div class="fs-3 text-success">✅</div>
+                                    <div class="fw-bold fs-5" id="completedCount">-</div>
+                                    <small class="text-muted">已完成</small>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="mb-2">
+                                    <div class="fs-3 text-primary">🚀</div>
+                                    <div class="fw-bold fs-5" id="deployedCount">-</div>
+                                    <small class="text-muted">已部署</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 進度條 -->
+                        <div class="mt-4">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small>整體完成度</small>
+                                <small id="overallProgress">0%</small>
+                            </div>
+                            <div class="progress">
+                                <div id="progressBar" class="progress-bar bg-success" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-pie-chart"></i> 類型分布</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="typeDistribution">
+                            <!-- 將由 JavaScript 動態填入 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 詳細題目列表 -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list"></i> 題目詳細列表
+                            <span class="badge bg-secondary ms-2" id="totalChallengesCount">0</span>
+                        </h5>
+                        <div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="changeView('table')">
+                                    <i class="bi bi-table"></i> 表格
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm active" onclick="changeView('card')">
+                                    <i class="bi bi-card-list"></i> 卡片
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- 表格檢視 -->
+                        <div id="tableView" class="d-none">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>題目</th>
+                                            <th>分類</th>
+                                            <th>難度</th>
+                                            <th>類型</th>
+                                            <th>狀態</th>
+                                            <th>作者</th>
+                                            <th>原始碼</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="challengeTableBody">
+                                        <!-- 將由 JavaScript 動態填入 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 卡片檢視 -->
+                        <div id="cardView" class="p-3">
+                            <div id="challengeCards" class="row">
+                                <!-- 將由 JavaScript 動態填入 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分類進度矩陣 -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-grid"></i> 分類進度矩陣</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped" id="progressTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th style="width: 180px;">分類</th>
+                                        <th class="text-center">A</th>
+                                        <th class="text-center">B</th>
+                                        <th class="text-center">C</th>
+                                        <th class="text-center">D</th>
+                                        <th class="text-center">E</th>
+                                        <th class="text-center">F</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="progressTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-5">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">載入中...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- 圖例 -->
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <h6 class="mb-2">圖例說明：</h6>
+                            <div class="row small">
+                                <div class="col-md-4">
+                                    <div class="mb-1"><strong>狀態圖示：</strong></div>
+                                    <div><span class="badge bg-secondary me-1">📝</span> 規劃中</div>
+                                    <div><span class="badge bg-warning me-1">🔨</span> 開發中</div>
+                                    <div><span class="badge bg-info me-1">🧪</span> 測試中</div>
+                                    <div><span class="badge bg-success me-1">✅</span> 已完成</div>
+                                    <div><span class="badge bg-primary me-1">🚀</span> 已部署</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-1"><strong>難度配色：</strong></div>
+                                    <div><span class="badge bg-success me-1">🍼</span> Baby</div>
+                                    <div><span class="badge bg-info me-1">⭐</span> Easy</div>
+                                    <div><span class="badge bg-warning me-1">⭐⭐</span> Middle</div>
+                                    <div><span class="badge bg-danger me-1">⭐⭐⭐</span> Hard</div>
+                                    <div><span class="badge bg-dark me-1">💀</span> Impossible</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-1"><strong>其他：</strong></div>
+                                    <div><span class="text-muted me-1">⚪</span> 待創建題目</div>
+                                    <div><span class="text-muted me-1">⬜</span> 不需要</div>
+                                    <div class="mt-2 small text-muted">
+                                        每個卡片顯示：<br>
+                                        • 題目名稱<br>
+                                        • 作者 (👤)<br>
+                                        • 難度 (🎯)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="api.js"></script>
+    <script>
+        // 全域變數
+        let challengeData = {};
+        let filteredChallenges = [];
+        let currentView = 'card';
+        let selectedChallenge = null;
+
+        // 頁面載入完成後初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProgressData();
+            
+            // 綁定新增提示表單事件
+            const addHintForm = document.getElementById('addHintForm');
+            if (addHintForm) {
+                addHintForm.addEventListener('submit', addNewHint);
+            }
+        });
+
+        // 載入進度資料
+        async function loadProgressData() {
+            try {
+                const progress = await api.getProgress();
+                challengeData = progress;
+                updateProgressSummary(progress.stats);
+                updateTypeDistribution(progress.stats);
+                loadProgressTable();
+                updateChallengeList(progress.challenges);
+            } catch (error) {
+                console.error('載入進度失敗:', error);
+                showConnectionError();
+            }
+        }
+
+
+        // 更新進度摘要
+        function updateProgressSummary(stats) {
+            document.getElementById('planningCount').textContent = stats.status_counts?.planning || 0;
+            document.getElementById('developingCount').textContent = stats.status_counts?.developing || 0;
+            document.getElementById('testingCount').textContent = stats.status_counts?.testing || 0;
+            document.getElementById('completedCount').textContent = stats.status_counts?.completed || 0;
+            document.getElementById('deployedCount').textContent = stats.status_counts?.deployed || 0;
+
+            // 計算整體完成度
+            const completed = (stats.status_counts?.completed || 0) + (stats.status_counts?.deployed || 0);
+            const total = stats.total_challenges || 0;
+            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+            
+            document.getElementById('overallProgress').textContent = `${percentage}%`;
+            document.getElementById('progressBar').style.width = `${percentage}%`;
+        }
+
+        // 更新類型分布
+        function updateTypeDistribution(stats) {
+            const types = [
+                { name: '📎 靜態附件', count: stats.type_counts?.static_attachment || 0, color: 'primary' },
+                { name: '🐳 靜態容器', count: stats.type_counts?.static_container || 0, color: 'info' },
+                { name: '📋 動態附件', count: stats.type_counts?.dynamic_attachment || 0, color: 'warning' },
+                { name: '🔄 動態容器', count: stats.type_counts?.dynamic_container || 0, color: 'success' },
+                { name: '🔌 NC 題目', count: stats.type_counts?.nc_challenge || 0, color: 'danger' }
+            ];
+
+            const total = types.reduce((sum, type) => sum + type.count, 0);
+            
+            let html = '';
+            types.forEach(type => {
+                const percentage = total > 0 ? Math.round((type.count / total) * 100) : 0;
+                if (type.count > 0) {
+                    html += `
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">${type.name}</span>
+                            <span class="badge bg-${type.color}">${type.count}</span>
+                        </div>
+                        <div class="progress mb-3" style="height: 8px;">
+                            <div class="progress-bar bg-${type.color}" style="width: ${percentage}%"></div>
+                        </div>
+                    `;
+                }
+            });
+
+            if (html === '') {
+                html = '<p class="text-muted text-center">暫無資料</p>';
+            }
+
+            document.getElementById('typeDistribution').innerHTML = html;
+        }
+
+        // 提示管理功能（從首頁複製）
+        async function openHintsManager(rowIndex, cellIndex, title, category, folderName) {
+            try {
+                // 設置當前題目資訊
+                currentHintsChallenge = { category, folderName };
+                
+                // 設置模態框標題
+                const titleElement = document.getElementById('hintsModalTitle');
+                if (titleElement) {
+                    titleElement.textContent = `${title} (${category})`;
+                }
+                
+                // 載入現有提示
+                await loadChallengeHints(category, folderName);
+                
+                // 顯示模態框
+                const modal = new bootstrap.Modal(document.getElementById('hintsModal'));
+                modal.show();
+            } catch (error) {
+                showToast('載入失敗', error.message, 'error');
+            }
+        }
+
+        // 新增提示表單處理
+        async function addNewHint(event) {
+            event.preventDefault();
+            
+            if (!currentHintsChallenge) {
+                showToast('錯誤', '無法獲取題目資訊', 'error');
+                return;
+            }
+            
+            const level = parseInt(document.getElementById('hintLevel').value);
+            const cost = parseInt(document.getElementById('hintCost').value);
+            const content = document.getElementById('hintContent').value;
+            
+            if (!level || !content) {
+                showToast('錯誤', '請填寫完整的提示資訊', 'error');
+                return;
+            }
+            
+            const hintData = { level, cost: cost || 0, content };
+            
+            try {
+                const response = await fetch(`/api/challenges/${currentHintsChallenge.category}/${currentHintsChallenge.folderName}/hints`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(hintData)
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || '新增提示失敗');
+                }
+                
+                showToast('成功', '提示新增成功', 'success');
+                
+                // 重新載入提示列表
+                await loadChallengeHints(currentHintsChallenge.category, currentHintsChallenge.folderName);
+                
+                // 重置表單
+                document.getElementById('addHintForm').reset();
+            } catch (error) {
+                showToast('新增失敗', error.message, 'error');
+            }
+        }
+
+        // 顯示提示列表
+        function renderHints(hints) {
+            const container = document.getElementById('existingHints');
+            
+            if (!container) {
+                console.warn('existingHints container not found');
+                return;
+            }
+            
+            if (!hints || hints.length === 0) {
+                container.innerHTML = `
+                    <div class="list-group-item text-center text-muted">
+                        <em>尚未設定任何提示</em>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            hints.forEach(hint => {
+                html += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="badge bg-primary me-2">Level ${hint.level}</span>
+                                    <small class="text-muted">${hint.cost} 分</small>
+                                </div>
+                                <p class="mb-0">${hint.content}</p>
+                            </div>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-warning" 
+                                    onclick="editHint(${hint.level}, '${hint.content.replace(/'/g, "\\'")}', ${hint.cost})"
+                                    title="編輯">
+                                    ✏️
+                                </button>
+                                <button type="button" class="btn btn-outline-danger"
+                                    onclick="deleteHint(${hint.level})"
+                                    title="刪除">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // 全域變數用於追蹤當前正在管理提示的題目
+        let currentHintsChallenge = null;
+
+        // 編輯提示
+        function editHint(level, content, cost) {
+            if (!document.getElementById('hintLevel')) {
+                console.warn('Hint form elements not found');
+                return;
+            }
+            
+            document.getElementById('hintLevel').value = level;
+            document.getElementById('hintCost').value = cost;
+            document.getElementById('hintContent').value = content;
+            
+            // 更改按鈕文字和行為
+            const submitBtn = document.querySelector('#addHintForm button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.textContent = '更新提示';
+                submitBtn.onclick = (e) => {
+                    e.preventDefault();
+                    updateHint(level);
+                };
+            }
+        }
+        
+        // 更新提示
+        async function updateHint(level) {
+            if (!currentHintsChallenge) {
+                showToast('錯誤', '無法獲取題目資訊', 'error');
+                return;
+            }
+            
+            const hintData = {
+                cost: parseInt(document.getElementById('hintCost').value),
+                content: document.getElementById('hintContent').value
+            };
+            
+            try {
+                const response = await fetch(`/api/challenges/${currentHintsChallenge.category}/${currentHintsChallenge.folderName}/hints/${level}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(hintData)
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || '更新提示失敗');
+                }
+                
+                showToast('成功', '提示更新成功', 'success');
+                
+                // 重新載入提示列表
+                await loadChallengeHints(currentHintsChallenge.category, currentHintsChallenge.folderName);
+                
+                // 重置表單和按鈕
+                document.getElementById('addHintForm').reset();
+                const submitBtn = document.querySelector('#addHintForm button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.textContent = '新增提示';
+                    submitBtn.onclick = null;
+                }
+            } catch (error) {
+                showToast('更新失敗', error.message, 'error');
+            }
+        }
+        
+        // 刪除提示
+        async function deleteHint(level) {
+            if (!currentHintsChallenge) {
+                showToast('錯誤', '無法獲取題目資訊', 'error');
+                return;
+            }
+            
+            if (!confirm(`確定要刪除提示 ${level} 嗎？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/challenges/${currentHintsChallenge.category}/${currentHintsChallenge.folderName}/hints/${level}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || '刪除提示失敗');
+                }
+                
+                showToast('成功', '提示刪除成功', 'success');
+                
+                // 重新載入提示列表
+                await loadChallengeHints(currentHintsChallenge.category, currentHintsChallenge.folderName);
+            } catch (error) {
+                showToast('刪除失敗', error.message, 'error');
+            }
+        }
+        
+        // 載入題目提示
+        async function loadChallengeHints(category, folderName) {
+            try {
+                const response = await fetch(`/api/challenges/${category}/${folderName}/hints`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '載入提示失敗');
+                }
+                
+                renderHints(data.hints || []);
+            } catch (error) {
+                console.error('載入提示失敗:', error);
+                renderHints([]);
+            }
+        }
+
+        async function viewChallenge(category, folderName) {
+            // 驗證參數
+            if (!category || !folderName || category === 'undefined' || folderName === 'undefined') {
+                showToast('錯誤', '無效的題目參數', 'error');
+                console.error('Invalid parameters:', { category, folderName });
+                return;
+            }
+            
+            try {
+                // 顯示模態框並載入
+                const modal = new bootstrap.Modal(document.getElementById('challengeDetailsModal'));
+                document.getElementById('challengeDetailsContent').innerHTML = `
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">載入中...</span>
+                        </div>
+                    </div>
+                `;
+                modal.show();
+                
+                // 獲取題目詳情
+                const response = await fetch(`/api/challenges/${category}/${folderName}/details`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const challenge = await response.json();
+                
+                // 渲染題目詳情
+                renderChallengeDetails(challenge);
+                
+                // 設置按鈕功能
+                const hintsBtn = document.getElementById('manageChallengeHintsBtn');
+                if (hintsBtn) {
+                    hintsBtn.style.display = 'inline-block';
+                    hintsBtn.onclick = () => {
+                        modal.hide();
+                        openHintsManager(0, 0, challenge.title, category, folderName);
+                    };
+                }
+                
+                const editBtn = document.getElementById('editChallengeBtn');
+                if (editBtn) {
+                    editBtn.style.display = 'inline-block';
+                    editBtn.onclick = () => {
+                        modal.hide();
+                        editChallenge(category, folderName);
+                    };
+                }
+                
+            } catch (error) {
+                console.error('載入題目詳情失敗:', error);
+                document.getElementById('challengeDetailsContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>載入失敗</strong><br>
+                        無法載入題目詳情：${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function renderChallengeDetails(challenge) {
+            const difficultyColors = {
+                'baby': 'success',
+                'easy': 'info', 
+                'middle': 'warning',
+                'hard': 'danger',
+                'impossible': 'dark'
+            };
+            
+            const difficultyIcons = {
+                'baby': '🍼',
+                'easy': '⭐',
+                'middle': '⭐⭐', 
+                'hard': '⭐⭐⭐',
+                'impossible': '💀'
+            };
+            
+            const statusColors = {
+                'planning': 'secondary',
+                'developing': 'warning',
+                'testing': 'info',
+                'completed': 'success',
+                'deployed': 'primary'
+            };
+            
+            const typeIcons = {
+                'nc_challenge': '🔌',
+                'static_container': '🐳',
+                'dynamic_container': '🔄',
+                'static_attachment': '📎',
+                'dynamic_attachment': '📋'
+            };
+            
+            const typeNames = {
+                'nc_challenge': 'NC 題目',
+                'static_container': '靜態容器',
+                'dynamic_container': '動態容器',
+                'static_attachment': '靜態附件',
+                'dynamic_attachment': '動態附件'
+            };
+            
+            const difficultyColor = difficultyColors[challenge.difficulty] || 'secondary';
+            const difficultyIcon = difficultyIcons[challenge.difficulty] || '❓';
+            const statusColor = statusColors[challenge.status] || 'secondary';
+            const statusIcon = getStatusIcon(challenge.status);
+            const typeIcon = typeIcons[challenge.challenge_type] || '📎';
+            const typeName = typeNames[challenge.challenge_type] || challenge.challenge_type;
+            
+            const hintsHtml = challenge.hints && challenge.hints.length > 0 ? 
+                challenge.hints.map(hint => `
+                    <div class="alert alert-info alert-sm mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span><strong>Level ${hint.level}</strong> (${hint.cost} 分)</span>
+                        </div>
+                        <div class="mt-1">${hint.content}</div>
+                    </div>
+                `).join('') : '<p class="text-muted">暫無提示</p>';
+            
+            document.getElementById('challengeDetailsContent').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-info-circle"></i> 基本資訊
+                        </h6>
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td class="fw-bold" style="width: 30%;">標題:</td>
+                                <td>${challenge.title}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">作者:</td>
+                                <td>${challenge.author}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">分類:</td>
+                                <td><span class="badge bg-secondary">${challenge.category}</span></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">難度:</td>
+                                <td>
+                                    <span class="badge bg-${difficultyColor}">
+                                        ${difficultyIcon} ${challenge.difficulty}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">類型:</td>
+                                <td>${typeIcon} ${typeName}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">狀態:</td>
+                                <td>
+                                    <span class="badge bg-${statusColor}">
+                                        ${statusIcon} ${challenge.status}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">分數:</td>
+                                <td>${challenge.points || '未設定'}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">原始碼:</td>
+                                <td>${challenge.source_code_provided ? '✅ 提供' : '❌ 不提供'}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-gear"></i> 部署資訊
+                        </h6>
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td class="fw-bold" style="width: 30%;">建立時間:</td>
+                                <td>${challenge.created_at ? new Date(challenge.created_at).toLocaleDateString() : '未知'}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">檔案:</td>
+                                <td>${challenge.files && challenge.files.length > 0 ? challenge.files.join(', ') : '無'}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">標籤:</td>
+                                <td>
+                                    ${challenge.tags && challenge.tags.length > 0 ? 
+                                        challenge.tags.map(tag => `<span class="badge bg-light text-dark me-1">${tag}</span>`).join('') : 
+                                        '無'
+                                    }
+                                </td>
+                            </tr>
+                            ${challenge.challenge_type === 'nc_challenge' ? `
+                            <tr>
+                                <td class="fw-bold">NC 端口:</td>
+                                <td>${challenge.deploy_info?.nc_port || 9999}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">超時:</td>
+                                <td>${challenge.deploy_info?.timeout || 60} 秒</td>
+                            </tr>
+                            ` : ''}
+                            ${challenge.deploy_info?.url ? `
+                            <tr>
+                                <td class="fw-bold">URL:</td>
+                                <td><a href="${challenge.deploy_info.url}" target="_blank">${challenge.deploy_info.url}</a></td>
+                            </tr>
+                            ` : ''}
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-file-text"></i> 題目描述
+                        </h6>
+                        <div class="bg-light p-3 rounded">
+                            ${challenge.description ? challenge.description.replace(/\n/g, '<br>') : '無描述'}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-lightbulb"></i> 題目提示
+                        </h6>
+                        <div>
+                            ${hintsHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 載入進度表格
+        async function loadProgressTable() {
+            try {
+                const progress = await api.getProgress();
+                updateProgressTable(progress);
+            } catch (error) {
+                updateProgressTable(challengeData);
+            }
+        }
+
+        // 更新進度表格（與首頁相同）
+        function updateProgressTable(data) {
+            const tbody = document.getElementById('progressTableBody');
+            const thead = document.querySelector('#progressTable thead tr');
+            
+            // 如果有新的表格標題，更新它們
+            if (data.table_headers) {
+                let headerHtml = '';
+                data.table_headers.forEach(header => {
+                    if (header.includes('分類')) {
+                        headerHtml += `<th style="width: 180px;">${header}</th>`;
+                    } else {
+                        headerHtml += `<th class="text-center" style="width: 60px;">${header}</th>`;
+                    }
+                });
+                thead.innerHTML = headerHtml;
+            }
+            
+            let html = '';
+            
+            // 如果後端提供了表格行數據，直接使用
+            if (data.table_rows) {
+                data.table_rows.forEach((row, rowIndex) => {
+                    html += '<tr>';
+                    row.forEach((cell, cellIndex) => {
+                        if (cellIndex === 0) {
+                            // 分類名稱欄位
+                            html += `<td class="fw-bold">${cell}</td>`;
+                        } else {
+                            // 題目狀態欄位
+                            if (typeof cell === 'object' && cell !== null) {
+                                if (cell.type === 'challenge') {
+                                    // 題目存在的情況
+                                    html += `
+                                        <td class="text-center challenge-cell p-2" style="min-width: 150px;">
+                                            <div class="card border-${cell.color} h-100">
+                                                <div class="card-body p-2">
+                                                    <div class="fw-bold mb-1" style="font-size: 0.9rem; color: var(--ctf-gray-900);">
+                                                        ${cell.icon} ${cell.title}
+                                                    </div>
+                                                    <div class="small mb-1" style="color: var(--ctf-gray-600);">
+                                                        👤 ${cell.author}
+                                                    </div>
+                                                    <div class="small mb-2">
+                                                        <span class="badge bg-${cell.color}" style="font-size: 0.7rem; color: white;">
+                                                            🎯 ${cell.difficulty.charAt(0).toUpperCase() + cell.difficulty.slice(1)}
+                                                        </span>
+                                                    </div>
+                                                    <div class="btn-group btn-group-sm w-100" role="group">
+                                                        <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                            onclick="openHintsManager(${rowIndex}, ${cellIndex}, '${cell.title?.replace(/'/g, "\\'")}', '${cell.category}', '${cell.folder_name}')"
+                                                            title="管理提示">
+                                                            💡
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                                            onclick="viewChallenge('${cell.category}', '${cell.folder_name}')"
+                                                            title="查看詳情">
+                                                            👁️
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    `;
+                                } else if (cell.type === 'empty') {
+                                    // 待創建題目
+                                    html += `
+                                        <td class="text-center challenge-cell p-2" style="min-width: 150px;">
+                                            <div class="card border-light h-100 border-dashed">
+                                                <div class="card-body p-2 d-flex align-items-center justify-content-center">
+                                                    <div style="color: var(--ctf-gray-600);">
+                                                        <div class="fs-4">⚪</div>
+                                                        <div class="small fw-bold">待創建</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    `;
+                                } else {
+                                    // 不需要的欄位
+                                    html += `
+                                        <td class="text-center p-2" style="min-width: 150px;">
+                                            <div style="color: var(--ctf-gray-500);">
+                                                <div class="fs-4">⬜</div>
+                                                <div class="small">不需要</div>
+                                            </div>
+                                        </td>
+                                    `;
+                                }
+                            } else {
+                                // 降級處理：字串形式
+                                html += `<td class="text-center challenge-cell" title="${cell}">
+                                    <div class="fs-5">${cell}</div>
+                                </td>`;
+                            }
+                        }
+                    });
+                    html += '</tr>';
+                });
+            } else {
+                // 降級處理：使用舊的邏輯
+                const categories = data.categories_order || ['general', 'web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc'];
+                const quotaConfig = data.quota_config || {};
+                const maxChallenges = Math.max(6, ...Object.values(quotaConfig), ...categories.map(cat => (data.challenges?.[cat] || []).length));
+
+                categories.forEach(category => {
+                    const challenges = data.challenges?.[category] || [];
+                    const quota = quotaConfig[category] || 0;
+                    
+                    html += `<tr><td class="fw-bold">${category.toUpperCase()}</td>`;
+                    
+                    for (let i = 0; i < maxChallenges; i++) {
+                        if (i < challenges.length) {
+                            const challenge = challenges[i];
+                            html += `<td class="text-center challenge-cell" onclick="showChallengeDetails('${category}', ${i})" style="cursor: pointer;">
+                                <div class="badge bg-success">${challenge.title}</div>
+                            </td>`;
+                        } else if (i < quota) {
+                            html += `<td class="text-center challenge-cell">⚪</td>`;
+                        } else {
+                            html += `<td class="text-center challenge-cell">⬜</td>`;
+                        }
+                    }
+                    
+                    html += '</tr>';
+                });
+            }
+            
+            tbody.innerHTML = html;
+        }
+
+        // 舊的矩陣函數（保留作為備用）
+        function updateProgressMatrix(data) {
+            // 使用後端返回的配額順序，或使用預設順序
+            const categories = data.categories_order || ['general', 'web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc'];
+            const quotaConfig = data.quota_config || {};
+            const maxChallenges = Math.max(6, ...Object.values(quotaConfig), ...categories.map(cat => (data.challenges?.[cat] || []).length));
+
+            // 表頭 - 使用動態標題
+            let headerHtml = '<th>分類 (現有/目標)</th>';
+            for (let i = 0; i < maxChallenges; i++) {
+                headerHtml += `<th class="text-center" style="width: 150px;">${String.fromCharCode(65 + i)}</th>`;
+            }
+            document.getElementById('matrixHeader').innerHTML = headerHtml;
+
+            // 表格內容
+            let bodyHtml = '';
+            categories.forEach(category => {
+                const challenges = data.challenges?.[category] || [];
+                const targetCount = quotaConfig[category] || challenges.length;
+                const categoryDisplay = `${category.charAt(0).toUpperCase() + category.slice(1)} (${challenges.length}/${targetCount})`;
+                
+                bodyHtml += `<tr><td class="fw-bold">${categoryDisplay}</td>`;
+                
+                for (let i = 0; i < maxChallenges; i++) {
+                    if (i < challenges.length) {
+                        const challenge = challenges[i];
+                        const title = challenge.title || challenge.name || '未命名';
+                        const author = challenge.author || '未知';
+                        const difficulty = challenge.difficulty || 'easy';
+                        const status = challenge.status || 'planning';
+                        
+                        // 難度顏色映射
+                        const difficultyColors = {
+                            'baby': 'success',
+                            'easy': 'info', 
+                            'middle': 'warning',
+                            'hard': 'danger',
+                            'impossible': 'dark'
+                        };
+                        
+                        const statusIcon = getStatusIcon(status);
+                        const color = difficultyColors[difficulty] || 'secondary';
+                        
+                        const folderName = challenge.folder_name || challenge.name || `challenge_${i}`;
+                        
+                        bodyHtml += `
+                            <td class="text-center challenge-cell p-2" style="min-width: 150px;">
+                                <div class="card border-${color} h-100">
+                                    <div class="card-body p-2">
+                                        <div class="fw-bold mb-1" style="font-size: 0.9rem; color: var(--ctf-gray-900);">
+                                            ${statusIcon} ${title}
+                                        </div>
+                                        <div class="small mb-1" style="color: var(--ctf-gray-600);">
+                                            👤 ${author}
+                                        </div>
+                                        <div class="small mb-2">
+                                            <span class="badge bg-${color}" style="font-size: 0.7rem; color: white;">
+                                                🎯 ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                                            </span>
+                                        </div>
+                                        <div class="btn-group btn-group-sm w-100" role="group">
+                                            <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                onclick="openHintsManager(${categories.indexOf(category)}, ${i}, '${title.replace(/'/g, "\\'")}', '${category}', '${folderName}')"
+                                                title="管理提示">
+                                                💡
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                                onclick="viewChallenge('${category}', '${folderName}')"
+                                                title="查看詳情">
+                                                👁️
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        `;
+                    } else if (i < targetCount) {
+                        // 待創建題目
+                        bodyHtml += `
+                            <td class="text-center challenge-cell p-2" style="min-width: 150px;">
+                                <div class="card border-light h-100 border-dashed">
+                                    <div class="card-body p-2 d-flex align-items-center justify-content-center">
+                                        <div style="color: var(--ctf-gray-600);">
+                                            <div class="fs-4">⚪</div>
+                                            <div class="small fw-bold">待創建</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        `;
+                    } else {
+                        // 不需要的欄位
+                        bodyHtml += `
+                            <td class="text-center p-2" style="min-width: 150px;">
+                                <div style="color: var(--ctf-gray-500);">
+                                    <div class="fs-4">⬜</div>
+                                    <div class="small">不需要</div>
+                                </div>
+                            </td>
+                        `;
+                    }
+                }
+                
+                bodyHtml += '</tr>';
+            });
+
+            document.getElementById('matrixBody').innerHTML = bodyHtml;
+        }
+
+        // 更新題目列表
+        function updateChallengeList(challenges) {
+            // 平坦化題目列表便於篩選
+            filteredChallenges = [];
+            Object.entries(challenges).forEach(([category, challengeList]) => {
+                challengeList.forEach(challenge => {
+                    filteredChallenges.push({
+                        ...challenge,
+                        category: category
+                    });
+                });
+            });
+
+            applyFilters();
+        }
+
+        // 應用篩選器
+        function applyFilters() {
+            const categoryFilter = document.getElementById('filterCategory').value;
+            const statusFilter = document.getElementById('filterStatus').value;
+            const difficultyFilter = document.getElementById('filterDifficulty').value;
+            const searchQuery = document.getElementById('searchQuery').value.toLowerCase();
+
+            let filtered = filteredChallenges.filter(challenge => {
+                const matchCategory = !categoryFilter || challenge.category === categoryFilter;
+                const matchStatus = !statusFilter || challenge.status === statusFilter;
+                const matchDifficulty = !difficultyFilter || challenge.difficulty === difficultyFilter;
+                const matchSearch = !searchQuery || 
+                    challenge.title.toLowerCase().includes(searchQuery) ||
+                    challenge.description.toLowerCase().includes(searchQuery) ||
+                    challenge.author.toLowerCase().includes(searchQuery);
+
+                return matchCategory && matchStatus && matchDifficulty && matchSearch;
+            });
+
+            // 更新計數
+            document.getElementById('totalChallengesCount').textContent = filtered.length;
+
+            // 更新顯示
+            if (currentView === 'table') {
+                updateTableView(filtered);
+            } else {
+                updateCardView(filtered);
+            }
+        }
+
+        // 更新表格檢視
+        function updateTableView(challenges) {
+            let html = '';
+            
+            challenges.forEach(challenge => {
+                const statusColor = getStatusColor(challenge.status);
+                const difficultyIcon = getDifficultyIcon(challenge.difficulty);
+                const typeIcon = getTypeIcon(challenge.challenge_type);
+                const sourceIcon = challenge.source_code_provided ? '📄' : '🔒';
+                
+                html += `
+                    <tr onclick="showChallengeDetails('${challenge.category}', '${challenge.folder_name}')" style="cursor: pointer;">
+                        <td class="fw-bold">${challenge.title}</td>
+                        <td><span class="badge bg-secondary">${challenge.category}</span></td>
+                        <td>${difficultyIcon}</td>
+                        <td>${typeIcon}</td>
+                        <td><span class="badge bg-${statusColor}">${getStatusIcon(challenge.status)} ${challenge.status}</span></td>
+                        <td>${challenge.author}</td>
+                        <td>${sourceIcon}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); editChallenge('${challenge.category}', '${challenge.folder_name}')">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (html === '') {
+                html = '<tr><td colspan="8" class="text-center text-muted py-4">沒有符合條件的題目</td></tr>';
+            }
+
+            document.getElementById('challengeTableBody').innerHTML = html;
+        }
+
+        // 更新卡片檢視
+        function updateCardView(challenges) {
+            let html = '';
+            
+            challenges.forEach(challenge => {
+                const statusColor = getStatusColor(challenge.status);
+                const difficultyIcon = getDifficultyIcon(challenge.difficulty);
+                const typeIcon = getTypeIcon(challenge.challenge_type);
+                const sourceIcon = challenge.source_code_provided ? '📄' : '🔒';
+                
+                html += `
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100 challenge-card" onclick="showChallengeDetails('${challenge.category}', '${challenge.folder_name}')" style="cursor: pointer;">
+                            <div class="card-header bg-${statusColor} text-white d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">${challenge.title}</h6>
+                                <span class="badge bg-light text-dark">${challenge.category}</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text small text-muted">${challenge.description.substring(0, 100)}${challenge.description.length > 100 ? '...' : ''}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        ${difficultyIcon} ${typeIcon} ${sourceIcon}
+                                    </small>
+                                    <small class="text-muted">${challenge.author}</small>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-transparent">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-${statusColor}">${getStatusIcon(challenge.status)} ${challenge.status}</span>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); editChallenge('${challenge.category}', '${challenge.folder_name}')">
+                                        <i class="bi bi-pencil"></i> 編輯
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (html === '') {
+                html = '<div class="col-12 text-center text-muted py-5">沒有符合條件的題目</div>';
+            }
+
+            document.getElementById('challengeCards').innerHTML = html;
+        }
+
+        // 切換檢視模式
+        function changeView(view) {
+            currentView = view;
+            
+            // 更新按鈕狀態
+            document.querySelectorAll('.btn-group .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 切換檢視
+            if (view === 'table') {
+                document.getElementById('tableView').classList.remove('d-none');
+                document.getElementById('cardView').classList.add('d-none');
+            } else {
+                document.getElementById('tableView').classList.add('d-none');
+                document.getElementById('cardView').classList.remove('d-none');
+            }
+            
+            applyFilters();
+        }
+
+        // 顯示題目詳情（統一函數名稱）
+        async function showChallengeDetails(category, challengeIdentifier) {
+            // 驗證基本參數
+            if (!category || category === 'undefined') {
+                showToast('錯誤', '無效的題目分類', 'error');
+                console.error('Invalid category:', category);
+                return;
+            }
+            
+            // 處理不同的調用方式
+            let folderName = challengeIdentifier;
+            
+            // 如果 challengeIdentifier 是數字（索引），則需要找到對應的 folderName
+            if (typeof challengeIdentifier === 'number') {
+                const challenges = challengeData.challenges?.[category];
+                if (challenges && challenges[challengeIdentifier]) {
+                    folderName = challenges[challengeIdentifier].folder_name;
+                } else {
+                    showToast('錯誤', '找不到指定的題目', 'error');
+                    return;
+                }
+            }
+            
+            // 調用查看詳情函數
+            await viewChallenge(category, folderName);
+        }
+
+        // 編輯題目
+        function editChallenge(category, name) {
+            if (category && name) {
+                showToast('編輯題目', `編輯功能開發中 - ${category}/${name}`, 'info');
+            } else if (selectedChallenge) {
+                showToast('編輯題目', `編輯功能開發中 - ${selectedChallenge.category}/${selectedChallenge.challenge.folder_name}`, 'info');
+            }
+        }
+
+        // 清除搜尋
+        function clearSearch() {
+            document.getElementById('searchQuery').value = '';
+            applyFilters();
+        }
+
+        // 刷新資料
+        function refreshData() {
+            loadProgressData();
+            showToast('資料已刷新', '進度資料已重新載入', 'success');
+        }
+
+        // 輔助函數
+        function getStatusIcon(status) {
+            const icons = {
+                'planning': '📝',
+                'developing': '🔨',
+                'testing': '🧪',
+                'completed': '✅',
+                'deployed': '🚀'
+            };
+            return icons[status] || '❓';
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'planning': 'secondary',
+                'developing': 'warning',
+                'testing': 'info',
+                'completed': 'success',
+                'deployed': 'primary'
+            };
+            return colors[status] || 'secondary';
+        }
+
+        function getTypeIcon(challengeType) {
+            const icons = {
+                'nc_challenge': '🔌',
+                'static_container': '🐳',
+                'dynamic_container': '🔄',
+                'static_attachment': '📎',
+                'dynamic_attachment': '📋'
+            };
+            return icons[challengeType] || '📎';
+        }
+
+        function getTypeName(challengeType) {
+            const names = {
+                'nc_challenge': 'NC 題目',
+                'static_container': '靜態容器',
+                'dynamic_container': '動態容器',
+                'static_attachment': '靜態附件',
+                'dynamic_attachment': '動態附件'
+            };
+            return names[challengeType] || challengeType;
+        }
+
+        function getDifficultyIcon(difficulty) {
+            const icons = {
+                'baby': '🍼',
+                'easy': '⭐',
+                'middle': '⭐⭐',
+                'hard': '⭐⭐⭐',
+                'impossible': '💀'
+            };
+            return icons[difficulty] || '❓';
+        }
+
+        // 顯示 Toast 通知
+        function showToast(title, message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toastId = 'toast-' + Date.now();
+            
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type} border-0`;
+            toast.id = toastId;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong><br>${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            // 自動移除
+            setTimeout(() => {
+                if (document.getElementById(toastId)) {
+                    toastContainer.removeChild(toast);
+                }
+            }, 5000);
+        }
+    </script>
+
+    <!-- 題目詳情 Modal -->
+    <div class="modal fade" id="challengeDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-info-circle text-primary"></i> 題目詳情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="challengeDetailsContent">
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">載入中...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-primary" id="editChallengeBtn" style="display:none;">
+                        <i class="bi bi-pencil"></i> 編輯題目
+                    </button>
+                    <button type="button" class="btn btn-outline-info" id="manageChallengeHintsBtn" style="display:none;">
+                        <i class="bi bi-lightbulb"></i> 管理提示
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示管理 Modal -->
+    <div class="modal fade" id="hintsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-lightbulb text-warning"></i> 題目提示管理</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <h6 id="hintsModalTitle">題目名稱</h6>
+                        <p class="text-muted">管理題目的漸進式提示系統</p>
+                    </div>
+                    
+                    <!-- 現有提示列表 -->
+                    <div class="mb-4">
+                        <h6>📋 現有提示</h6>
+                        <div id="existingHints" class="list-group">
+                            <!-- 動態生成 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 新增提示表單 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">➕ 新增提示</h6>
+                        </div>
+                        <div class="card-body">
+                            <form id="addHintForm">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label for="hintLevel" class="form-label">提示等級</label>
+                                        <input type="number" class="form-control" id="hintLevel" min="1" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="hintCost" class="form-label">消耗分數</label>
+                                        <input type="number" class="form-control" id="hintCost" min="0" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">操作</label>
+                                        <div>
+                                            <button type="submit" class="btn btn-primary">新增提示</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <label for="hintContent" class="form-label">提示內容</label>
+                                    <textarea class="form-control" id="hintContent" rows="3" 
+                                        placeholder="輸入漸進式的提示內容..." required></textarea>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

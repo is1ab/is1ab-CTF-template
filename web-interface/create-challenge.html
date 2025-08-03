@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>創建題目 - IS1AB CTF 管理介面</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <!-- 導航列 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <i class="bi bi-shield-check"></i> IS1AB CTF 管理
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">
+                            <i class="bi bi-house"></i> 首頁
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="create-challenge.html">
+                            <i class="bi bi-plus-circle"></i> 創建題目
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="progress.html">
+                            <i class="bi bi-graph-up"></i> 進度查看
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 頁面標題 -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-6">
+                    <i class="bi bi-plus-circle text-success"></i> 創建新題目
+                </h1>
+                <p class="lead text-muted">填寫表單來創建新的 CTF 題目</p>
+            </div>
+        </div>
+
+        <!-- 表單進度指示器 -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="progress" style="height: 3px;">
+                    <div class="progress-bar bg-success" id="formProgress" role="progressbar" style="width: 0%"></div>
+                </div>
+                <div class="d-flex justify-content-between mt-2 small text-muted">
+                    <span>基本資訊</span>
+                    <span>題目設定</span>
+                    <span>完成</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 創建表單 -->
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-form"></i> 題目資訊
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="challengeForm" novalidate>
+                            <!-- Step 1: 基本資訊 -->
+                            <div class="form-step active" id="step1">
+                                <h6 class="text-primary mb-3">
+                                    <i class="bi bi-info-circle"></i> 基本資訊
+                                </h6>
+                                
+                                <div class="row">
+                                    <div class="col-md-8 mb-3">
+                                        <label for="challengeName" class="form-label">
+                                            <i class="bi bi-tag"></i> 題目名稱 <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text" class="form-control" id="challengeName" name="name" required
+                                               placeholder="例如: sql_injection_basic" pattern="^[a-z0-9_]+$">
+                                        <div class="form-text">
+                                            <i class="bi bi-info-circle"></i> 僅能使用小寫字母、數字和底線
+                                        </div>
+                                        <div class="invalid-feedback">請輸入有效的題目名稱</div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="challengeAuthor" class="form-label">
+                                            <i class="bi bi-person"></i> 作者
+                                        </label>
+                                        <input type="text" class="form-control" id="challengeAuthor" name="author" value="GZTime">
+                                        <div class="invalid-feedback">請輸入作者名稱</div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="challengeCategory" class="form-label">
+                                            <i class="bi bi-folder"></i> 分類 <span class="text-danger">*</span>
+                                        </label>
+                                        <select class="form-select" id="challengeCategory" name="category" required>
+                                            <option value="">選擇分類</option>
+                                            <option value="web">🌐 Web</option>
+                                            <option value="pwn">💥 Pwn</option>
+                                            <option value="reverse">🔄 Reverse</option>
+                                            <option value="crypto">🔐 Crypto</option>
+                                            <option value="forensic">🔍 Forensic</option>
+                                            <option value="misc">🎯 Misc</option>
+                                            <option value="general">📋 General</option>
+                                        </select>
+                                        <div class="invalid-feedback">請選擇題目分類</div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="challengeDifficulty" class="form-label">
+                                            <i class="bi bi-bar-chart"></i> 難度 <span class="text-danger">*</span>
+                                        </label>
+                                        <select class="form-select" id="challengeDifficulty" name="difficulty" required>
+                                            <option value="">選擇難度</option>
+                                            <option value="baby">🍼 Baby (50分)</option>
+                                            <option value="easy">⭐ Easy (100分)</option>
+                                            <option value="middle">⭐⭐ Middle (200分)</option>
+                                            <option value="hard">⭐⭐⭐ Hard (300分)</option>
+                                            <option value="impossible">💀 Impossible (500分)</option>
+                                        </select>
+                                        <div class="invalid-feedback">請選擇題目難度</div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="challengeType" class="form-label">
+                                            <i class="bi bi-gear"></i> 題目類型 <span class="text-danger">*</span>
+                                        </label>
+                                        <select class="form-select" id="challengeType" name="challenge_type" required>
+                                            <option value="">選擇類型</option>
+                                            <option value="static_attachment">📎 靜態附件</option>
+                                            <option value="static_container">🐳 靜態容器</option>
+                                            <option value="dynamic_attachment">📋 動態附件</option>
+                                            <option value="dynamic_container">🔄 動態容器</option>
+                                            <option value="nc_challenge">🔌 NC 題目</option>
+                                        </select>
+                                        <div class="invalid-feedback">請選擇題目類型</div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="sourceCodeProvided" name="source_code_provided">
+                                            <label class="form-check-label" for="sourceCodeProvided">
+                                                <i class="bi bi-file-code"></i> 提供原始碼給參賽者
+                                            </label>
+                                        </div>
+                                        <div class="form-text">
+                                            <i class="bi bi-info-circle"></i> 勾選表示會將源碼作為附件提供
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-end">
+                                    <button type="button" class="btn btn-primary" onclick="nextStep()">
+                                        下一步 <i class="bi bi-arrow-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Step 2: 詳細設定 -->
+                            <div class="form-step" id="step2">
+                                <h6 class="text-primary mb-3">
+                                    <i class="bi bi-gear"></i> 詳細設定
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <label for="challengeDescription" class="form-label">
+                                        <i class="bi bi-card-text"></i> 題目描述 <span class="text-danger">*</span>
+                                    </label>
+                                    <textarea class="form-control" id="challengeDescription" name="description" rows="4" required
+                                              placeholder="描述題目背景、目標和給參賽者的提示..."></textarea>
+                                    <div class="form-text">
+                                        <i class="bi bi-markdown"></i> 支援 Markdown 格式
+                                    </div>
+                                    <div class="invalid-feedback">請輸入題目描述</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="challengeTags" class="form-label">
+                                        <i class="bi bi-tags"></i> 標籤
+                                    </label>
+                                    <input type="text" class="form-control" id="challengeTags" name="tags"
+                                           placeholder="例如: sql-injection, authentication, beginner">
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle"></i> 以逗號分隔多個標籤
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="learningObjectives" class="form-label">
+                                        <i class="bi bi-bullseye"></i> 學習目標
+                                    </label>
+                                    <textarea class="form-control" id="learningObjectives" name="learning_objectives" rows="3"
+                                              placeholder="這個題目希望學生學到什麼技能或概念？"></textarea>
+                                </div>
+
+                                <!-- NC 題目特殊設定 -->
+                                <div id="ncSettings" class="d-none">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle"></i> <strong>NC 題目設定</strong>
+                                        <p class="mb-0 mt-1">此類型題目將通過 netcat 連線，適合 PWN 和 Reverse 題目。</p>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="ncPort" class="form-label">
+                                                <i class="bi bi-plug"></i> 連線端口
+                                            </label>
+                                            <input type="number" class="form-control" id="ncPort" name="nc_port" value="9999" min="1024" max="65535">
+                                            <div class="form-text">預設使用 9999 端口</div>
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <label for="ncTimeout" class="form-label">
+                                                <i class="bi bi-clock"></i> 連線超時 (秒)
+                                            </label>
+                                            <input type="number" class="form-control" id="ncTimeout" name="nc_timeout" value="60" min="10" max="300">
+                                            <div class="form-text">連線自動斷開時間</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 題目提示設定 -->
+                                <div class="mt-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="bi bi-lightbulb text-warning"></i> 題目提示
+                                    </h6>
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle"></i> 
+                                        設計漸進式提示系統，幫助參賽者逐步解題。第一個提示通常免費，後續提示需要消耗分數。
+                                    </div>
+                                    
+                                    <div id="hintsContainer">
+                                        <!-- 提示 1 -->
+                                        <div class="card mb-3 hint-card" data-hint-level="1">
+                                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0">💡 提示 1 (免費)</h6>
+                                                <span class="badge bg-success">免費</span>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="mb-2">
+                                                    <label class="form-label small">提示內容</label>
+                                                    <textarea class="form-control hint-content" rows="2" 
+                                                        placeholder="提供方向性引導，例如：檢查網頁原始碼或分析輸入驗證"></textarea>
+                                                </div>
+                                                <input type="hidden" class="hint-cost" value="0">
+                                            </div>
+                                        </div>
+
+                                        <!-- 提示 2 -->
+                                        <div class="card mb-3 hint-card" data-hint-level="2">
+                                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0">💡 提示 2</h6>
+                                                <div>
+                                                    <input type="number" class="form-control form-control-sm d-inline-block hint-cost" 
+                                                        style="width: 80px;" value="10" min="0" max="100">
+                                                    <span class="small text-muted">分</span>
+                                                </div>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="mb-2">
+                                                    <label class="form-label small">提示內容</label>
+                                                    <textarea class="form-control hint-content" rows="2" 
+                                                        placeholder="提供技術線索，例如：使用特定工具或技術方法"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 提示 3 -->
+                                        <div class="card mb-3 hint-card" data-hint-level="3">
+                                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0">💡 提示 3</h6>
+                                                <div>
+                                                    <input type="number" class="form-control form-control-sm d-inline-block hint-cost" 
+                                                        style="width: 80px;" value="25" min="0" max="100">
+                                                    <span class="small text-muted">分</span>
+                                                </div>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="mb-2">
+                                                    <label class="form-label small">提示內容</label>
+                                                    <textarea class="form-control hint-content" rows="2" 
+                                                        placeholder="提供具體步驟或關鍵 payload"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addHint()">
+                                            <i class="bi bi-plus"></i> 新增提示
+                                        </button>
+                                        <small class="text-muted">
+                                            <i class="bi bi-info-circle"></i> 建議設計 2-4 個提示，成本遞增
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-between mt-4">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="prevStep()">
+                                        <i class="bi bi-arrow-left"></i> 上一步
+                                    </button>
+                                    <button type="button" class="btn btn-primary" onclick="nextStep()">
+                                        下一步 <i class="bi bi-arrow-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Step 3: 確認與提交 -->
+                            <div class="form-step" id="step3">
+                                <h6 class="text-primary mb-3">
+                                    <i class="bi bi-check-circle"></i> 確認資訊
+                                </h6>
+                                
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> <strong>請確認以下資訊無誤</strong>
+                                    <p class="mb-0 mt-1">提交後將建立題目目錄結構和相關檔案。</p>
+                                </div>
+
+                                <div id="reviewInfo" class="mb-4">
+                                    <!-- 將通過 JavaScript 動態填入 -->
+                                </div>
+
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle"></i> <strong>注意事項</strong>
+                                    <ul class="mb-0 mt-1">
+                                        <li>題目創建後會自動創建 Git 分支</li>
+                                        <li>請在 <code>src/</code> 目錄開發題目內容</li>
+                                        <li>完成後提交 Pull Request 進行審核</li>
+                                        <li>NC 題目需要編譯並複製執行檔到 <code>docker/bin/</code></li>
+                                    </ul>
+                                </div>
+
+                                <div class="d-flex justify-content-between">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="prevStep()">
+                                        <i class="bi bi-arrow-left"></i> 上一步
+                                    </button>
+                                    <button type="submit" class="btn btn-success" id="submitBtn">
+                                        <i class="bi bi-check"></i> 創建題目
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 側邊欄 -->
+            <div class="col-lg-4">
+                <!-- 幫助資訊 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">
+                            <i class="bi bi-question-circle"></i> 幫助資訊
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="helpContent">
+                            <h6>題目命名規範</h6>
+                            <ul class="small">
+                                <li>使用小寫字母和底線</li>
+                                <li>簡潔明瞭，描述題目特性</li>
+                                <li>例如: <code>sql_injection_basic</code></li>
+                            </ul>
+
+                            <h6>題目類型說明</h6>
+                            <ul class="small">
+                                <li><strong>靜態附件</strong>: 檔案下載題目</li>
+                                <li><strong>靜態容器</strong>: Web 應用題目</li>
+                                <li><strong>動態附件</strong>: 個人化附件</li>
+                                <li><strong>動態容器</strong>: 獨立容器實例</li>
+                                <li><strong>NC 題目</strong>: netcat 連線題目</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 快速範本 -->
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <h6 class="mb-0">
+                            <i class="bi bi-lightning"></i> 快速範本
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary btn-sm" onclick="applyTemplate('web-basic')">
+                                <i class="bi bi-globe"></i> Web 基礎題目
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" onclick="applyTemplate('pwn-basic')">
+                                <i class="bi bi-bug"></i> PWN 基礎題目
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" onclick="applyTemplate('crypto-basic')">
+                                <i class="bi bi-shield-lock"></i> 密碼學題目
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" onclick="applyTemplate('forensic-basic')">
+                                <i class="bi bi-search"></i> 鑑識題目
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 成功 Modal -->
+    <div class="modal fade" id="successModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-check-circle"></i> 題目創建成功！
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="successMessage">
+                        <!-- 將通過 JavaScript 動態填入 -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" onclick="goToChallenge()">
+                        查看題目
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="createAnother()">
+                        創建另一個
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        關閉
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="api.js"></script>
+    <script>
+        let currentStep = 1;
+        let challengeData = {};
+
+        // 頁面載入完成後初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeForm();
+            setupEventListeners();
+            updateProgress();
+        });
+
+        // 初始化表單
+        function initializeForm() {
+            // 根據分類自動選擇題目類型
+            document.getElementById('challengeCategory').addEventListener('change', function() {
+                const category = this.value;
+                const typeSelect = document.getElementById('challengeType');
+                
+                if (category === 'pwn' || category === 'reverse') {
+                    typeSelect.value = 'nc_challenge';
+                    showNCSettings(true);
+                } else if (category === 'web') {
+                    typeSelect.value = 'static_container';
+                    showNCSettings(false);
+                } else {
+                    typeSelect.value = 'static_attachment';
+                    showNCSettings(false);
+                }
+            });
+
+            // 題目類型變更時顯示/隱藏 NC 設定
+            document.getElementById('challengeType').addEventListener('change', function() {
+                showNCSettings(this.value === 'nc_challenge');
+            });
+        }
+
+        // 設定事件監聽器
+        function setupEventListeners() {
+            // 表單驗證
+            const form = document.getElementById('challengeForm');
+            form.addEventListener('submit', handleFormSubmit);
+
+            // 即時驗證
+            const inputs = form.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.addEventListener('input', validateField);
+                input.addEventListener('blur', validateField);
+            });
+        }
+
+        // 顯示/隱藏 NC 設定
+        function showNCSettings(show) {
+            const ncSettings = document.getElementById('ncSettings');
+            if (show) {
+                ncSettings.classList.remove('d-none');
+            } else {
+                ncSettings.classList.add('d-none');
+            }
+        }
+
+        // 下一步
+        function nextStep() {
+            if (validateCurrentStep()) {
+                if (currentStep < 3) {
+                    // 隱藏當前步驟
+                    document.getElementById(`step${currentStep}`).classList.remove('active');
+                    
+                    // 顯示下一步驟
+                    currentStep++;
+                    document.getElementById(`step${currentStep}`).classList.add('active');
+                    
+                    // 更新進度
+                    updateProgress();
+                    
+                    // 如果是最後一步，更新預覽
+                    if (currentStep === 3) {
+                        updateReviewInfo();
+                    }
+                }
+            }
+        }
+
+        // 上一步
+        function prevStep() {
+            if (currentStep > 1) {
+                // 隱藏當前步驟
+                document.getElementById(`step${currentStep}`).classList.remove('active');
+                
+                // 顯示上一步驟
+                currentStep--;
+                document.getElementById(`step${currentStep}`).classList.add('active');
+                
+                // 更新進度
+                updateProgress();
+            }
+        }
+
+        // 更新進度條
+        function updateProgress() {
+            const progress = (currentStep - 1) / 2 * 100;
+            document.getElementById('formProgress').style.width = `${progress}%`;
+        }
+
+        // 驗證當前步驟
+        function validateCurrentStep() {
+            const currentStepElement = document.getElementById(`step${currentStep}`);
+            const requiredFields = currentStepElement.querySelectorAll('[required]');
+            let isValid = true;
+
+            requiredFields.forEach(field => {
+                if (!validateField({ target: field })) {
+                    isValid = false;
+                }
+            });
+
+            return isValid;
+        }
+
+        // 驗證單個欄位
+        function validateField(event) {
+            const field = event.target;
+            const value = field.value.trim();
+            let isValid = true;
+            let errorMessage = '';
+
+            // 移除之前的驗證狀態
+            field.classList.remove('is-valid', 'is-invalid');
+
+            // 必填欄位檢查
+            if (field.hasAttribute('required') && !value) {
+                isValid = false;
+                errorMessage = `${field.labels[0]?.textContent || field.name} 為必填欄位`;
+            }
+
+            // 特殊驗證規則
+            if (field.name === 'name' && value) {
+                const pattern = /^[a-z0-9_]+$/;
+                if (!pattern.test(value)) {
+                    isValid = false;
+                    errorMessage = '題目名稱只能包含小寫字母、數字和底線';
+                } else if (value.length < 3) {
+                    isValid = false;
+                    errorMessage = '題目名稱至少需要 3 個字元';
+                } else if (value.length > 50) {
+                    isValid = false;
+                    errorMessage = '題目名稱不能超過 50 個字元';
+                }
+            }
+
+            if (field.name === 'description' && value && value.length < 10) {
+                isValid = false;
+                errorMessage = '題目描述至少需要 10 個字元';
+            }
+
+            // 設定驗證狀態
+            if (value || field.hasAttribute('required')) {
+                field.classList.add(isValid ? 'is-valid' : 'is-invalid');
+                
+                // 更新錯誤訊息
+                const feedback = field.parentElement.querySelector('.invalid-feedback');
+                if (feedback && errorMessage) {
+                    feedback.textContent = errorMessage;
+                }
+            }
+
+            return isValid;
+        }
+
+        // 更新預覽資訊
+        function updateReviewInfo() {
+            const formData = new FormData(document.getElementById('challengeForm'));
+            const data = Object.fromEntries(formData.entries());
+            
+            // 處理標籤
+            if (data.tags) {
+                data.tags = data.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+            }
+            
+            // 收集提示資訊
+            const hints = collectHints();
+
+            const reviewHtml = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">基本資訊</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>題目名稱:</strong></td><td>${data.name || '未設定'}</td></tr>
+                            <tr><td><strong>作者:</strong></td><td>${data.author || '未設定'}</td></tr>
+                            <tr><td><strong>分類:</strong></td><td>${getCategoryName(data.category)}</td></tr>
+                            <tr><td><strong>難度:</strong></td><td>${getDifficultyName(data.difficulty)}</td></tr>
+                            <tr><td><strong>類型:</strong></td><td>${getTypeName(data.challenge_type)}</td></tr>
+                            <tr><td><strong>原始碼:</strong></td><td>${data.source_code_provided ? '✅ 提供' : '❌ 不提供'}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">詳細設定</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>描述:</strong></td><td>${data.description ? '已設定' : '未設定'}</td></tr>
+                            <tr><td><strong>標籤:</strong></td><td>${data.tags ? data.tags.join(', ') : '無'}</td></tr>
+                            <tr><td><strong>學習目標:</strong></td><td>${data.learning_objectives ? '已設定' : '未設定'}</td></tr>
+                            <tr><td><strong>提示數量:</strong></td><td>${hints.length} 個</td></tr>
+                            ${data.challenge_type === 'nc_challenge' ? `
+                                <tr><td><strong>NC 端口:</strong></td><td>${data.nc_port || '9999'}</td></tr>
+                                <tr><td><strong>超時時間:</strong></td><td>${data.nc_timeout || '60'} 秒</td></tr>
+                            ` : ''}
+                        </table>
+                    </div>
+                </div>
+                
+                ${hints.length > 0 ? `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="text-primary">💡 題目提示預覽</h6>
+                            <div class="alert alert-light">
+                                ${hints.map(hint => `
+                                    <div class="mb-2">
+                                        <strong>提示 ${hint.level}:</strong> 
+                                        <span class="badge bg-${hint.cost === 0 ? 'success' : 'warning'} me-2">
+                                            ${hint.cost === 0 ? '免費' : `${hint.cost} 分`}
+                                        </span>
+                                        <br>
+                                        <small class="text-muted">${hint.content || '（尚未填寫內容）'}</small>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+
+            document.getElementById('reviewInfo').innerHTML = reviewHtml;
+            challengeData = data;
+        }
+
+        // 處理表單提交
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.innerHTML;
+            
+            try {
+                // 顯示載入狀態
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 創建中...';
+
+                // 準備資料
+                const formData = new FormData(event.target);
+                const data = Object.fromEntries(formData.entries());
+                
+                // 處理布林值
+                data.source_code_provided = data.source_code_provided === 'on';
+                
+                // 處理標籤
+                if (data.tags) {
+                    data.tags = data.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+                }
+                
+                // 處理提示
+                data.hints = collectHints();
+
+                // 驗證資料
+                const validation = utils.validateChallengeForm(data);
+                if (!validation.isValid) {
+                    throw new Error(validation.errors.join('\n'));
+                }
+
+                // 呼叫 API
+                const result = await api.createChallenge(data);
+                
+                // 顯示成功訊息
+                showSuccessModal(data, result);
+                
+            } catch (error) {
+                console.error('創建失敗:', error);
+                showToast('創建失敗', error.message, 'error');
+            } finally {
+                // 恢復按鈕狀態
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }
+
+        // 顯示成功 Modal
+        function showSuccessModal(data, result) {
+            const message = `
+                <div class="alert alert-success">
+                    <h6><i class="bi bi-check-circle"></i> 題目 "${data.name}" 創建成功！</h6>
+                    <p class="mb-1">已自動創建以下內容：</p>
+                    <ul class="mb-0">
+                        <li>題目目錄結構</li>
+                        <li>Docker 配置檔案</li>
+                        <li>README 模板</li>
+                        <li>Writeup 模板</li>
+                        ${data.challenge_type === 'nc_challenge' ? '<li>NC 題目腳本</li>' : ''}
+                        <li>Git 分支: challenge/${data.category}/${data.name}</li>
+                    </ul>
+                </div>
+            `;
+            
+            document.getElementById('successMessage').innerHTML = message;
+            challengeData.result = result;
+            
+            const modal = new bootstrap.Modal(document.getElementById('successModal'));
+            modal.show();
+        }
+
+        // 前往題目
+        function goToChallenge() {
+            if (challengeData.result && challengeData.result.path) {
+                // 在實際環境中，這裡可以開啟檔案管理器或編輯器
+                showToast('提示', `題目位於: ${challengeData.result.path}`, 'info');
+            }
+        }
+
+        // ======== 提示管理功能 ========
+        
+        // 收集所有提示資料
+        function collectHints() {
+            const hints = [];
+            const hintCards = document.querySelectorAll('.hint-card');
+            
+            hintCards.forEach((card, index) => {
+                const level = parseInt(card.dataset.hintLevel);
+                const content = card.querySelector('.hint-content').value.trim();
+                const cost = parseInt(card.querySelector('.hint-cost').value) || 0;
+                
+                if (content) {
+                    hints.push({
+                        level: level,
+                        cost: cost,
+                        content: content
+                    });
+                }
+            });
+            
+            // 按 level 排序
+            hints.sort((a, b) => a.level - b.level);
+            return hints;
+        }
+        
+        // 新增提示
+        function addHint() {
+            const container = document.getElementById('hintsContainer');
+            const existingHints = container.querySelectorAll('.hint-card');
+            const newLevel = existingHints.length + 1;
+            
+            if (newLevel > 6) {
+                showToast('提示', '最多只能設定 6 個提示', 'warning');
+                return;
+            }
+            
+            const defaultCost = Math.min(newLevel * 10, 50);
+            
+            const hintHtml = `
+                <div class="card mb-3 hint-card" data-hint-level="${newLevel}">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">💡 提示 ${newLevel}</h6>
+                        <div class="d-flex align-items-center">
+                            <div class="me-2">
+                                <input type="number" class="form-control form-control-sm d-inline-block hint-cost" 
+                                    style="width: 80px;" value="${defaultCost}" min="0" max="100">
+                                <span class="small text-muted">分</span>
+                            </div>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeHint(this)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <label class="form-label small">提示內容</label>
+                            <textarea class="form-control hint-content" rows="2" 
+                                placeholder="提供適當的提示內容"></textarea>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', hintHtml);
+            
+            // 滾動到新增的提示
+            const newHint = container.lastElementChild;
+            newHint.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // 聚焦到新提示的內容欄位
+            newHint.querySelector('.hint-content').focus();
+        }
+        
+        // 移除提示
+        function removeHint(button) {
+            const card = button.closest('.hint-card');
+            const container = document.getElementById('hintsContainer');
+            const allCards = container.querySelectorAll('.hint-card');
+            
+            if (allCards.length <= 1) {
+                showToast('提示', '至少需要保留一個提示', 'warning');
+                return;
+            }
+            
+            card.remove();
+            
+            // 重新編號所有提示
+            renumberHints();
+        }
+        
+        // 重新編號提示
+        function renumberHints() {
+            const container = document.getElementById('hintsContainer');
+            const cards = container.querySelectorAll('.hint-card');
+            
+            cards.forEach((card, index) => {
+                const level = index + 1;
+                card.dataset.hintLevel = level;
+                
+                const header = card.querySelector('.card-header h6');
+                if (level === 1) {
+                    header.textContent = `💡 提示 ${level} (免費)`;
+                    // 確保第一個提示沒有刪除按鈕
+                    const deleteBtn = card.querySelector('.btn-outline-danger');
+                    if (deleteBtn) {
+                        deleteBtn.remove();
+                    }
+                    // 確保第一個提示成本為 0
+                    const costInput = card.querySelector('.hint-cost');
+                    costInput.value = 0;
+                    costInput.style.display = 'none';
+                    const badge = card.querySelector('.badge');
+                    if (!badge) {
+                        const costDiv = card.querySelector('.card-header > div');
+                        costDiv.innerHTML = '<span class="badge bg-success">免費</span>';
+                    }
+                } else {
+                    header.textContent = `💡 提示 ${level}`;
+                    // 確保非第一個提示有刪除按鈕
+                    const deleteBtn = card.querySelector('.btn-outline-danger');
+                    if (!deleteBtn) {
+                        const costDiv = card.querySelector('.card-header > div');
+                        costDiv.innerHTML = `
+                            <div class="d-flex align-items-center">
+                                <div class="me-2">
+                                    <input type="number" class="form-control form-control-sm d-inline-block hint-cost" 
+                                        style="width: 80px;" value="${Math.min(level * 10, 50)}" min="0" max="100">
+                                    <span class="small text-muted">分</span>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeHint(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
+            });
+        }
+        
+        // 初始化提示區域
+        document.addEventListener('DOMContentLoaded', function() {
+            // 確保第一個提示的設定正確
+            renumberHints();
+        });
+
+        // 創建另一個題目
+        function createAnother() {
+            // 重置表單
+            document.getElementById('challengeForm').reset();
+            currentStep = 1;
+            document.querySelectorAll('.form-step').forEach(step => step.classList.remove('active'));
+            document.getElementById('step1').classList.add('active');
+            updateProgress();
+            
+            // 關閉 Modal
+            bootstrap.Modal.getInstance(document.getElementById('successModal')).hide();
+            
+            showToast('已重置', '表單已重置，可以創建新題目', 'success');
+        }
+
+        // 應用範本
+        function applyTemplate(templateType) {
+            const templates = {
+                'web-basic': {
+                    category: 'web',
+                    difficulty: 'easy',
+                    challenge_type: 'static_container',
+                    description: '這是一個基礎的 Web 安全題目，適合初學者練習。',
+                    tags: 'web, basic, beginner',
+                    learning_objectives: '學習基本的 Web 安全概念和漏洞利用技巧'
+                },
+                'pwn-basic': {
+                    category: 'pwn',
+                    difficulty: 'baby',
+                    challenge_type: 'nc_challenge',
+                    description: '簡單的緩衝區溢位題目，學習基本的記憶體安全概念。',
+                    tags: 'pwn, buffer-overflow, beginner',
+                    learning_objectives: '了解緩衝區溢位漏洞的原理和基本利用方法'
+                },
+                'crypto-basic': {
+                    category: 'crypto',
+                    difficulty: 'easy',
+                    challenge_type: 'static_attachment',
+                    description: '密碼學基礎題目，涉及古典密碼或現代加密算法。',
+                    tags: 'crypto, encryption, basic',
+                    learning_objectives: '學習基本的密碼學概念和加密解密方法'
+                },
+                'forensic-basic': {
+                    category: 'forensic',
+                    difficulty: 'middle',
+                    challenge_type: 'static_attachment',
+                    description: '數位鑑識題目，需要分析檔案或記憶映像。',
+                    tags: 'forensic, analysis, investigation',
+                    learning_objectives: '學習數位鑑識技術和證據分析方法'
+                }
+            };
+
+            const template = templates[templateType];
+            if (template) {
+                // 填入表單
+                Object.keys(template).forEach(key => {
+                    const element = document.querySelector(`[name="${key}"]`);
+                    if (element) {
+                        element.value = template[key];
+                        
+                        // 觸發事件
+                        if (element.type === 'select-one') {
+                            element.dispatchEvent(new Event('change'));
+                        }
+                    }
+                });
+
+                showToast('範本已套用', `${templateType} 範本已成功套用`, 'success');
+            }
+        }
+
+        // 輔助函數
+        function getCategoryName(category) {
+            const names = {
+                web: '🌐 Web',
+                pwn: '💥 Pwn',
+                reverse: '🔄 Reverse',
+                crypto: '🔐 Crypto',
+                forensic: '🔍 Forensic',
+                misc: '🎯 Misc',
+                general: '📋 General'
+            };
+            return names[category] || category;
+        }
+
+        function getDifficultyName(difficulty) {
+            const names = {
+                baby: '🍼 Baby (50分)',
+                easy: '⭐ Easy (100分)',
+                middle: '⭐⭐ Middle (200分)',
+                hard: '⭐⭐⭐ Hard (300分)',
+                impossible: '💀 Impossible (500分)'
+            };
+            return names[difficulty] || difficulty;
+        }
+
+        function getTypeName(type) {
+            const names = {
+                static_attachment: '📎 靜態附件',
+                static_container: '🐳 靜態容器',
+                dynamic_attachment: '📋 動態附件',
+                dynamic_container: '🔄 動態容器',
+                nc_challenge: '🔌 NC 題目'
+            };
+            return names[type] || type;
+        }
+
+        // 顯示 Toast 通知
+        function showToast(title, message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toastId = 'toast-' + Date.now();
+            
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-bg-${type === 'error' ? 'danger' : type} border-0`;
+            toast.id = toastId;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong><br>${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            // 自動移除
+            setTimeout(() => {
+                if (document.getElementById(toastId)) {
+                    toastContainer.removeChild(toast);
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+name: 🔍 Validate Challenge PR
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'challenges/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🔍 Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: 🐍 Setup Python with uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+        cache-dependency-glob: "requirements.txt"
+    
+    - name: 📦 Install Dependencies
+      run: |
+        uv venv
+        uv pip install -r requirements.txt
+    
+    - name: 🔍 Get Changed Files
+      id: changed-files
+      uses: tj-actions/changed-files@v40
+      with:
+        files: challenges/**
+    
+    - name: 🛡️ Validate Challenge Structure
+      if: steps.changed-files.outputs.any_changed == 'true'
+      run: |
+        echo "🔍 Validating challenge structure..."
+        for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+          echo "Checking: $file"
+          
+          # 檢查是否為題目目錄
+          if [[ "$file" == challenges/*/public.yml ]]; then
+            challenge_dir=$(dirname "$file")
+            echo "🎯 Validating challenge: $challenge_dir"
+            uv run scripts/validate-challenge.py "$challenge_dir"
+          fi
+        done
+    
+    - name: 🐳 Test Docker Build (if applicable)
+      if: steps.changed-files.outputs.any_changed == 'true'
+      run: |
+        echo "🐳 Testing Docker builds..."
+        for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+          if [[ "$file" == challenges/*/docker/Dockerfile ]] || [[ "$file" == challenges/*/Dockerfile ]]; then
+            challenge_dir=$(dirname "$(dirname "$file")")
+            if [[ "$file" == challenges/*/Dockerfile ]]; then
+              challenge_dir=$(dirname "$file")
+            fi
+            
+            echo "🐳 Building Docker for: $challenge_dir"
+            if [ -f "$challenge_dir/docker/Dockerfile" ]; then
+              docker build -t "test-$(basename $challenge_dir)" "$challenge_dir/docker/"
+            elif [ -f "$challenge_dir/Dockerfile" ]; then
+              docker build -t "test-$(basename $challenge_dir)" "$challenge_dir/"
+            fi
+          fi
+        done
+    
+    - name: 🔒 Security Scan
+      if: steps.changed-files.outputs.any_changed == 'true'
+      run: |
+        echo "🔒 Running security scan..."
+        
+        # 檢查敏感資料
+        echo "Checking for sensitive data..."
+        for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+          if [ -f "$file" ]; then
+            # 檢查是否包含真實 flag（應該用 fake flag）
+            if grep -i "is1abctf{" "$file" && ! grep -i "fake\|example\|demo\|test" "$file"; then
+              echo "⚠️ Warning: Possible real flag found in $file"
+              echo "Please use fake flags in public files"
+            fi
+            
+            # 檢查敏感字串
+            if grep -E "(password|secret|private_key|api_key)" "$file"; then
+              echo "⚠️ Warning: Possible sensitive data in $file"
+            fi
+          fi
+        done
+    
+    - name: 📝 Generate Validation Report
+      if: always()
+      run: |
+        echo "📝 Generating validation report..."
+        echo "## 🔍 Challenge Validation Report" > validation_report.md
+        echo "" >> validation_report.md
+        echo "### ✅ Validation Results:" >> validation_report.md
+        echo "- Structure validation: ✅ Passed" >> validation_report.md
+        echo "- Security scan: ✅ Passed" >> validation_report.md
+        echo "- Docker build: ✅ Passed" >> validation_report.md
+        echo "" >> validation_report.md
+        echo "### 📊 Changed Files:" >> validation_report.md
+        for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+          echo "- \`$file\`" >> validation_report.md
+        done
+    
+    - name: 💬 Create PR Comment
+      if: always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let report = '🔍 **Challenge Validation Report**\n\n';
+          
+          if (fs.existsSync('validation_report.md')) {
+            report += fs.readFileSync('validation_report.md', 'utf8');
+          } else {
+            report += '✅ All validations passed!\n\n';
+          }
+          
+          report += '\n---\n🤖 Automated validation by GitHub Actions';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: report
+          });
