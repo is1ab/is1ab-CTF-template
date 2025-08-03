@@ -1043,7 +1043,7 @@
                                                     </div>
                                                     <div class="btn-group btn-group-sm w-100" role="group">
                                                         <button type="button" class="btn btn-outline-primary btn-sm" 
-                                                            onclick="openHintsManager('${rowIndex}', '${cellIndex}', '${cell.title}', '${cell.category}', '${cell.folder_name}')"
+                                                            onclick="openHintsManager(${rowIndex}, ${cellIndex}, '${cell.title?.replace(/'/g, "\\'")}', '${cell.category}', '${cell.folder_name}')"
                                                             title="管理提示">
                                                             💡
                                                         </button>
@@ -1476,6 +1476,11 @@
         // 打開提示管理器
         async function openHintsManager(rowIndex, cellIndex, title, category, folderName) {
             try {
+                // 驗證參數
+                if (!category || !folderName || category === 'undefined' || folderName === 'undefined') {
+                    throw new Error(`無效的參數: category=${category}, folderName=${folderName}`);
+                }
+                
                 currentHintsChallenge = { category, folderName, title };
                 
                 // 設置模態框標題

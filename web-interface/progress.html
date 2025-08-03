@@ -359,7 +359,7 @@
                 challengeData = progress;
                 updateProgressSummary(progress.stats);
                 updateTypeDistribution(progress.stats);
-                updateProgressTable(progress);
+                loadProgressTable();
                 updateChallengeList(progress.challenges);
             } catch (error) {
                 console.error('載入進度失敗:', error);
@@ -442,6 +442,13 @@
         }
 
         async function viewChallenge(category, folderName) {
+            // 驗證參數
+            if (!category || !folderName || category === 'undefined' || folderName === 'undefined') {
+                showToast('錯誤', '無效的題目參數', 'error');
+                console.error('Invalid parameters:', { category, folderName });
+                return;
+            }
+            
             try {
                 // 顯示模態框並載入
                 const modal = new bootstrap.Modal(document.getElementById('challengeDetailsModal'));
@@ -462,17 +469,18 @@
                 
                 const challenge = await response.json();
                 
-                // 渲染題目詳情（簡化版本，在 progress 頁面使用）
-                document.getElementById('challengeDetailsContent').innerHTML = `
-                    <div class="alert alert-info">
-                        <h5>${challenge.title}</h5>
-                        <p><strong>作者:</strong> ${challenge.author}</p>
-                        <p><strong>分類:</strong> ${challenge.category}</p>
-                        <p><strong>難度:</strong> ${challenge.difficulty}</p>
-                        <p><strong>狀態:</strong> ${challenge.status}</p>
-                        <p><strong>描述:</strong> ${challenge.description || '無描述'}</p>
-                    </div>
-                `;
+                // 渲染題目詳情
+                renderChallengeDetails(challenge);
+                
+                // 設置按鈕功能
+                const hintsBtn = document.getElementById('manageChallengeHintsBtn');
+                if (hintsBtn) {
+                    hintsBtn.style.display = 'inline-block';
+                    hintsBtn.onclick = () => {
+                        modal.hide();
+                        openHintsManager(0, 0, challenge.title, category, folderName);
+                    };
+                }
                 
             } catch (error) {
                 console.error('載入題目詳情失敗:', error);
@@ -483,6 +491,194 @@
                         無法載入題目詳情：${error.message}
                     </div>
                 `;
+            }
+        }
+        
+        function renderChallengeDetails(challenge) {
+            const difficultyColors = {
+                'baby': 'success',
+                'easy': 'info', 
+                'middle': 'warning',
+                'hard': 'danger',
+                'impossible': 'dark'
+            };
+            
+            const difficultyIcons = {
+                'baby': '🍼',
+                'easy': '⭐',
+                'middle': '⭐⭐', 
+                'hard': '⭐⭐⭐',
+                'impossible': '💀'
+            };
+            
+            const statusColors = {
+                'planning': 'secondary',
+                'developing': 'warning',
+                'testing': 'info',
+                'completed': 'success',
+                'deployed': 'primary'
+            };
+            
+            const typeIcons = {
+                'nc_challenge': '🔌',
+                'static_container': '🐳',
+                'dynamic_container': '🔄',
+                'static_attachment': '📎',
+                'dynamic_attachment': '📋'
+            };
+            
+            const typeNames = {
+                'nc_challenge': 'NC 題目',
+                'static_container': '靜態容器',
+                'dynamic_container': '動態容器',
+                'static_attachment': '靜態附件',
+                'dynamic_attachment': '動態附件'
+            };
+            
+            const difficultyColor = difficultyColors[challenge.difficulty] || 'secondary';
+            const difficultyIcon = difficultyIcons[challenge.difficulty] || '❓';
+            const statusColor = statusColors[challenge.status] || 'secondary';
+            const statusIcon = getStatusIcon(challenge.status);
+            const typeIcon = typeIcons[challenge.challenge_type] || '📎';
+            const typeName = typeNames[challenge.challenge_type] || challenge.challenge_type;
+            
+            const hintsHtml = challenge.hints && challenge.hints.length > 0 ? 
+                challenge.hints.map(hint => `
+                    <div class="alert alert-info alert-sm mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span><strong>Level ${hint.level}</strong> (${hint.cost} 分)</span>
+                        </div>
+                        <div class="mt-1">${hint.content}</div>
+                    </div>
+                `).join('') : '<p class="text-muted">暫無提示</p>';
+            
+            document.getElementById('challengeDetailsContent').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-info-circle"></i> 基本資訊
+                        </h6>
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td class="fw-bold" style="width: 30%;">標題:</td>
+                                <td>${challenge.title}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">作者:</td>
+                                <td>${challenge.author}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">分類:</td>
+                                <td><span class="badge bg-secondary">${challenge.category}</span></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">難度:</td>
+                                <td>
+                                    <span class="badge bg-${difficultyColor}">
+                                        ${difficultyIcon} ${challenge.difficulty}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">類型:</td>
+                                <td>${typeIcon} ${typeName}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">狀態:</td>
+                                <td>
+                                    <span class="badge bg-${statusColor}">
+                                        ${statusIcon} ${challenge.status}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">分數:</td>
+                                <td>${challenge.points || '未設定'}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">原始碼:</td>
+                                <td>${challenge.source_code_provided ? '✅ 提供' : '❌ 不提供'}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-gear"></i> 部署資訊
+                        </h6>
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td class="fw-bold" style="width: 30%;">建立時間:</td>
+                                <td>${challenge.created_at ? new Date(challenge.created_at).toLocaleDateString() : '未知'}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">檔案:</td>
+                                <td>${challenge.files && challenge.files.length > 0 ? challenge.files.join(', ') : '無'}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">標籤:</td>
+                                <td>
+                                    ${challenge.tags && challenge.tags.length > 0 ? 
+                                        challenge.tags.map(tag => `<span class="badge bg-light text-dark me-1">${tag}</span>`).join('') : 
+                                        '無'
+                                    }
+                                </td>
+                            </tr>
+                            ${challenge.challenge_type === 'nc_challenge' ? `
+                            <tr>
+                                <td class="fw-bold">NC 端口:</td>
+                                <td>${challenge.deploy_info?.nc_port || 9999}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">超時:</td>
+                                <td>${challenge.deploy_info?.timeout || 60} 秒</td>
+                            </tr>
+                            ` : ''}
+                            ${challenge.deploy_info?.url ? `
+                            <tr>
+                                <td class="fw-bold">URL:</td>
+                                <td><a href="${challenge.deploy_info.url}" target="_blank">${challenge.deploy_info.url}</a></td>
+                            </tr>
+                            ` : ''}
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-file-text"></i> 題目描述
+                        </h6>
+                        <div class="bg-light p-3 rounded">
+                            ${challenge.description ? challenge.description.replace(/\n/g, '<br>') : '無描述'}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-lightbulb"></i> 題目提示
+                        </h6>
+                        <div>
+                            ${hintsHtml}
+                        </div>
+                        <div class="text-end mt-2">
+                            <button id="manageChallengeHintsBtn" class="btn btn-primary btn-sm" style="display: none;">
+                                <i class="bi bi-gear"></i> 管理提示
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 載入進度表格
+        async function loadProgressTable() {
+            try {
+                const progress = await api.getProgress();
+                updateProgressTable(progress);
+            } catch (error) {
+                updateProgressTable(challengeData);
             }
         }
 
@@ -536,7 +732,7 @@
                                                     </div>
                                                     <div class="btn-group btn-group-sm w-100" role="group">
                                                         <button type="button" class="btn btn-outline-primary btn-sm" 
-                                                            onclick="openHintsManager('${rowIndex}', '${cellIndex}', '${cell.title}', '${cell.category}', '${cell.folder_name}')"
+                                                            onclick="openHintsManager(${rowIndex}, ${cellIndex}, '${cell.title?.replace(/'/g, "\\'")}', '${cell.category}', '${cell.folder_name}')"
                                                             title="管理提示">
                                                             💡
                                                         </button>
@@ -660,9 +856,11 @@
                         const statusIcon = getStatusIcon(status);
                         const color = difficultyColors[difficulty] || 'secondary';
                         
+                        const folderName = challenge.folder_name || challenge.name || `challenge_${i}`;
+                        
                         bodyHtml += `
                             <td class="text-center challenge-cell p-2" style="min-width: 150px;">
-                                <div class="card border-${color} h-100" onclick="showChallengeDetails('${category}', ${i})" style="cursor: pointer;">
+                                <div class="card border-${color} h-100">
                                     <div class="card-body p-2">
                                         <div class="fw-bold mb-1" style="font-size: 0.9rem; color: var(--ctf-gray-900);">
                                             ${statusIcon} ${title}
@@ -670,10 +868,22 @@
                                         <div class="small mb-1" style="color: var(--ctf-gray-600);">
                                             👤 ${author}
                                         </div>
-                                        <div class="small">
+                                        <div class="small mb-2">
                                             <span class="badge bg-${color}" style="font-size: 0.7rem; color: white;">
                                                 🎯 ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
                                             </span>
+                                        </div>
+                                        <div class="btn-group btn-group-sm w-100" role="group">
+                                            <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                onclick="openHintsManager(${categories.indexOf(category)}, ${i}, '${title.replace(/'/g, "\\'")}', '${category}', '${folderName}')"
+                                                title="管理提示">
+                                                💡
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                                onclick="viewChallenge('${category}', '${folderName}')"
+                                                title="查看詳情">
+                                                👁️
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -861,79 +1071,31 @@
             applyFilters();
         }
 
-        // 顯示題目詳情
-        function showChallengeDetails(category, challengeIndex) {
-            let challenge;
-            
-            if (typeof challengeIndex === 'number') {
-                // 從矩陣點擊
-                challenge = challengeData.challenges[category]?.[challengeIndex];
-            } else {
-                // 從列表點擊 (challengeIndex 是 folder_name)
-                challenge = challengeData.challenges[category]?.find(c => c.folder_name === challengeIndex);
+        // 顯示題目詳情（統一函數名稱）
+        async function showChallengeDetails(category, challengeIdentifier) {
+            // 驗證基本參數
+            if (!category || category === 'undefined') {
+                showToast('錯誤', '無效的題目分類', 'error');
+                console.error('Invalid category:', category);
+                return;
             }
             
-            if (!challenge) return;
+            // 處理不同的調用方式
+            let folderName = challengeIdentifier;
             
-            selectedChallenge = { category, challenge };
+            // 如果 challengeIdentifier 是數字（索引），則需要找到對應的 folderName
+            if (typeof challengeIdentifier === 'number') {
+                const challenges = challengeData.challenges?.[category];
+                if (challenges && challenges[challengeIdentifier]) {
+                    folderName = challenges[challengeIdentifier].folder_name;
+                } else {
+                    showToast('錯誤', '找不到指定的題目', 'error');
+                    return;
+                }
+            }
             
-            // 更新 Modal 內容
-            document.getElementById('challengeModalTitle').textContent = challenge.title;
-            
-            const modalBody = document.getElementById('challengeModalBody');
-            modalBody.innerHTML = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6 class="text-primary">基本資訊</h6>
-                        <table class="table table-sm">
-                            <tr><td><strong>分類:</strong></td><td><span class="badge bg-secondary">${category}</span></td></tr>
-                            <tr><td><strong>難度:</strong></td><td>${getDifficultyIcon(challenge.difficulty)} ${challenge.difficulty}</td></tr>
-                            <tr><td><strong>類型:</strong></td><td>${getTypeIcon(challenge.challenge_type)} ${getTypeName(challenge.challenge_type)}</td></tr>
-                            <tr><td><strong>狀態:</strong></td><td><span class="badge bg-${getStatusColor(challenge.status)}">${getStatusIcon(challenge.status)} ${challenge.status}</span></td></tr>
-                            <tr><td><strong>作者:</strong></td><td>${challenge.author}</td></tr>
-                            <tr><td><strong>原始碼:</strong></td><td>${challenge.source_code_provided ? '✅ 提供' : '❌ 不提供'}</td></tr>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <h6 class="text-primary">詳細資訊</h6>
-                        <table class="table table-sm">
-                            <tr><td><strong>分數:</strong></td><td>${challenge.points || '未設定'}</td></tr>
-                            <tr><td><strong>建立時間:</strong></td><td>${challenge.created_at ? new Date(challenge.created_at).toLocaleDateString() : '未知'}</td></tr>
-                            <tr><td><strong>標籤:</strong></td><td>${challenge.tags ? challenge.tags.join(', ') : '無'}</td></tr>
-                            <tr><td><strong>路徑:</strong></td><td><code>${challenge.path || '未知'}</code></td></tr>
-                        </table>
-                    </div>
-                </div>
-                <div class="row mt-3">
-                    <div class="col">
-                        <h6 class="text-primary">描述</h6>
-                        <p class="bg-light p-3 rounded">${challenge.description || '無描述'}</p>
-                    </div>
-                </div>
-                ${challenge.learning_objectives ? `
-                <div class="row">
-                    <div class="col">
-                        <h6 class="text-primary">學習目標</h6>
-                        <p class="bg-light p-3 rounded">${challenge.learning_objectives}</p>
-                    </div>
-                </div>
-                ` : ''}
-                ${challenge.challenge_type === 'nc_challenge' ? `
-                <div class="row">
-                    <div class="col">
-                        <h6 class="text-primary">NC 設定</h6>
-                        <table class="table table-sm">
-                            <tr><td><strong>端口:</strong></td><td>${challenge.deploy_info?.nc_port || 9999}</td></tr>
-                            <tr><td><strong>超時:</strong></td><td>${challenge.deploy_info?.timeout || 60} 秒</td></tr>
-                        </table>
-                    </div>
-                </div>
-                ` : ''}
-            `;
-            
-            // 顯示 Modal
-            const modal = new bootstrap.Modal(document.getElementById('challengeModal'));
-            modal.show();
+            // 調用查看詳情函數
+            await viewChallenge(category, folderName);
         }
 
         // 編輯題目

@@ -409,6 +409,68 @@ class CTFManagerAPI {
             throw error;
         }
     }
+
+    // ========== 提示管理 API 方法 ==========
+
+    /**
+     * 取得題目提示
+     */
+    async getChallengeHints(category, name) {
+        try {
+            return await this.get(`/api/challenges/${category}/${name}/hints`);
+        } catch (error) {
+            console.error('載入題目提示失敗:', error);
+            throw new Error(`載入題目提示失敗: ${error.message}`);
+        }
+    }
+
+    /**
+     * 新增題目提示
+     */
+    async addChallengeHint(category, name, hintData) {
+        try {
+            return await this.post(`/api/challenges/${category}/${name}/hints`, hintData);
+        } catch (error) {
+            console.error('新增提示失敗:', error);
+            throw new Error(`新增提示失敗: ${error.message}`);
+        }
+    }
+
+    /**
+     * 更新題目提示
+     */
+    async updateChallengeHint(category, name, level, hintData) {
+        try {
+            return await this.put(`/api/challenges/${category}/${name}/hints/${level}`, hintData);
+        } catch (error) {
+            console.error('更新提示失敗:', error);
+            throw new Error(`更新提示失敗: ${error.message}`);
+        }
+    }
+
+    /**
+     * 刪除題目提示
+     */
+    async deleteChallengeHint(category, name, level) {
+        try {
+            return await this.delete(`/api/challenges/${category}/${name}/hints/${level}`);
+        } catch (error) {
+            console.error('刪除提示失敗:', error);
+            throw new Error(`刪除提示失敗: ${error.message}`);
+        }
+    }
+
+    /**
+     * 取得題目詳細資訊
+     */
+    async getChallengeDetails(category, name) {
+        try {
+            return await this.get(`/api/challenges/${category}/${name}/details`);
+        } catch (error) {
+            console.error('載入題目詳情失敗:', error);
+            throw new Error(`載入題目詳情失敗: ${error.message}`);
+        }
+    }
 }
 
 // 創建全域 API 實例

@@ -1,0 +1,65 @@
+# =============================================================================
+# Web 安全題目 Private Configuration 範例
+# =============================================================================
+
+title: "Web Challenge Example"
+author: "YourName"
+difficulty: "easy"
+category: "web"
+description: |
+  這是一個 Web 安全挑戰題目。
+  訪問提供的網站，找出其中的安全漏洞並獲取 flag。
+  
+  目標網站：http://challenge.example.com
+  
+  提示：注意檢查常見的 Web 漏洞類型。
+
+challenge_type: "static_container"
+source_code_provided: false
+files:
+  - "source.zip"  # 可選：提供部分原始碼
+status: "developing"
+points: 150
+tags:
+  - "web"
+  - "sql_injection"
+  - "authentication_bypass"
+created_at: "2024-01-01T00:00:00"
+
+deploy_info:
+  port: 80
+  url: "http://challenge.example.com"
+  requires_build: true
+  environment:
+    DATABASE_URL: "sqlite:///app.db"
+    SECRET_KEY: "random_secret_key"
+
+hints:
+  - level: 1
+    cost: 0
+    content: "檢查登入功能是否存在注入漏洞，嘗試使用單引號測試輸入驗證"
+    
+  - level: 2
+    cost: 15
+    content: "使用 SQL injection 繞過登入驗證，payload 格式：admin' OR '1'='1'--"
+    
+  - level: 3
+    cost: 30
+    content: "進入管理面板後，查看原始碼或使用開發者工具尋找隱藏的 flag"
+
+# 敏感資訊
+flag: "is1abCTF{w3b_4pp_1nj3ct10n_m4st3r}"
+flag_description: "Flag 隱藏在管理員面板的 HTML 註釋中，需要通過 SQL injection 繞過登入驗證才能訪問"
+
+solution_steps:
+  - "在登入表單的 username 欄位輸入：admin' OR '1'='1'--"
+  - "密碼欄位隨意輸入，點擊登入"
+  - "成功進入管理員面板"
+  - "查看網頁原始碼，在 HTML 註釋中找到 flag"
+
+internal_notes: |
+  技術實現：
+  - 使用 Flask + SQLite
+  - 登入查詢：SELECT * FROM users WHERE username='{}' AND password='{}'
+  - 故意使用字串格式化而非參數化查詢
+  - Flag 存在管理頁面的 HTML 註釋中：<!-- flag: is1abCTF{...} -->

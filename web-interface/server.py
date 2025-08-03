@@ -600,6 +600,8 @@ def get_progress():
                         'status': status,
                         'icon': icon,
                         'color': color,
+                        'category': category,
+                        'folder_name': challenge.get('folder_name', ''),
                         'display': f"{icon} {title}\\n👤 {author}\\n🎯 {difficulty.title()}"
                     }
                     row.append(cell_data)
@@ -823,11 +825,17 @@ def get_challenge_hints(category, name):
     try:
         challenge_path = CHALLENGES_DIR / category / name
         private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
         
-        if not private_yml.exists():
+        # 優先使用 private.yml，如果不存在則使用 public.yml
+        if private_yml.exists():
+            config_file = private_yml
+        elif public_yml.exists():
+            config_file = public_yml
+        else:
             return jsonify({'error': '題目配置不存在'}), 404
         
-        with open(private_yml, 'r', encoding='utf-8') as f:
+        with open(config_file, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         
         hints = config.get('hints', [])
@@ -855,12 +863,17 @@ def add_challenge_hint(category, name):
         
         challenge_path = CHALLENGES_DIR / category / name
         private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
         
-        if not private_yml.exists():
+        # 讀取配置，如果沒有 private.yml 則從 public.yml 創建
+        if private_yml.exists():
+            with open(private_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        elif public_yml.exists():
+            with open(public_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        else:
             return jsonify({'error': '題目配置不存在'}), 404
-        
-        with open(private_yml, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
         
         # 確保 hints 陣列存在
         if 'hints' not in config:
@@ -898,12 +911,17 @@ def update_challenge_hint(category, name, level):
         
         challenge_path = CHALLENGES_DIR / category / name
         private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
         
-        if not private_yml.exists():
+        # 讀取配置，如果沒有 private.yml 則從 public.yml 創建
+        if private_yml.exists():
+            with open(private_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        elif public_yml.exists():
+            with open(public_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        else:
             return jsonify({'error': '題目配置不存在'}), 404
-        
-        with open(private_yml, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
         
         hints = config.get('hints', [])
         hint_found = False
@@ -933,12 +951,17 @@ def delete_challenge_hint(category, name, level):
     try:
         challenge_path = CHALLENGES_DIR / category / name
         private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
         
-        if not private_yml.exists():
+        # 讀取配置，如果沒有 private.yml 則從 public.yml 創建
+        if private_yml.exists():
+            with open(private_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        elif public_yml.exists():
+            with open(public_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        else:
             return jsonify({'error': '題目配置不存在'}), 404
-        
-        with open(private_yml, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
         
         hints = config.get('hints', [])
         original_count = len(hints)
@@ -961,11 +984,17 @@ def get_challenge_details(category, name):
     try:
         challenge_path = CHALLENGES_DIR / category / name
         private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
         
-        if not private_yml.exists():
+        # 優先使用 private.yml，如果不存在則使用 public.yml
+        if private_yml.exists():
+            config_file = private_yml
+        elif public_yml.exists():
+            config_file = public_yml
+        else:
             return jsonify({'error': '題目配置不存在'}), 404
         
-        with open(private_yml, 'r', encoding='utf-8') as f:
+        with open(config_file, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         
         # 基本資訊
