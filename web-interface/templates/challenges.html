@@ -20,7 +20,11 @@
       {% for challenge in challenges %}
       <div class="column is-one-third">
         <div class="card">
-          <div class="card-content">
+          <div
+            class="card-content"
+            style="cursor: pointer"
+            onclick="window.location.href='/challenges/{{ challenge.category }}/{{ challenge.name }}'"
+          >
             <div class="media">
               <div class="media-left">
                 <figure class="image is-48x48">
@@ -34,59 +38,70 @@
                   <i class="fas fa-question fa-2x has-text-primary"></i>
                   {% elif challenge.category == 'reverse' %}
                   <i class="fas fa-undo fa-2x has-text-success"></i>
+                  {% elif challenge.category == 'forensic' %}
+                  <i class="fas fa-search fa-2x has-text-dark"></i>
                   {% else %}
                   <i class="fas fa-puzzle-piece fa-2x has-text-grey"></i>
                   {% endif %}
                 </figure>
               </div>
               <div class="media-content">
-                <p class="title is-4">{{ challenge.name }}</p>
+                <p class="title is-4">
+                  {{ challenge.get('title', challenge.name) }}
+                </p>
                 <p class="subtitle is-6">{{ challenge.category }}</p>
               </div>
             </div>
 
             <div class="content">
-              <p>{{ challenge.get('description', '無描述') }}</p>
+              <p>
+                {{ challenge.get('description', '無描述')[:100] }}{% if
+                challenge.get('description', '') | length > 100 %}...{% endif %}
+              </p>
 
-              <div class="tags has-addons">
-                <span class="tag is-dark">難度</span>
+              <div class="tags">
+                <span
+                  class="tag {% if challenge.get('difficulty') == 'baby' %}is-success {% elif challenge.get('difficulty') == 'easy' %}is-primary {% elif challenge.get('difficulty') == 'middle' %}is-warning {% elif challenge.get('difficulty') == 'hard' %}is-danger {% else %}is-dark{% endif %}"
+                >
+                  {{ challenge.get('difficulty', 'unknown') }}
+                </span>
                 <span class="tag is-info"
-                  >{{ challenge.get('difficulty', 'unknown') }}</span
+                  >{{ challenge.get('points', 0) }} 分</span
                 >
-              </div>
-
-              <div class="tags has-addons">
-                <span class="tag is-dark">分數</span>
-                <span class="tag is-success"
-                  >{{ challenge.get('points', 0) }}</span
-                >
-              </div>
-
-              <div class="tags has-addons">
-                <span class="tag is-dark">作者</span>
-                <span class="tag is-primary"
+                <span class="tag is-light"
                   >{{ challenge.get('author', 'unknown') }}</span
                 >
+                <span
+                  class="tag {% if challenge.get('status') == 'completed' %}is-success {% elif challenge.get('status') == 'developing' %}is-warning {% elif challenge.get('status') == 'testing' %}is-info {% else %}is-light{% endif %}"
+                >
+                  {{ challenge.get('status', 'unknown') }}
+                </span>
               </div>
             </div>
           </div>
 
           <footer class="card-footer">
-            <a href="#" class="card-footer-item has-text-info">
+            <a
+              href="/challenges/{{ challenge.category }}/{{ challenge.name }}"
+              class="card-footer-item has-text-primary"
+            >
+              <i class="fas fa-eye mr-1"></i>
+              查看
+            </a>
+            <a
+              href="/challenges/{{ challenge.category }}/{{ challenge.name }}/edit"
+              class="card-footer-item has-text-info"
+            >
               <i class="fas fa-edit mr-1"></i>
               編輯
             </a>
             <a
               href="#"
               class="card-footer-item has-text-success"
-              onclick="validateChallenge('{{ challenge.path }}')"
+              onclick="validateChallenge('{{ challenge.category }}/{{ challenge.name }}'); event.stopPropagation();"
             >
               <i class="fas fa-check mr-1"></i>
               驗證
-            </a>
-            <a href="#" class="card-footer-item has-text-danger">
-              <i class="fas fa-trash mr-1"></i>
-              刪除
             </a>
           </footer>
         </div>

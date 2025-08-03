@@ -1,0 +1,477 @@
+{% extends "base.html" %}
+{% set title = "編輯題目 - " + challenge.title %}
+
+{% block content %}
+<!-- 頁面標題 -->
+<section class="hero is-warning is-small">
+  <div class="hero-body">
+    <div class="container">
+      <h1 class="title">
+        <i class="fas fa-edit mr-3"></i>
+        編輯題目 - {{ challenge.title }}
+      </h1>
+      <p class="subtitle">修改 {{ challenge.category }}/{{ challenge.name }} 的配置</p>
+    </div>
+  </div>
+</section>
+
+<!-- 編輯表單 -->
+<section class="section">
+  <div class="container">
+    <form id="editChallengeForm" data-category="{{ challenge.category }}" data-name="{{ challenge.name }}">
+      <div class="columns">
+        <!-- 主要編輯區域 -->
+        <div class="column is-two-thirds">
+          <!-- 基本資訊 -->
+          <div class="card mb-5">
+            <div class="card-header">
+              <p class="card-header-title">
+                <span class="icon mr-2">
+                  <i class="fas fa-info-circle"></i>
+                </span>
+                基本資訊
+              </p>
+            </div>
+            <div class="card-content">
+              <div class="field">
+                <label class="label">題目標題 <span class="has-text-danger">*</span></label>
+                <div class="control">
+                  <input class="input" type="text" name="title" value="{{ challenge.title }}" required>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="label">題目描述 <span class="has-text-danger">*</span></label>
+                <div class="control">
+                  <textarea class="textarea" name="description" rows="4" required>{{ challenge.description }}</textarea>
+                </div>
+              </div>
+
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label">分類 <span class="has-text-danger">*</span></label>
+                    <div class="control">
+                      <div class="select is-fullwidth">
+                        <select name="category" required>
+                          {% for cat in config.categories %}
+                          <option value="{{ cat }}" {% if cat == challenge.category %}selected{% endif %}>{{ cat }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="field">
+                    <label class="label">難度 <span class="has-text-danger">*</span></label>
+                    <div class="control">
+                      <div class="select is-fullwidth">
+                        <select name="difficulty" required>
+                          {% for diff in config.difficulties %}
+                          <option value="{{ diff }}" {% if diff == challenge.difficulty %}selected{% endif %}>{{ diff }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label">分數 <span class="has-text-danger">*</span></label>
+                    <div class="control">
+                      <input class="input" type="number" name="points" value="{{ challenge.points }}" min="1" max="1000" required>
+                    </div>
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="field">
+                    <label class="label">作者</label>
+                    <div class="control">
+                      <input class="input" type="text" name="author" value="{{ challenge.author }}">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label">題目類型</label>
+                    <div class="control">
+                      <div class="select is-fullwidth">
+                        <select name="challenge_type">
+                          <option value="static_container" {% if challenge.challenge_type == 'static_container' %}selected{% endif %}>靜態容器</option>
+                          <option value="dynamic_container" {% if challenge.challenge_type == 'dynamic_container' %}selected{% endif %}>動態容器</option>
+                          <option value="static_attachment" {% if challenge.challenge_type == 'static_attachment' %}selected{% endif %}>靜態附件</option>
+                          <option value="dynamic_attachment" {% if challenge.challenge_type == 'dynamic_attachment' %}selected{% endif %}>動態附件</option>
+                          <option value="nc_challenge" {% if challenge.challenge_type == 'nc_challenge' %}selected{% endif %}>NC 題目</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="field">
+                    <label class="label">狀態</label>
+                    <div class="control">
+                      <div class="select is-fullwidth">
+                        <select name="status">
+                          <option value="planning" {% if challenge.status == 'planning' %}selected{% endif %}>規劃中</option>
+                          <option value="developing" {% if challenge.status == 'developing' %}selected{% endif %}>開發中</option>
+                          <option value="testing" {% if challenge.status == 'testing' %}selected{% endif %}>測試中</option>
+                          <option value="completed" {% if challenge.status == 'completed' %}selected{% endif %}>已完成</option>
+                          <option value="deployed" {% if challenge.status == 'deployed' %}selected{% endif %}>已部署</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="label">
+                  <input type="checkbox" name="source_code_provided" {% if challenge.source_code_provided %}checked{% endif %}>
+                  提供原始碼
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 提示系統 -->
+          <div class="card mb-5">
+            <div class="card-header">
+              <p class="card-header-title">
+                <span class="icon mr-2">
+                  <i class="fas fa-lightbulb"></i>
+                </span>
+                提示系統
+              </p>
+              <div class="card-header-icon">
+                <button type="button" class="button is-small is-primary" onclick="addHint()">
+                  <span class="icon">
+                    <i class="fas fa-plus"></i>
+                  </span>
+                  <span>新增提示</span>
+                </button>
+              </div>
+            </div>
+            <div class="card-content">
+              <div id="hintsContainer">
+                {% for hint in challenge.hints %}
+                <div class="box hint-item" data-level="{{ hint.level }}">
+                  <div class="field is-grouped">
+                    <div class="control">
+                      <label class="label">Level</label>
+                      <input class="input is-small" type="number" name="hint_level" value="{{ hint.level }}" min="1" style="width: 80px;">
+                    </div>
+                    <div class="control">
+                      <label class="label">花費分數</label>
+                      <input class="input is-small" type="number" name="hint_cost" value="{{ hint.cost }}" min="0" style="width: 100px;">
+                    </div>
+                    <div class="control ml-auto">
+                      <button type="button" class="button is-small is-danger" onclick="removeHint(this)">
+                        <span class="icon">
+                          <i class="fas fa-trash"></i>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label class="label">提示內容</label>
+                    <div class="control">
+                      <textarea class="textarea" name="hint_content" rows="3">{{ hint.content if hint.content else '' }}</textarea>
+                    </div>
+                  </div>
+                </div>
+                {% endfor %}
+                {% if not challenge.hints %}
+                <div class="box hint-item">
+                  <div class="field is-grouped">
+                    <div class="control">
+                      <label class="label">Level</label>
+                      <input class="input is-small" type="number" name="hint_level" value="1" min="1" style="width: 80px;">
+                    </div>
+                    <div class="control">
+                      <label class="label">花費分數</label>
+                      <input class="input is-small" type="number" name="hint_cost" value="0" min="0" style="width: 100px;">
+                    </div>
+                    <div class="control ml-auto">
+                      <button type="button" class="button is-small is-danger" onclick="removeHint(this)">
+                        <span class="icon">
+                          <i class="fas fa-trash"></i>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label class="label">提示內容</label>
+                    <div class="control">
+                      <textarea class="textarea" name="hint_content" rows="3" placeholder="輸入提示內容..."></textarea>
+                    </div>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Flag 設定 -->
+          <div class="card mb-5">
+            <div class="card-header">
+              <p class="card-header-title has-text-danger">
+                <span class="icon mr-2">
+                  <i class="fas fa-lock"></i>
+                </span>
+                Flag 設定 (敏感資訊)
+              </p>
+            </div>
+            <div class="card-content">
+              <div class="field">
+                <label class="label">Flag</label>
+                <div class="control">
+                  <input class="input is-family-monospace" type="text" name="flag" value="{{ challenge.flag if challenge.flag else '' }}" placeholder="is1abCTF{flag_content}">
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="label">Flag 說明</label>
+                <div class="control">
+                  <textarea class="textarea" name="flag_description" rows="3">{{ challenge.flag_description if challenge.flag_description else '' }}</textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 操作按鈕 -->
+          <div class="field is-grouped">
+            <div class="control">
+              <button type="submit" class="button is-primary" id="saveBtn">
+                <span class="icon">
+                  <i class="fas fa-save"></i>
+                </span>
+                <span>儲存變更</span>
+              </button>
+            </div>
+            <div class="control">
+              <a href="{{ url_for('challenge_detail', category=challenge.category, name=challenge.name) }}" class="button is-light">
+                <span class="icon">
+                  <i class="fas fa-times"></i>
+                </span>
+                <span>取消</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- 側邊欄 -->
+        <div class="column is-one-third">
+          <!-- 標籤 -->
+          <div class="card mb-5">
+            <div class="card-header">
+              <p class="card-header-title">
+                <span class="icon mr-2">
+                  <i class="fas fa-tags"></i>
+                </span>
+                標籤
+              </p>
+            </div>
+            <div class="card-content">
+              <div class="field">
+                <div class="control">
+                  <input class="input" type="text" name="tags" value="{{ challenge.tags | join(', ') if challenge.tags else '' }}" placeholder="用逗號分隔標籤">
+                </div>
+                <p class="help">使用逗號分隔多個標籤</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 學習目標 -->
+          <div class="card mb-5">
+            <div class="card-header">
+              <p class="card-header-title">
+                <span class="icon mr-2">
+                  <i class="fas fa-graduation-cap"></i>
+                </span>
+                學習目標
+              </p>
+            </div>
+            <div class="card-content">
+              <div class="field">
+                <div class="control">
+                  <textarea class="textarea" name="learning_objectives" rows="4" placeholder="每行一個學習目標">{{ challenge.learning_objectives | join('\n') if challenge.learning_objectives else '' }}</textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 所需技能 -->
+          <div class="card mb-5">
+            <div class="card-header">
+              <p class="card-header-title">
+                <span class="icon mr-2">
+                  <i class="fas fa-tools"></i>
+                </span>
+                所需技能
+              </p>
+            </div>
+            <div class="card-content">
+              <div class="field">
+                <div class="control">
+                  <textarea class="textarea" name="required_skills" rows="4" placeholder="每行一個所需技能">{{ challenge.required_skills | join('\n') if challenge.required_skills else '' }}</textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 內部筆記 -->
+          <div class="card">
+            <div class="card-header">
+              <p class="card-header-title has-text-warning">
+                <span class="icon mr-2">
+                  <i class="fas fa-sticky-note"></i>
+                </span>
+                內部筆記 (不公開)
+              </p>
+            </div>
+            <div class="card-content">
+              <div class="field">
+                <div class="control">
+                  <textarea class="textarea" name="internal_notes" rows="6" placeholder="開發筆記、注意事項等...">{{ challenge.internal_notes if challenge.internal_notes else '' }}</textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+// 提示管理功能
+function addHint() {
+  const container = document.getElementById('hintsContainer');
+  const hintsCount = container.querySelectorAll('.hint-item').length;
+  const newLevel = hintsCount + 1;
+  
+  const hintHTML = `
+    <div class="box hint-item">
+      <div class="field is-grouped">
+        <div class="control">
+          <label class="label">Level</label>
+          <input class="input is-small" type="number" name="hint_level" value="${newLevel}" min="1" style="width: 80px;">
+        </div>
+        <div class="control">
+          <label class="label">花費分數</label>
+          <input class="input is-small" type="number" name="hint_cost" value="0" min="0" style="width: 100px;">
+        </div>
+        <div class="control ml-auto">
+          <button type="button" class="button is-small is-danger" onclick="removeHint(this)">
+            <span class="icon">
+              <i class="fas fa-trash"></i>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">提示內容</label>
+        <div class="control">
+          <textarea class="textarea" name="hint_content" rows="3" placeholder="輸入提示內容..."></textarea>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  container.insertAdjacentHTML('beforeend', hintHTML);
+}
+
+function removeHint(button) {
+  const hintItem = button.closest('.hint-item');
+  hintItem.remove();
+}
+
+// 表單提交
+document.getElementById('editChallengeForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const form = e.target;
+  const category = form.dataset.category;
+  const name = form.dataset.name;
+  const saveBtn = document.getElementById('saveBtn');
+  const originalText = saveBtn.innerHTML;
+  
+  // 顯示載入狀態
+  saveBtn.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-pulse"></i></span><span>儲存中...</span>';
+  saveBtn.disabled = true;
+  
+  // 收集表單資料
+  const formData = new FormData(form);
+  const challengeData = {};
+  
+  // 基本欄位
+  for (let [key, value] of formData.entries()) {
+    if (key.startsWith('hint_')) continue; // 提示單獨處理
+    
+    if (key === 'tags') {
+      challengeData[key] = value.split(',').map(tag => tag.trim()).filter(tag => tag);
+    } else if (key === 'learning_objectives' || key === 'required_skills') {
+      challengeData[key] = value.split('\\n').map(item => item.trim()).filter(item => item);
+    } else if (key === 'source_code_provided') {
+      challengeData[key] = true; // checkbox
+    } else {
+      challengeData[key] = value;
+    }
+  }
+  
+  // 處理 checkbox（未勾選時不會出現在 FormData 中）
+  if (!challengeData.source_code_provided) {
+    challengeData.source_code_provided = false;
+  }
+  
+  // 處理提示
+  const hints = [];
+  const hintItems = form.querySelectorAll('.hint-item');
+  hintItems.forEach(item => {
+    const level = parseInt(item.querySelector('[name="hint_level"]').value);
+    const cost = parseInt(item.querySelector('[name="hint_cost"]').value);
+    const content = item.querySelector('[name="hint_content"]').value.trim();
+    
+    if (level && content) {
+      hints.push({ level, cost: cost || 0, content });
+    }
+  });
+  challengeData.hints = hints;
+  
+  // 發送 API 請求
+  fetch(`/api/challenges/${category}/${name}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(challengeData),
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.status === 'success') {
+      alert('題目更新成功！');
+      window.location.href = `/challenges/${category}/${name}`;
+    } else {
+      alert('更新失敗：' + data.message);
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('更新時發生錯誤');
+  })
+  .finally(() => {
+    // 恢復按鈕狀態
+    saveBtn.innerHTML = originalText;
+    saveBtn.disabled = false;
+  });
+});
+</script>
+{% endblock %}

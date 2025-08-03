@@ -1,0 +1,32 @@
+title: 凱撒密碼解密
+author: IS1AB Crypto Team
+difficulty: baby
+category: crypto
+description: 古典密碼學中的凱撒密碼，將字母按照固定偏移量進行替換
+challenge_type: static_attachment
+source_code_provided: false
+files: []
+status: developing
+points: 50
+tags:
+- crypto
+- baby
+created_at: '2025-08-04T05:29:17.283342'
+deploy_info:
+  port: 8080
+  url: ''
+  requires_build: true
+  resources:
+    memory: 256Mi
+    cpu: 100m
+hints:
+- level: 1
+  cost: 0
+- level: 2
+  cost: 5
+- level: 3
+  cost: 10
+learning_objectives:
+- 學習相關技術概念
+required_skills:
+- 基礎技能要求

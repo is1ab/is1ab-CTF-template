@@ -1,0 +1,345 @@
+{% extends "base.html" %} {% set title = challenge.title %} {% block content %}
+<!-- 頁面標題 -->
+<section class="hero is-info is-small">
+  <div class="hero-body">
+    <div class="container">
+      <div class="level">
+        <div class="level-left">
+          <div class="level-item">
+            <div>
+              <h1 class="title">
+                <i class="fas fa-flag mr-3"></i>
+                {{ challenge.title }}
+              </h1>
+              <p class="subtitle">
+                {{ challenge.category | title }} • {{ challenge.difficulty |
+                title }} • {{ challenge.points }} 分
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="level-right">
+          <div class="level-item">
+            <div class="buttons">
+              <a
+                href="{{ url_for('edit_challenge_form', category=challenge.category, name=challenge.name) }}"
+                class="button is-warning"
+              >
+                <span class="icon">
+                  <i class="fas fa-edit"></i>
+                </span>
+                <span>編輯題目</span>
+              </a>
+              <a
+                href="{{ url_for('challenges_list') }}"
+                class="button is-light"
+              >
+                <span class="icon">
+                  <i class="fas fa-arrow-left"></i>
+                </span>
+                <span>返回列表</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 題目詳細資訊 -->
+<section class="section">
+  <div class="container">
+    <div class="columns">
+      <!-- 主要內容 -->
+      <div class="column is-two-thirds">
+        <!-- 基本資訊 -->
+        <div class="card mb-5">
+          <div class="card-header">
+            <p class="card-header-title">
+              <span class="icon mr-2">
+                <i class="fas fa-info-circle"></i>
+              </span>
+              基本資訊
+            </p>
+          </div>
+          <div class="card-content">
+            <div class="content">
+              <div class="columns is-multiline">
+                <div class="column is-half">
+                  <strong>題目名稱:</strong> {{ challenge.title }}
+                </div>
+                <div class="column is-half">
+                  <strong>作者:</strong> {{ challenge.author }}
+                </div>
+                <div class="column is-half">
+                  <strong>分類:</strong>
+                  <span class="tag is-info">{{ challenge.category }}</span>
+                </div>
+                <div class="column is-half">
+                  <strong>難度:</strong>
+                  <span
+                    class="tag {% if challenge.difficulty == 'baby' %}is-success {% elif challenge.difficulty == 'easy' %}is-primary {% elif challenge.difficulty == 'middle' %}is-warning {% elif challenge.difficulty == 'hard' %}is-danger {% else %}is-dark{% endif %}"
+                  >
+                    {{ challenge.difficulty }}
+                  </span>
+                </div>
+                <div class="column is-half">
+                  <strong>分數:</strong> {{ challenge.points }}
+                </div>
+                <div class="column is-half">
+                  <strong>狀態:</strong>
+                  <span
+                    class="tag {% if challenge.status == 'completed' %}is-success {% elif challenge.status == 'developing' %}is-warning {% elif challenge.status == 'testing' %}is-info {% else %}is-light{% endif %}"
+                  >
+                    {{ challenge.status }}
+                  </span>
+                </div>
+                <div class="column is-half">
+                  <strong>題目類型:</strong> {{ challenge.challenge_type }}
+                </div>
+                <div class="column is-half">
+                  <strong>提供原始碼:</strong>
+                  {% if challenge.source_code_provided %}
+                  <span class="tag is-success">是</span>
+                  {% else %}
+                  <span class="tag is-light">否</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 題目描述 -->
+        <div class="card mb-5">
+          <div class="card-header">
+            <p class="card-header-title">
+              <span class="icon mr-2">
+                <i class="fas fa-file-text"></i>
+              </span>
+              題目描述
+            </p>
+          </div>
+          <div class="card-content">
+            <div class="content">
+              {{ challenge.description | replace('\n', '<br />') | safe }}
+            </div>
+          </div>
+        </div>
+
+        <!-- 提示系統 -->
+        {% if challenge.hints %}
+        <div class="card mb-5">
+          <div class="card-header">
+            <p class="card-header-title">
+              <span class="icon mr-2">
+                <i class="fas fa-lightbulb"></i>
+              </span>
+              提示系統
+            </p>
+          </div>
+          <div class="card-content">
+            {% for hint in challenge.hints %}
+            <div class="box mb-3">
+              <div class="level">
+                <div class="level-left">
+                  <div class="level-item">
+                    <span class="tag is-primary mr-2"
+                      >Level {{ hint.level }}</span
+                    >
+                    {% if hint.cost > 0 %}
+                    <span class="tag is-warning">花費 {{ hint.cost }} 分</span>
+                    {% else %}
+                    <span class="tag is-success">免費</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              {% if hint.content %}
+              <div class="content">
+                {{ hint.content | replace('\n', '<br />') | safe }}
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Flag 資訊 (僅在有敏感資訊時顯示) -->
+        {% if challenge.flag %}
+        <div class="card mb-5">
+          <div class="card-header">
+            <p class="card-header-title has-text-danger">
+              <span class="icon mr-2">
+                <i class="fas fa-lock"></i>
+              </span>
+              Flag 資訊 (敏感資訊)
+            </p>
+          </div>
+          <div class="card-content">
+            <div class="content">
+              <div class="field">
+                <label class="label">Flag:</label>
+                <div class="control">
+                  <input
+                    class="input is-family-monospace"
+                    type="text"
+                    value="{{ challenge.flag }}"
+                    readonly
+                  />
+                </div>
+              </div>
+              {% if challenge.flag_description %}
+              <div class="field">
+                <label class="label">Flag 說明:</label>
+                <div class="content">
+                  {{ challenge.flag_description | replace('\n', '<br />') | safe
+                  }}
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- 側邊欄 -->
+      <div class="column is-one-third">
+        <!-- 標籤 -->
+        {% if challenge.tags %}
+        <div class="card mb-5">
+          <div class="card-header">
+            <p class="card-header-title">
+              <span class="icon mr-2">
+                <i class="fas fa-tags"></i>
+              </span>
+              標籤
+            </p>
+          </div>
+          <div class="card-content">
+            <div class="tags">
+              {% for tag in challenge.tags %}
+              <span class="tag is-light">{{ tag }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- 部署資訊 -->
+        {% if challenge.deploy_info %}
+        <div class="card mb-5">
+          <div class="card-header">
+            <p class="card-header-title">
+              <span class="icon mr-2">
+                <i class="fas fa-server"></i>
+              </span>
+              部署資訊
+            </p>
+          </div>
+          <div class="card-content">
+            <div class="content is-small">
+              {% if challenge.deploy_info.port %}
+              <p><strong>端口:</strong> {{ challenge.deploy_info.port }}</p>
+              {% endif %} {% if challenge.deploy_info.url %}
+              <p>
+                <strong>URL:</strong>
+                <a href="{{ challenge.deploy_info.url }}" target="_blank"
+                  >{{ challenge.deploy_info.url }}</a
+                >
+              </p>
+              {% endif %}
+              <p>
+                <strong>需要構建:</strong>
+                {% if challenge.deploy_info.requires_build %}是{% else %}否{%
+                endif %}
+              </p>
+              {% if challenge.deploy_info.resources %}
+              <p><strong>資源限制:</strong></p>
+              <ul>
+                {% if challenge.deploy_info.resources.memory %}
+                <li>記憶體: {{ challenge.deploy_info.resources.memory }}</li>
+                {% endif %} {% if challenge.deploy_info.resources.cpu %}
+                <li>CPU: {{ challenge.deploy_info.resources.cpu }}</li>
+                {% endif %}
+              </ul>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- 學習目標 -->
+        {% if challenge.learning_objectives %}
+        <div class="card mb-5">
+          <div class="card-header">
+            <p class="card-header-title">
+              <span class="icon mr-2">
+                <i class="fas fa-graduation-cap"></i>
+              </span>
+              學習目標
+            </p>
+          </div>
+          <div class="card-content">
+            <div class="content">
+              <ul>
+                {% for objective in challenge.learning_objectives %}
+                <li>{{ objective }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- 所需技能 -->
+        {% if challenge.required_skills %}
+        <div class="card mb-5">
+          <div class="card-header">
+            <p class="card-header-title">
+              <span class="icon mr-2">
+                <i class="fas fa-tools"></i>
+              </span>
+              所需技能
+            </p>
+          </div>
+          <div class="card-content">
+            <div class="content">
+              <ul>
+                {% for skill in challenge.required_skills %}
+                <li>{{ skill }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- 時間資訊 -->
+        <div class="card">
+          <div class="card-header">
+            <p class="card-header-title">
+              <span class="icon mr-2">
+                <i class="fas fa-clock"></i>
+              </span>
+              時間資訊
+            </p>
+          </div>
+          <div class="card-content">
+            <div class="content is-small">
+              {% if challenge.created_at %}
+              <p><strong>創建時間:</strong><br />{{ challenge.created_at }}</p>
+              {% endif %} {% if challenge.updated_at %}
+              <p><strong>更新時間:</strong><br />{{ challenge.updated_at }}</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

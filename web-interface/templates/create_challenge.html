@@ -198,17 +198,83 @@
                 <p class="help">Flag 格式應為 flag{content}，留空將自動生成</p>
               </div>
 
-              <!-- 提示 -->
+              <!-- 提示系統 -->
               <div class="field">
-                <label class="label">提示</label>
-                <div class="control">
-                  <textarea
-                    class="textarea"
-                    id="challengeHints"
-                    name="hints"
-                    placeholder="輸入提示內容（可選）"
-                    rows="2"
-                  ></textarea>
+                <label class="label">提示系統</label>
+                <div class="card">
+                  <div class="card-header">
+                    <p class="card-header-title">
+                      <span class="icon mr-2">
+                        <i class="fas fa-lightbulb"></i>
+                      </span>
+                      提示
+                    </p>
+                    <div class="card-header-icon">
+                      <button
+                        type="button"
+                        class="button is-small is-primary"
+                        onclick="addHintToCreate()"
+                      >
+                        <span class="icon">
+                          <i class="fas fa-plus"></i>
+                        </span>
+                        <span>新增提示</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="card-content">
+                    <div id="createHintsContainer">
+                      <!-- 預設一個提示 -->
+                      <div class="box hint-item">
+                        <div class="field is-grouped">
+                          <div class="control">
+                            <label class="label">Level</label>
+                            <input
+                              class="input is-small"
+                              type="number"
+                              name="hint_level"
+                              value="1"
+                              min="1"
+                              style="width: 80px"
+                            />
+                          </div>
+                          <div class="control">
+                            <label class="label">花費分數</label>
+                            <input
+                              class="input is-small"
+                              type="number"
+                              name="hint_cost"
+                              value="0"
+                              min="0"
+                              style="width: 100px"
+                            />
+                          </div>
+                          <div class="control ml-auto">
+                            <button
+                              type="button"
+                              class="button is-small is-danger"
+                              onclick="removeHintFromCreate(this)"
+                            >
+                              <span class="icon">
+                                <i class="fas fa-trash"></i>
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                        <div class="field">
+                          <label class="label">提示內容</label>
+                          <div class="control">
+                            <textarea
+                              class="textarea"
+                              name="hint_content"
+                              rows="2"
+                              placeholder="輸入提示內容..."
+                            ></textarea>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -248,6 +314,55 @@
 </section>
 
 <script>
+  // 提示管理功能 - 創建表單專用
+  function addHintToCreate() {
+    const container = document.getElementById("createHintsContainer");
+    const hintsCount = container.querySelectorAll(".hint-item").length;
+    const newLevel = hintsCount + 1;
+
+    const hintHTML = `
+    <div class="box hint-item">
+      <div class="field is-grouped">
+        <div class="control">
+          <label class="label">Level</label>
+          <input class="input is-small" type="number" name="hint_level" value="${newLevel}" min="1" style="width: 80px;">
+        </div>
+        <div class="control">
+          <label class="label">花費分數</label>
+          <input class="input is-small" type="number" name="hint_cost" value="0" min="0" style="width: 100px;">
+        </div>
+        <div class="control ml-auto">
+          <button type="button" class="button is-small is-danger" onclick="removeHintFromCreate(this)">
+            <span class="icon">
+              <i class="fas fa-trash"></i>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">提示內容</label>
+        <div class="control">
+          <textarea class="textarea" name="hint_content" rows="2" placeholder="輸入提示內容..."></textarea>
+        </div>
+      </div>
+    </div>
+  `;
+
+    container.insertAdjacentHTML("beforeend", hintHTML);
+  }
+
+  function removeHintFromCreate(button) {
+    const hintItem = button.closest(".hint-item");
+    const container = document.getElementById("createHintsContainer");
+
+    // 至少保留一個提示
+    if (container.querySelectorAll(".hint-item").length > 1) {
+      hintItem.remove();
+    } else {
+      alert("至少需要保留一個提示");
+    }
+  }
+
   // 表單提交
   document
     .getElementById("challengeForm")
@@ -266,9 +381,27 @@
       const formData = new FormData(this);
       const challengeData = {};
 
+      // 基本欄位
       for (let [key, value] of formData.entries()) {
+        if (key.startsWith("hint_")) continue; // 提示單獨處理
         challengeData[key] = value;
       }
+
+      // 處理提示
+      const hints = [];
+      const hintItems = this.querySelectorAll(".hint-item");
+      hintItems.forEach((item) => {
+        const level = parseInt(item.querySelector('[name="hint_level"]').value);
+        const cost = parseInt(item.querySelector('[name="hint_cost"]').value);
+        const content = item
+          .querySelector('[name="hint_content"]')
+          .value.trim();
+
+        if (level && content) {
+          hints.push({ level, cost: cost || 0, content });
+        }
+      });
+      challengeData.hints = hints;
 
       // 發送 API 請求
       fetch("/api/challenges", {

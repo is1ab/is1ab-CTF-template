@@ -272,44 +272,67 @@ class CTFManager:
 
             # 創建 private.yml 配置
             private_config = {
-                "title": name,
+                "title": challenge_data.get("title", name),
                 "author": author,
                 "difficulty": difficulty,
                 "category": category,
                 "description": description,
                 "challenge_type": challenge_type,
-                "source_code_provided": False,
-                "files": [],
-                "status": "developing",
-                "points": self.config.get("points", {}).get(difficulty, 100),
-                "tags": [category, difficulty],
+                "source_code_provided": challenge_data.get(
+                    "source_code_provided", False
+                ),
+                "files": challenge_data.get("files", []),
+                "status": challenge_data.get("status", "developing"),
+                "points": challenge_data.get(
+                    "points", self.config.get("points", {}).get(difficulty, 100)
+                ),
+                "tags": challenge_data.get("tags", [category, difficulty]),
                 "created_at": datetime.now().isoformat(),
                 "deploy_info": {
-                    "port": 8080,
-                    "url": "",
-                    "requires_build": True,
-                    "resources": {"memory": "256Mi", "cpu": "100m"},
+                    "port": challenge_data.get("deploy_info", {}).get("port", 8080),
+                    "url": challenge_data.get("deploy_info", {}).get("url", ""),
+                    "requires_build": challenge_data.get("deploy_info", {}).get(
+                        "requires_build", True
+                    ),
+                    "resources": challenge_data.get("deploy_info", {}).get(
+                        "resources", {"memory": "256Mi", "cpu": "100m"}
+                    ),
                 },
-                "hints": [
-                    {"level": 1, "cost": 0, "content": "第一個提示，通常是免費的。"}
-                ],
-                "flag": f"is1abCTF{{{name}_example_flag}}",
-                "flag_description": "Flag 位置的描述",
-                "solution_steps": [
-                    "第一步：分析題目",
-                    "第二步：找出漏洞",
-                    "第三步：利用漏洞獲取 flag",
-                ],
-                "internal_notes": f"開發筆記：{name} 題目",
-                "learning_objectives": ["學習相關技術概念"],
-                "required_skills": ["基礎技能要求"],
-                "testing": {
-                    "test_cases": [],
-                    "verified_solutions": [],
-                    "last_tested": "",
-                    "tested_by": "",
-                    "test_result": "pending",
-                },
+                "hints": challenge_data.get(
+                    "hints",
+                    [{"level": 1, "cost": 0, "content": "第一個提示，通常是免費的。"}],
+                ),
+                "flag": challenge_data.get("flag", f"is1abCTF{{{name}_example_flag}}"),
+                "flag_description": challenge_data.get(
+                    "flag_description", "Flag 位置的描述"
+                ),
+                "solution_steps": challenge_data.get(
+                    "solution_steps",
+                    [
+                        "第一步：分析題目",
+                        "第二步：找出漏洞",
+                        "第三步：利用漏洞獲取 flag",
+                    ],
+                ),
+                "internal_notes": challenge_data.get(
+                    "internal_notes", f"開發筆記：{name} 題目"
+                ),
+                "learning_objectives": challenge_data.get(
+                    "learning_objectives", ["學習相關技術概念"]
+                ),
+                "required_skills": challenge_data.get(
+                    "required_skills", ["基礎技能要求"]
+                ),
+                "testing": challenge_data.get(
+                    "testing",
+                    {
+                        "test_cases": [],
+                        "verified_solutions": [],
+                        "last_tested": "",
+                        "tested_by": "",
+                        "test_result": "pending",
+                    },
+                ),
             }
 
             # 保存 private.yml
@@ -476,6 +499,106 @@ tail -f /dev/null
         except Exception as create_error:
             return {"status": "error", "message": f"創建題目失敗: {str(create_error)}"}
 
+    def update_challenge(
+        self, category: str, name: str, challenge_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """更新現有題目"""
+        try:
+            challenge_path = CHALLENGES_DIR / category / name
+            if not challenge_path.exists():
+                return {"status": "error", "message": "題目不存在"}
+
+            private_yml_path = challenge_path / "private.yml"
+            if not private_yml_path.exists():
+                return {"status": "error", "message": "題目配置檔案不存在"}
+
+            # 讀取現有配置
+            with open(private_yml_path, "r", encoding="utf-8") as file:
+                existing_config = yaml.safe_load(file)
+
+            # 更新配置
+            updated_config = existing_config.copy()
+
+            # 更新基本欄位
+            updatable_fields = [
+                "title",
+                "author",
+                "difficulty",
+                "description",
+                "challenge_type",
+                "source_code_provided",
+                "files",
+                "status",
+                "points",
+                "tags",
+                "flag",
+                "flag_description",
+                "solution_steps",
+                "internal_notes",
+                "learning_objectives",
+                "required_skills",
+            ]
+
+            for field in updatable_fields:
+                if field in challenge_data:
+                    updated_config[field] = challenge_data[field]
+
+            # 處理提示
+            if "hints" in challenge_data:
+                updated_config["hints"] = challenge_data["hints"]
+
+            # 處理部署資訊
+            if "deploy_info" in challenge_data:
+                if "deploy_info" not in updated_config:
+                    updated_config["deploy_info"] = {}
+                updated_config["deploy_info"].update(challenge_data["deploy_info"])
+
+            # 更新時間戳
+            updated_config["updated_at"] = datetime.now().isoformat()
+
+            # 保存 private.yml
+            with open(private_yml_path, "w", encoding="utf-8") as file:
+                yaml.dump(
+                    updated_config,
+                    file,
+                    default_flow_style=False,
+                    allow_unicode=True,
+                    sort_keys=False,
+                )
+
+            # 更新 public.yml
+            public_config = {
+                k: v
+                for k, v in updated_config.items()
+                if not k.startswith(("flag", "solution_", "internal_", "testing"))
+            }
+
+            # 移除敏感的 hints 內容
+            if "hints" in public_config:
+                public_config["hints"] = [
+                    {"level": hint["level"], "cost": hint["cost"]}
+                    for hint in public_config["hints"]
+                ]
+
+            public_yml_path = challenge_path / "public.yml"
+            with open(public_yml_path, "w", encoding="utf-8") as file:
+                yaml.dump(
+                    public_config,
+                    file,
+                    default_flow_style=False,
+                    allow_unicode=True,
+                    sort_keys=False,
+                )
+
+            return {
+                "status": "success",
+                "message": f"題目 {category}/{name} 更新成功",
+                "data": updated_config,
+            }
+
+        except Exception as update_error:
+            return {"status": "error", "message": f"更新題目失敗: {str(update_error)}"}
+
     def validate_challenge(self, challenge_path: str) -> Dict[str, Any]:
         """驗證挑戰"""
         try:
@@ -520,6 +643,75 @@ def challenges_list():
 def create_challenge_form():
     """創建挑戰表單頁面"""
     return render_template("create_challenge.html", config=ctf_manager.config)
+
+
+@app.route("/challenges/<category>/<name>")
+def challenge_detail(category: str, name: str):
+    """挑戰詳細資訊頁面"""
+    try:
+        challenge_path = CHALLENGES_DIR / category / name
+        if not challenge_path.exists():
+            return render_template(
+                "error.html", error_code=404, error_message="題目不存在"
+            ), 404
+
+        # 讀取配置檔案
+        private_yml_path = challenge_path / "private.yml"
+        public_yml_path = challenge_path / "public.yml"
+
+        challenge_data = {}
+        if private_yml_path.exists():
+            with open(private_yml_path, "r", encoding="utf-8") as f:
+                challenge_data = yaml.safe_load(f)
+        elif public_yml_path.exists():
+            with open(public_yml_path, "r", encoding="utf-8") as f:
+                challenge_data = yaml.safe_load(f)
+        else:
+            return render_template(
+                "error.html", error_code=404, error_message="題目配置檔案不存在"
+            ), 404
+
+        challenge_data["path"] = str(challenge_path)
+        return render_template(
+            "challenge_detail.html", config=ctf_manager.config, challenge=challenge_data
+        )
+
+    except Exception as e:
+        return render_template(
+            "error.html", error_code=500, error_message=f"讀取題目失敗: {str(e)}"
+        ), 500
+
+
+@app.route("/challenges/<category>/<name>/edit")
+def edit_challenge_form(category: str, name: str):
+    """編輯挑戰表單頁面"""
+    try:
+        challenge_path = CHALLENGES_DIR / category / name
+        if not challenge_path.exists():
+            return render_template(
+                "error.html", error_code=404, error_message="題目不存在"
+            ), 404
+
+        # 讀取配置檔案
+        private_yml_path = challenge_path / "private.yml"
+
+        if not private_yml_path.exists():
+            return render_template(
+                "error.html", error_code=404, error_message="題目配置檔案不存在"
+            ), 404
+
+        with open(private_yml_path, "r", encoding="utf-8") as f:
+            challenge_data = yaml.safe_load(f)
+
+        challenge_data["path"] = str(challenge_path)
+        return render_template(
+            "edit_challenge.html", config=ctf_manager.config, challenge=challenge_data
+        )
+
+    except Exception as e:
+        return render_template(
+            "error.html", error_code=500, error_message=f"讀取題目失敗: {str(e)}"
+        ), 500
 
 
 @app.route("/settings")
@@ -568,6 +760,54 @@ def api_create_challenge():
 
     except Exception as create_error:
         return jsonify({"status": "error", "message": str(create_error)}), 500
+
+
+@app.route("/api/challenges/<category>/<name>", methods=["GET"])
+def api_get_challenge(category: str, name: str):
+    """獲取單個題目詳細資訊 API"""
+    try:
+        challenge_path = CHALLENGES_DIR / category / name
+        if not challenge_path.exists():
+            return jsonify({"status": "error", "message": "題目不存在"}), 404
+
+        # 讀取配置檔案
+        private_yml_path = challenge_path / "private.yml"
+        public_yml_path = challenge_path / "public.yml"
+
+        challenge_data = {}
+        if private_yml_path.exists():
+            with open(private_yml_path, "r", encoding="utf-8") as f:
+                challenge_data = yaml.safe_load(f)
+        elif public_yml_path.exists():
+            with open(public_yml_path, "r", encoding="utf-8") as f:
+                challenge_data = yaml.safe_load(f)
+        else:
+            return jsonify({"status": "error", "message": "題目配置檔案不存在"}), 404
+
+        challenge_data["path"] = str(challenge_path)
+        return jsonify({"status": "success", "data": challenge_data})
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"讀取題目失敗: {str(e)}"}), 500
+
+
+@app.route("/api/challenges/<category>/<name>", methods=["PUT"])
+def api_update_challenge(category: str, name: str):
+    """更新挑戰 API"""
+    try:
+        challenge_data = request.get_json()
+        if not challenge_data:
+            raise BadRequest("無效的請求資料")
+
+        result = ctf_manager.update_challenge(category, name, challenge_data)
+
+        if result["status"] == "success":
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+
+    except Exception as update_error:
+        return jsonify({"status": "error", "message": str(update_error)}), 500
 
 
 @app.route("/api/challenges/<path:challenge_path>/validate", methods=["POST"])
