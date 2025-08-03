@@ -37,34 +37,80 @@ class ChallengeCreator:
             }
         }
     
+    def validate_inputs(self, category, name, difficulty):
+        """驗證輸入參數"""
+        # 驗證分類
+        valid_categories = ['web', 'pwn', 'reverse', 'crypto', 'forensics', 'misc', 'osint']
+        if category not in valid_categories:
+            print(f"❌ Invalid category: {category}")
+            print(f"💡 Valid categories: {', '.join(valid_categories)}")
+            return False
+        
+        # 驗證題目名稱
+        if not name or not name.replace('_', '').replace('-', '').isalnum():
+            print(f"❌ Invalid challenge name: {name}")
+            print("💡 Name should only contain letters, numbers, underscores, and hyphens")
+            return False
+        
+        # 驗證難度
+        valid_difficulties = ['baby', 'easy', 'middle', 'hard', 'impossible']
+        if difficulty not in valid_difficulties:
+            print(f"❌ Invalid difficulty: {difficulty}")
+            print(f"💡 Valid difficulties: {', '.join(valid_difficulties)}")
+            return False
+        
+        return True
+    
     def create_challenge(self, category, name, difficulty, author='GZTime', challenge_type=None):
         """創建新題目"""
-        print(f"🚀 Creating challenge: {category}/{name}")
-        
-        # 決定題目類型
-        if not challenge_type:
-            challenge_type = self.detect_challenge_type(category)
-        
-        # 建立目錄結構
-        challenge_path = Path(f"challenges/{category}/{name}")
-        self.create_directory_structure(challenge_path, challenge_type)
-        
-        # 建立配置檔案 (創建 private.yml，後續由它生成 public.yml)
-        private_config = self.create_private_config(name, category, difficulty, author, challenge_type)
-        self.save_private_config(challenge_path, private_config)
-        
-        # 生成 public.yml (從 private.yml 移除敏感資訊)
-        public_config = self.generate_public_from_private(private_config)
-        self.save_public_config(challenge_path, public_config)
-        
-        # 建立模板檔案
-        self.create_template_files(challenge_path, private_config, challenge_type)
-        
-        # Git 操作
-        self.create_git_branch(category, name)
-        
-        print(f"✅ Challenge created at: {challenge_path}")
-        self.print_next_steps(challenge_path, challenge_type)
+        try:
+            # 輸入驗證
+            if not self.validate_inputs(category, name, difficulty):
+                return False
+                
+            print(f"🚀 Creating challenge: {category}/{name}")
+            
+            # 決定題目類型
+            if not challenge_type:
+                challenge_type = self.detect_challenge_type(category)
+            
+            # 建立目錄結構
+            challenge_path = Path(f"challenges/{category}/{name}")
+            if challenge_path.exists():
+                print(f"❌ Error: Challenge {category}/{name} already exists")
+                return False
+                
+            self.create_directory_structure(challenge_path, challenge_type)
+            
+            # 建立配置檔案 (創建 private.yml，後續由它生成 public.yml)
+            private_config = self.create_private_config(name, category, difficulty, author, challenge_type)
+            self.save_private_config(challenge_path, private_config)
+            
+            # 生成 public.yml (從 private.yml 移除敏感資訊)
+            public_config = self.generate_public_from_private(private_config)
+            self.save_public_config(challenge_path, public_config)
+            
+            # 建立模板檔案
+            self.create_template_files(challenge_path, private_config, challenge_type)
+            
+            # Git 操作
+            self.create_git_branch(category, name)
+            
+            print(f"✅ Challenge created at: {challenge_path}")
+            self.print_next_steps(challenge_path, challenge_type)
+            return True
+            
+        except PermissionError as e:
+            print(f"❌ Permission error: {e}")
+            print("💡 Please check file permissions or run with appropriate privileges")
+            return False
+        except OSError as e:
+            print(f"❌ File system error: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Unexpected error creating challenge: {e}")
+            print("💡 Please check your input and try again")
+            return False
         
     def detect_challenge_type(self, category):
         """根據分類決定題目類型"""
@@ -77,24 +123,39 @@ class ChallengeCreator:
     
     def create_directory_structure(self, base_path, challenge_type):
         """建立標準目錄結構"""
-        base_dirs = [
-            'src',
-            'writeup',
-            'files',
-            'writeup/screenshots'
-        ]
-        
-        # 根據題目類型決定額外目錄
-        if challenge_type == 'nc_challenge':
-            base_dirs.extend([
-                'bin',
-                'docker'
-            ])
-        else:
-            base_dirs.append('docker')
-        
-        for dir_name in base_dirs:
-            (base_path / dir_name).mkdir(parents=True, exist_ok=True)
+        try:
+            base_dirs = [
+                'src',
+                'writeup',
+                'files',
+                'writeup/screenshots'
+            ]
+            
+            # 根據題目類型決定額外目錄
+            if challenge_type == 'nc_challenge':
+                base_dirs.extend([
+                    'bin',
+                    'docker'
+                ])
+            else:
+                base_dirs.append('docker')
+            
+            # 建立主目錄
+            base_path.mkdir(parents=True, exist_ok=True)
+            print(f"📁 Created directory: {base_path}")
+            
+            # 建立子目錄
+            for dir_name in base_dirs:
+                dir_path = base_path / dir_name
+                dir_path.mkdir(parents=True, exist_ok=True)
+                print(f"📁 Created subdirectory: {dir_path}")
+                
+        except PermissionError as e:
+            print(f"❌ Permission denied creating directories: {e}")
+            raise
+        except OSError as e:
+            print(f"❌ Error creating directory structure: {e}")
+            raise
             
     def create_private_config(self, name, category, difficulty, author, challenge_type):
         """建立 private.yml 配置（包含敏感資訊如 flag）"""
@@ -158,9 +219,17 @@ class ChallengeCreator:
     
     def save_private_config(self, challenge_path, config):
         """儲存 private.yml"""
-        config_file = challenge_path / 'private.yml'
-        with open(config_file, 'w', encoding='utf-8') as f:
-            yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        try:
+            config_file = challenge_path / 'private.yml'
+            with open(config_file, 'w', encoding='utf-8') as f:
+                yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            print(f"📝 Created: {config_file}")
+        except IOError as e:
+            print(f"❌ Failed to save private.yml: {e}")
+            raise
+        except yaml.YAMLError as e:
+            print(f"❌ YAML formatting error: {e}")
+            raise
     
     def generate_public_from_private(self, private_config):
         """從 private.yml 生成 public.yml (移除敏感資訊)"""
@@ -175,9 +244,17 @@ class ChallengeCreator:
         
     def save_public_config(self, challenge_path, config):
         """儲存 public.yml"""
-        config_file = challenge_path / 'public.yml'
-        with open(config_file, 'w', encoding='utf-8') as f:
-            yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+        try:
+            config_file = challenge_path / 'public.yml'
+            with open(config_file, 'w', encoding='utf-8') as f:
+                yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+            print(f"📝 Created: {config_file}")
+        except IOError as e:
+            print(f"❌ Failed to save public.yml: {e}")
+            raise
+        except yaml.YAMLError as e:
+            print(f"❌ YAML formatting error: {e}")
+            raise
             
     def create_template_files(self, challenge_path, config, challenge_type):
         """建立模板檔案"""
@@ -655,23 +732,43 @@ TODO: 描述最終獲取 flag 的過程
         print(f"   9. Create PR when ready")
 
 def main():
-    parser = argparse.ArgumentParser(description='Create new CTF challenge')
-    parser.add_argument('category', 
-                       choices=['web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc', 'general'],
-                       help='Challenge category')
-    parser.add_argument('name', help='Challenge name (use underscore for spaces)')
-    parser.add_argument('difficulty', 
-                       choices=['baby', 'easy', 'middle', 'hard', 'impossible'],
-                       help='Challenge difficulty')
-    parser.add_argument('--author', default='GZTime', help='Challenge author')
-    parser.add_argument('--type', choices=['static_attachment', 'static_container', 'dynamic_attachment', 'dynamic_container', 'nc_challenge'],
-                       help='Challenge type (auto-detect if not specified)')
-    parser.add_argument('--config', default='config.yml', help='Config file path')
-    
-    args = parser.parse_args()
-    
-    creator = ChallengeCreator(args.config)
-    creator.create_challenge(args.category, args.name, args.difficulty, args.author, args.type)
+    try:
+        parser = argparse.ArgumentParser(description='Create new CTF challenge')
+        parser.add_argument('category', 
+                           choices=['web', 'pwn', 'reverse', 'crypto', 'forensics', 'misc', 'osint'],
+                           help='Challenge category')
+        parser.add_argument('name', help='Challenge name (use underscore for spaces)')
+        parser.add_argument('difficulty', 
+                           choices=['baby', 'easy', 'middle', 'hard', 'impossible'],
+                           help='Challenge difficulty')
+        parser.add_argument('--author', default='GZTime', help='Challenge author')
+        parser.add_argument('--type', choices=['static_attachment', 'static_container', 'dynamic_attachment', 'dynamic_container', 'nc_challenge'],
+                           help='Challenge type (auto-detect if not specified)')
+        parser.add_argument('--config', default='config.yml', help='Config file path')
+        
+        args = parser.parse_args()
+        
+        # 檢查配置檔案
+        if not os.path.exists(args.config):
+            print(f"⚠️  Config file {args.config} not found, using default settings")
+        
+        creator = ChallengeCreator(args.config)
+        success = creator.create_challenge(args.category, args.name, args.difficulty, args.author, args.type)
+        
+        if success:
+            print("\n🎉 Challenge creation completed successfully!")
+            sys.exit(0)
+        else:
+            print("\n❌ Challenge creation failed!")
+            sys.exit(1)
+            
+    except KeyboardInterrupt:
+        print("\n⚠️  Operation cancelled by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ Unexpected error: {e}")
+        print("💡 Please check your input and try again")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
