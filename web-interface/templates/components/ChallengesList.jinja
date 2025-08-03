@@ -90,7 +90,7 @@
             {% else %}
             <div class="notification is-warning">
                 <i class="fas fa-exclamation-triangle mr-2"></i>
-                目前沒有挑戰。<a href="/create">創建第一個挑戰</a>吧！
+                目前沒有挑戰。<a href="{{ url_for('create_challenge_form') }}">創建第一個挑戰</a>吧！
             </div>
             {% endif %}
         </div>
@@ -98,7 +98,7 @@
     
     <!-- 浮動操作按鈕 -->
     <div class="floating-action">
-        <a href="/create" class="button is-primary is-large is-rounded">
+        <a href="{{ url_for('create_challenge_form') }}" class="button is-primary is-large is-rounded">
             <span class="icon">
                 <i class="fas fa-plus"></i>
             </span>

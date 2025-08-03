@@ -679,6 +679,8 @@ def challenge_detail(category: str, name: str):
             ), 404
 
         challenge_data["path"] = str(challenge_path)
+        challenge_data["name"] = name
+        challenge_data["category"] = category
         return render_template(
             "challenge_detail.html", config=ctf_manager.config, challenge=challenge_data
         )
@@ -711,6 +713,8 @@ def edit_challenge_form(category: str, name: str):
             challenge_data = yaml.safe_load(f)
 
         challenge_data["path"] = str(challenge_path)
+        challenge_data["name"] = name
+        challenge_data["category"] = category
         return render_template(
             "edit_challenge.html", config=ctf_manager.config, challenge=challenge_data
         )

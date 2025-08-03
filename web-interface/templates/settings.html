@@ -24,6 +24,7 @@
             <li><a class="is-active" href="#general">基本資訊</a></li>
             <li><a href="#categories">挑戰類別</a></li>
             <li><a href="#difficulties">難度等級</a></li>
+            <li><a href="#quota">題目配額</a></li>
           </ul>
           <p class="menu-label">進階設定</p>
           <ul class="menu-list">
@@ -137,6 +138,144 @@
               <div class="notification is-warning is-light">
                 <i class="fas fa-exclamation-triangle mr-2"></i>
                 要修改難度等級，請編輯 config.yml 中的 points 設定。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 題目配額 -->
+        <div id="quota" class="settings-section" style="display: none">
+          <div class="card">
+            <header class="card-header">
+              <p class="card-header-title">
+                <i class="fas fa-list-ol mr-2"></i>
+                題目配額設定
+              </p>
+            </header>
+            <div class="card-content">
+              <!-- 按分類配額 -->
+              <div class="content">
+                <h4 class="title is-5">
+                  <i class="fas fa-tags mr-2"></i>
+                  按分類配額
+                </h4>
+                <p class="subtitle is-6">每個分類需要的題目數量</p>
+
+                <div class="columns is-multiline">
+                  {% if config.challenge_quota and
+                  config.challenge_quota.by_category %} {% for category, count
+                  in config.challenge_quota.by_category.items() %}
+                  <div class="column is-half">
+                    <div class="box has-background-light">
+                      <div class="level is-mobile">
+                        <div class="level-left">
+                          <div class="level-item">
+                            <div>
+                              <p class="heading">{{ category.upper() }}</p>
+                              <p class="title is-4">{{ count }} 題</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="level-right">
+                          <div class="level-item">
+                            <span class="icon is-large has-text-primary">
+                              <i class="fas fa-puzzle-piece fa-2x"></i>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {% endfor %} {% endif %}
+                </div>
+              </div>
+
+              <hr />
+
+              <!-- 按難度配額 -->
+              <div class="content">
+                <h4 class="title is-5">
+                  <i class="fas fa-chart-line mr-2"></i>
+                  按難度配額
+                </h4>
+                <p class="subtitle is-6">每個難度需要的題目數量</p>
+
+                <div class="columns is-multiline">
+                  {% if config.challenge_quota and
+                  config.challenge_quota.by_difficulty %} {% for difficulty,
+                  count in config.challenge_quota.by_difficulty.items() %}
+                  <div class="column is-one-third">
+                    <div class="box">
+                      <div class="level is-mobile">
+                        <div class="level-left">
+                          <div class="level-item">
+                            <div>
+                              <p class="heading">{{ difficulty.upper() }}</p>
+                              <p class="title is-4">{{ count }} 題</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="level-right">
+                          <div class="level-item">
+                            <span class="tag is-info is-large">
+                              {% if difficulty == 'baby' %}
+                              <i class="fas fa-baby"></i>
+                              {% elif difficulty == 'easy' %}
+                              <i class="fas fa-smile"></i>
+                              {% elif difficulty == 'middle' %}
+                              <i class="fas fa-meh"></i>
+                              {% elif difficulty == 'hard' %}
+                              <i class="fas fa-frown"></i>
+                              {% elif difficulty == 'impossible' %}
+                              <i class="fas fa-skull"></i>
+                              {% endif %}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {% endfor %} {% endif %}
+                </div>
+              </div>
+
+              <hr />
+
+              <!-- 總目標 -->
+              <div class="content">
+                <h4 class="title is-5">
+                  <i class="fas fa-bullseye mr-2"></i>
+                  總目標
+                </h4>
+                {% if config.challenge_quota and
+                config.challenge_quota.total_target %}
+                <div class="notification is-primary">
+                  <div class="level is-mobile">
+                    <div class="level-left">
+                      <div class="level-item">
+                        <div>
+                          <p class="heading">目標總題目數</p>
+                          <p class="title is-3">
+                            {{ config.challenge_quota.total_target }} 題
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="level-right">
+                      <div class="level-item">
+                        <span class="icon is-large">
+                          <i class="fas fa-flag fa-2x"></i>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+
+              <div class="notification is-warning is-light">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                要修改題目配額，請編輯 config.yml 中的 challenge_quota 設定。
               </div>
             </div>
           </div>

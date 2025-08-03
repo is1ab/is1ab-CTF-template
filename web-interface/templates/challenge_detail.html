@@ -67,17 +67,17 @@
             <div class="content">
               <div class="columns is-multiline">
                 <div class="column is-half">
-                  <strong>題目名稱:</strong> {{ challenge.title }}
+                  <strong>題目名稱：</strong> {{ challenge.title }}
                 </div>
                 <div class="column is-half">
-                  <strong>作者:</strong> {{ challenge.author }}
+                  <strong>作者：</strong> {{ challenge.author }}
                 </div>
                 <div class="column is-half">
-                  <strong>分類:</strong>
+                  <strong>分類：</strong>
                   <span class="tag is-info">{{ challenge.category }}</span>
                 </div>
                 <div class="column is-half">
-                  <strong>難度:</strong>
+                  <strong>難度：</strong>
                   <span
                     class="tag {% if challenge.difficulty == 'baby' %}is-success {% elif challenge.difficulty == 'easy' %}is-primary {% elif challenge.difficulty == 'middle' %}is-warning {% elif challenge.difficulty == 'hard' %}is-danger {% else %}is-dark{% endif %}"
                   >
@@ -85,10 +85,10 @@
                   </span>
                 </div>
                 <div class="column is-half">
-                  <strong>分數:</strong> {{ challenge.points }}
+                  <strong>分數：</strong> {{ challenge.points }}
                 </div>
                 <div class="column is-half">
-                  <strong>狀態:</strong>
+                  <strong>狀態：</strong>
                   <span
                     class="tag {% if challenge.status == 'completed' %}is-success {% elif challenge.status == 'developing' %}is-warning {% elif challenge.status == 'testing' %}is-info {% else %}is-light{% endif %}"
                   >
@@ -96,10 +96,10 @@
                   </span>
                 </div>
                 <div class="column is-half">
-                  <strong>題目類型:</strong> {{ challenge.challenge_type }}
+                  <strong>題目類型：</strong> {{ challenge.challenge_type }}
                 </div>
                 <div class="column is-half">
-                  <strong>提供原始碼:</strong>
+                  <strong>提供原始碼：</strong>
                   {% if challenge.source_code_provided %}
                   <span class="tag is-success">是</span>
                   {% else %}
@@ -193,7 +193,7 @@
               </div>
               {% if challenge.flag_description %}
               <div class="field">
-                <label class="label">Flag 說明:</label>
+                <label class="label">Flag 說明：</label>
                 <div class="content">
                   {{ challenge.flag_description | replace('\n', '<br />') | safe
                   }}
@@ -266,7 +266,7 @@
           <div class="card-content">
             <div class="content is-small">
               {% if challenge.deploy_info.port %}
-              <p><strong>端口:</strong> {{ challenge.deploy_info.port }}</p>
+              <p><strong>端口：</strong> {{ challenge.deploy_info.port }}</p>
               {% endif %} {% if challenge.deploy_info.url %}
               <p>
                 <strong>URL:</strong>
@@ -276,15 +276,15 @@
               </p>
               {% endif %}
               <p>
-                <strong>需要構建:</strong>
+                <strong>需要構建：</strong>
                 {% if challenge.deploy_info.requires_build %}是{% else %}否{%
                 endif %}
               </p>
               {% if challenge.deploy_info.resources %}
-              <p><strong>資源限制:</strong></p>
+              <p><strong>資源限制：</strong></p>
               <ul>
                 {% if challenge.deploy_info.resources.memory %}
-                <li>記憶體: {{ challenge.deploy_info.resources.memory }}</li>
+                <li>記憶體：{{ challenge.deploy_info.resources.memory }}</li>
                 {% endif %} {% if challenge.deploy_info.resources.cpu %}
                 <li>CPU: {{ challenge.deploy_info.resources.cpu }}</li>
                 {% endif %}
@@ -418,9 +418,9 @@
           <div class="card-content">
             <div class="content is-small">
               {% if challenge.created_at %}
-              <p><strong>創建時間:</strong><br />{{ challenge.created_at }}</p>
+              <p><strong>創建時間：</strong><br />{{ challenge.created_at }}</p>
               {% endif %} {% if challenge.updated_at %}
-              <p><strong>更新時間:</strong><br />{{ challenge.updated_at }}</p>
+              <p><strong>更新時間：</strong><br />{{ challenge.updated_at }}</p>
               {% endif %}
             </div>
           </div>
@@ -497,7 +497,7 @@
         }
       })
       .catch((error) => {
-        console.error("載入附件失敗:", error);
+        console.error("載入附件失敗：", error);
         document.getElementById("attachments-list").innerHTML = `
         <div class="notification is-danger is-light">
           <i class="fas fa-exclamation-triangle mr-2"></i>

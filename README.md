@@ -14,6 +14,8 @@ is1ab-CTF-template/
 │   ├── app.py             # Flask 應用程式
 │   ├── templates/         # Jinja2 模板
 │   ├── static/           # 靜態資源 (CSS, JS)
+│   ├── venv/             # Python 虛擬環境
+│   ├── legacy/           # 舊版本文件（參考用）
 │   └── pyproject.toml    # Python 專案配置
 ├── challenges/           # CTF 題目目錄
 ├── docs/                # 專案文檔
@@ -44,11 +46,12 @@ uv run python app.py
 
 ### 3. 訪問系統
 
-打開瀏覽器訪問：http://localhost:8004
+打開瀏覽器訪問：<http://localhost:8004>
 
 ## 🎯 主要功能
 
 ### ✅ Web 管理介面
+
 - 📊 **儀表板**: 題目統計和進度追蹤
 - 📋 **題目矩陣**: 視覺化顯示已出題目和待出題目
 - 🔧 **題目管理**: 瀏覽、搜尋、驗證題目
@@ -56,12 +59,14 @@ uv run python app.py
 - ⚙️ **系統設定**: 配置管理
 
 ### 🎨 現代化設計
+
 - **Bulma CSS 框架**: 現代響應式設計
 - **題目配額系統**: 基於配置的進度追蹤
 - **即時狀態顯示**: 已出題目 vs 未出題目
 - **直觀操作介面**: 點擊、懸停、動畫效果
 
 ### 📱 響應式支援
+
 - 桌面端優化體驗
 - 平板裝置適配
 - 手機端友善介面
@@ -76,16 +81,19 @@ uv run python app.py
 ## 🛠️ 技術堆疊
 
 ### 後端
+
 - **Flask 3.1.1** - Web 框架
 - **PyYAML 6.0.2** - 配置解析
 - **Flask-Assets 2.1.0** - 資源管理
 
 ### 前端
+
 - **Bulma CSS 0.9.4** - CSS 框架
 - **Font Awesome** - 圖標
 - **標準 Jinja2** - 模板引擎
 
 ### 開發工具
+
 - **uv** - Python 包管理
 - **Flask Debug Mode** - 開發除錯
 
@@ -130,6 +138,7 @@ challenge_quota:
 ## 📞 支援
 
 如有問題或建議，請：
+
 - 開啟 [Issue](../../issues)
 - 聯繫 IS1AB 團隊
 

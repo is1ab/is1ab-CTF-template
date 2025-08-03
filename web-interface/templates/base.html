@@ -32,7 +32,7 @@
       aria-label="main navigation"
     >
       <div class="navbar-brand">
-        <a class="navbar-item" href="/">
+        <a class="navbar-item" href="{{ url_for('dashboard') }}">
           <i class="fas fa-flag mr-2"></i>
           <strong>{{ config.competition_name }}</strong>
         </a>
@@ -52,19 +52,19 @@
 
       <div id="navbarBasic" class="navbar-menu">
         <div class="navbar-start">
-          <a class="navbar-item" href="/">
+          <a class="navbar-item" href="{{ url_for('dashboard') }}">
             <i class="fas fa-tachometer-alt mr-2"></i>
             儀表板
           </a>
-          <a class="navbar-item" href="/challenges">
+          <a class="navbar-item" href="{{ url_for('challenges_list') }}">
             <i class="fas fa-puzzle-piece mr-2"></i>
             挑戰管理
           </a>
-          <a class="navbar-item" href="/create">
+          <a class="navbar-item" href="{{ url_for('create_challenge_form') }}">
             <i class="fas fa-plus-circle mr-2"></i>
             創建挑戰
           </a>
-          <a class="navbar-item" href="/settings">
+          <a class="navbar-item" href="{{ url_for('settings') }}">
             <i class="fas fa-cog mr-2"></i>
             設定
           </a>

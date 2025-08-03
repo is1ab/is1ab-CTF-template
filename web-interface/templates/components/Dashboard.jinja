@@ -177,19 +177,19 @@
                 </header>
                 <div class="card-content">
                     <div class="buttons">
-                        <a class="button is-primary is-large" href="/create">
+                        <a class="button is-primary is-large" href="{{ url_for('create_challenge_form') }}">
                             <span class="icon">
                                 <i class="fas fa-plus"></i>
                             </span>
                             <span>創建新挑戰</span>
                         </a>
-                        <a class="button is-info is-large" href="/challenges">
+                        <a class="button is-info is-large" href="{{ url_for('challenges_list') }}">
                             <span class="icon">
                                 <i class="fas fa-list"></i>
                             </span>
                             <span>管理挑戰</span>
                         </a>
-                        <a class="button is-success is-large" href="/settings">
+                        <a class="button is-success is-large" href="{{ url_for('settings') }}">
                             <span class="icon">
                                 <i class="fas fa-cog"></i>
                             </span>

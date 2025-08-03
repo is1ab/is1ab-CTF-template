@@ -23,7 +23,7 @@
           <div
             class="card-content"
             style="cursor: pointer"
-            onclick="window.location.href='/challenges/{{ challenge.category }}/{{ challenge.name }}'"
+            onclick="window.location.href='{{ url_for('challenge_detail', category=challenge.category, name=challenge.name) }}'"
           >
             <div class="media">
               <div class="media-left">
@@ -82,7 +82,7 @@
 
           <footer class="card-footer">
             <a
-              href="/challenges/{{ challenge.category }}/{{ challenge.name }}/edit"
+              href="{{ url_for('edit_challenge_form', category=challenge.category, name=challenge.name) }}"
               class="card-footer-item has-text-info"
               onclick="event.stopPropagation();"
             >
@@ -115,7 +115,9 @@
     {% else %}
     <div class="notification is-warning">
       <i class="fas fa-exclamation-triangle mr-2"></i>
-      目前沒有挑戰。<a href="/create">創建第一個挑戰</a>吧！
+      目前沒有挑戰。<a href="{{ url_for('create_challenge_form') }}"
+        >創建第一個挑戰</a
+      >吧！
     </div>
     {% endif %}
   </div>
@@ -123,7 +125,10 @@
 
 <!-- 浮動操作按鈕 -->
 <div class="floating-action">
-  <a href="/create" class="button is-primary is-large is-rounded">
+  <a
+    href="{{ url_for('create_challenge_form') }}"
+    class="button is-primary is-large is-rounded"
+  >
     <span class="icon">
       <i class="fas fa-plus"></i>
     </span>
@@ -174,7 +179,6 @@
           alert("刪除時發生錯誤");
         });
     }
-  }
   }
 </script>
 {% endblock %}

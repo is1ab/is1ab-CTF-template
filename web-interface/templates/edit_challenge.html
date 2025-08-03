@@ -493,7 +493,7 @@ document.getElementById('editChallengeForm').addEventListener('submit', function
   .then(data => {
     if (data.status === 'success') {
       alert('題目更新成功！');
-      window.location.href = `/challenges/${category}/${name}`;
+      window.location.href = "{{ url_for('challenge_detail', category=challenge.category, name=challenge.name) }}";
     } else {
       alert('更新失敗：' + data.message);
     }
