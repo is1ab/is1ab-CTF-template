@@ -1680,6 +1680,15 @@
             }
         }
         
+        // 編輯題目
+        function editChallenge(category, name) {
+            if (category && name) {
+                showToast('編輯題目', `編輯功能開發中 - ${category}/${name}`, 'info');
+            } else {
+                showToast('編輯題目', '編輯功能開發中', 'info');
+            }
+        }
+        
         // 顯示題目詳情（統一函數名稱）
         async function showChallengeDetails(category, challengeIdentifier) {
             // 驗證基本參數
@@ -1740,11 +1749,23 @@
                 renderChallengeDetails(challenge);
                 
                 // 設置按鈕功能
-                document.getElementById('manageChallengeHintsBtn').style.display = 'inline-block';
-                document.getElementById('manageChallengeHintsBtn').onclick = () => {
-                    modal.hide();
-                    openHintsManager(0, 0, challenge.title, category, folderName);
-                };
+                const hintsBtn = document.getElementById('manageChallengeHintsBtn');
+                if (hintsBtn) {
+                    hintsBtn.style.display = 'inline-block';
+                    hintsBtn.onclick = () => {
+                        modal.hide();
+                        openHintsManager(0, 0, challenge.title, category, folderName);
+                    };
+                }
+                
+                const editBtn = document.getElementById('editChallengeBtn');
+                if (editBtn) {
+                    editBtn.style.display = 'inline-block';
+                    editBtn.onclick = () => {
+                        modal.hide();
+                        editChallenge(category, folderName);
+                    };
+                }
                 
             } catch (error) {
                 console.error('載入題目詳情失敗:', error);
@@ -1777,33 +1798,44 @@
             
             const statusColors = {
                 'planning': 'secondary',
-                'development': 'warning',
+                'developing': 'warning',
                 'testing': 'info',
                 'completed': 'success',
                 'deployed': 'primary'
             };
             
-            const statusIcons = {
-                'planning': '📝',
-                'development': '🔨',
-                'testing': '🧪',
-                'completed': '✅',
-                'deployed': '🚀'
+            const typeIcons = {
+                'nc_challenge': '🔌',
+                'static_container': '🐳',
+                'dynamic_container': '🔄',
+                'static_attachment': '📎',
+                'dynamic_attachment': '📋'
             };
             
-            const hintsHtml = challenge.hints && challenge.hints.length > 0 
-                ? challenge.hints.map(hint => `
-                    <div class="border rounded p-3 mb-2">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h6 class="mb-0">提示 ${hint.level}</h6>
-                            <span class="badge bg-${hint.cost === 0 ? 'success' : 'warning'}">
-                                ${hint.cost === 0 ? '免費' : `${hint.cost} 分`}
-                            </span>
+            const typeNames = {
+                'nc_challenge': 'NC 題目',
+                'static_container': '靜態容器',
+                'dynamic_container': '動態容器',
+                'static_attachment': '靜態附件',
+                'dynamic_attachment': '動態附件'
+            };
+            
+            const difficultyColor = difficultyColors[challenge.difficulty] || 'secondary';
+            const difficultyIcon = difficultyIcons[challenge.difficulty] || '❓';
+            const statusColor = statusColors[challenge.status] || 'secondary';
+            const statusIcon = getStatusIcon(challenge.status);
+            const typeIcon = typeIcons[challenge.challenge_type] || '📎';
+            const typeName = typeNames[challenge.challenge_type] || challenge.challenge_type;
+            
+            const hintsHtml = challenge.hints && challenge.hints.length > 0 ? 
+                challenge.hints.map(hint => `
+                    <div class="alert alert-info alert-sm mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span><strong>Level ${hint.level}</strong> (${hint.cost} 分)</span>
                         </div>
-                        <p class="mb-0 text-muted">${hint.content}</p>
+                        <div class="mt-1">${hint.content}</div>
                     </div>
-                `).join('')
-                : '<p class="text-muted">暫無提示</p>';
+                `).join('') : '<p class="text-muted">暫無提示</p>';
             
             const filesHtml = challenge.files && challenge.files.length > 0
                 ? challenge.files.map(file => `
