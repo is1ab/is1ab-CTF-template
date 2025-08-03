@@ -82,7 +82,6 @@ mypy scripts/
 pytest tests/
 
 # 測試敏感資料檢查
-uv run scripts/check-sensitive.py
 
 # 測試 Web 介面
 cd web-interface
@@ -240,7 +239,6 @@ def test_challenges_api(server_url):
 ```bash
 # 測試敏感資料檢查
 echo "flag{test_flag}" > test_file.txt
-uv run scripts/check-sensitive.py test_file.txt
 # 應該檢測到敏感資料
 
 # 測試 XSS 防護

@@ -363,42 +363,10 @@
                 updateChallengeList(progress.challenges);
             } catch (error) {
                 console.error('載入進度失敗:', error);
-                // 使用模擬資料
-                challengeData = getMockProgressData();
-                updateProgressSummary(challengeData.stats);
-                updateTypeDistribution(challengeData.stats);
-                updateProgressTable(challengeData);
-                updateChallengeList(challengeData.challenges);
+                showConnectionError();
             }
         }
 
-        // 模擬進度資料
-        function getMockProgressData() {
-            return {
-                challenges: {
-                    pwn: [
-                        {
-                            title: "Example Buffer Overflow",
-                            status: "planning",
-                            difficulty: "baby",
-                            challenge_type: "nc_challenge",
-                            author: "GZTime",
-                            source_code_provided: false,
-                            description: "簡單的緩衝區溢位題目",
-                            created_at: "2024-08-02T00:00:00",
-                            path: "challenges/pwn/example_buffer_overflow"
-                        }
-                    ]
-                },
-                stats: {
-                    total_challenges: 1,
-                    status_counts: { planning: 1, developing: 0, testing: 0, completed: 0, deployed: 0 },
-                    type_counts: { static_attachment: 0, static_container: 0, dynamic_attachment: 0, dynamic_container: 0, nc_challenge: 1 },
-                    difficulty_counts: { baby: 1, easy: 0, middle: 0, hard: 0, impossible: 0 },
-                    source_code_counts: { provided: 0, not_provided: 1 }
-                }
-            };
-        }
 
         // 更新進度摘要
         function updateProgressSummary(stats) {

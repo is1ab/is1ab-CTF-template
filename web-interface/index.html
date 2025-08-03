@@ -656,10 +656,6 @@
                 console.error('載入儀表板失敗:', error);
                 showLoadingState(false);
                 showConnectionError();
-                // 使用模擬資料
-                challengeData = getMockData();
-                updateStatsCards(challengeData.stats);
-                updateCharts(challengeData.stats);
             }
         }
 
@@ -691,23 +687,6 @@
             }
         }
 
-        // 模擬資料
-        function getMockData() {
-            return {
-                challenges: {
-                    pwn: [
-                        { title: "Example Buffer Overflow", status: "planning", difficulty: "baby", source_code_provided: false, challenge_type: "nc_challenge" }
-                    ]
-                },
-                stats: {
-                    total_challenges: 1,
-                    status_counts: { planning: 1, developing: 0, testing: 0, completed: 0, deployed: 0 },
-                    type_counts: { static_attachment: 0, static_container: 0, dynamic_attachment: 0, dynamic_container: 0, nc_challenge: 1 },
-                    difficulty_counts: { baby: 1, easy: 0, middle: 0, hard: 0, impossible: 0 },
-                    source_code_counts: { provided: 0, not_provided: 1 }
-                }
-            };
-        }
 
         // 更新統計卡片
         function updateStatsCards(stats) {
@@ -1293,27 +1272,11 @@
                         </div>`;
                 }
             } catch (error) {
-                // 使用模擬資料
                 assignmentsDiv.innerHTML = `
-                    <div class="col-md-6 col-lg-4">
-                        <div class="card">
-                            <div class="card-header bg-primary text-white">
-                                <h6 class="mb-0">
-                                    <i class="bi bi-person-circle"></i> GZTime
-                                </h6>
-                            </div>
-                            <div class="card-body p-3">
-                                <div class="d-flex align-items-center mb-2 p-2 border rounded">
-                                    <div class="badge bg-secondary me-2">📝</div>
-                                    <div class="flex-grow-1">
-                                        <div class="fw-bold small">pwn/Example Buffer Overflow</div>
-                                        <small class="text-muted">baby 🔌 🔒</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
+                    <div class="col-12 text-center py-4">
+                        <i class="bi bi-people fs-1 text-muted d-block mb-2"></i>
+                        <p class="text-muted">無法載入任務分配</p>
+                    </div>`;
             }
         }
 
@@ -1364,8 +1327,18 @@
             modal.show();
 
             try {
-                // 模擬 API 呼叫
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                const response = await fetch('/api/update-readme', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'README 更新失敗');
+                }
                 
                 document.getElementById('operationModalBody').innerHTML = `
                     <div class="alert alert-success">
@@ -1399,16 +1372,28 @@
             modal.show();
 
             try {
-                // 模擬 API 呼叫
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                const response = await fetch('/api/validate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || '驗證失敗');
+                }
+                
+                const { total_challenges, errors, warnings } = result;
                 
                 document.getElementById('operationModalBody').innerHTML = `
                     <div class="alert alert-success">
                         <i class="bi bi-check-circle"></i> 驗證完成！
                         <ul class="mb-0 mt-2">
-                            <li>檢查了 1 個題目</li>
-                            <li>發現 0 個錯誤</li>
-                            <li>發現 1 個警告（缺少實際 flag）</li>
+                            <li>檢查了 ${total_challenges} 個題目</li>
+                            <li>發現 ${errors ? errors.length : 0} 個錯誤</li>
+                            <li>發現 ${warnings ? warnings.length : 0} 個警告</li>
                         </ul>
                     </div>
                 `;

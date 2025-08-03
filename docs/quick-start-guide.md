@@ -61,7 +61,6 @@ uv pip install -r requirements.txt
 uv run scripts/init-project.py --year 2024 --org your-org
 ```
 
-**✅ 檢查點**：執行 `uv run scripts/check-sensitive.py`，應該看到 "✅ 未發現敏感資料"
 
 ---
 
@@ -374,7 +373,6 @@ python server.py --host localhost --port 8000
    ```
 
 4. **🔍 探索進階功能**
-   - 敏感資料檢查：`uv run scripts/check-sensitive.py`
    - 批量驗證：`uv run scripts/validate-challenge.py`
    - 公開發布準備：`uv run scripts/prepare-public-release.py`
 
@@ -388,7 +386,6 @@ uv run scripts/create-challenge.py <category> <name> <difficulty> --author <auth
 uv run scripts/validate-challenge.py challenges/<category>/<name>/
 
 # 檢查敏感資料
-uv run scripts/check-sensitive.py
 
 # 啟動 Web 介面
 cd web-interface && python server.py

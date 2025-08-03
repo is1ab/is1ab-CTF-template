@@ -63,7 +63,6 @@ is1ab-CTF-template/
 │   ├── validate-challenge.py     # 驗證題目
 │   ├── sync-to-public.py         # 同步到公開倉庫
 │   ├── prepare-public-release.py # 準備公開發布
-│   ├── check-sensitive.py        # 檢查敏感資料
 │   └── init-project.py           # 初始化專案
 ├── 📁 templates/                  # 文件模板
 │   ├── README.md.j2              # README 模板

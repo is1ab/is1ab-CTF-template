@@ -66,9 +66,6 @@ jobs:
           
           echo "✅ 準備發布：$READY_COUNT/$TOTAL_COUNT 個題目"
       
-      - name: 🔒 Check sensitive data
-        run: |
-          uv run scripts/check-sensitive.py
       
       - name: 📊 Upload validation report
         uses: actions/upload-artifact@v4

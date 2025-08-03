@@ -254,7 +254,6 @@ docker-compose down
 
 # 專案管理
 uv run scripts/sync-to-public.py
-uv run scripts/check-sensitive.py
 ```
 
 ## 🐛 常見問題

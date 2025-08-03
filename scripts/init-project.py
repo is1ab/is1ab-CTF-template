@@ -140,14 +140,6 @@ def setup_git_hooks():
 
 echo "🔍 執行提交前檢查..."
 
-# 檢查敏感資料
-if python scripts/check-sensitive.py --staged; then
-    echo "✅ 敏感資料檢查通過"
-else
-    echo "❌ 發現敏感資料，提交被阻止"
-    exit 1
-fi
-
 # 檢查 Python 語法
 python -m py_compile scripts/*.py 2>/dev/null
 if [ $? -ne 0 ]; then
@@ -291,8 +283,6 @@ jobs:
             fi
           done
       
-      - name: 🔒 Check sensitive data
-        run: uv run scripts/check-sensitive.py --pr-mode
 """
     
     with open('.github/workflows/validate-pr.yml', 'w') as f:

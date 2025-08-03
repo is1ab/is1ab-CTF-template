@@ -161,7 +161,6 @@ uv venv
 uv sync
 
 # 確認環境正常
-uv run scripts/check-sensitive.py
 ```
 
 ### 2.3 創建新題目
@@ -250,7 +249,6 @@ cd ../solution/
 python solve.py
 
 # 檢查敏感資料
-uv run scripts/check-sensitive.py --staged
 ```
 
 ### 2.6 準備提交
@@ -428,7 +426,6 @@ gh api repos/your-org/2024-is1ab-CTF-public/pages \
 
 ```bash
 # 檢查具體問題
-uv run scripts/check-sensitive.py
 
 # 移除敏感檔案
 git rm flag.txt
