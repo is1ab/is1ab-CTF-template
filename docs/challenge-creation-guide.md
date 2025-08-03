@@ -4,9 +4,11 @@ IS1AB CTF Template - 現代化 Web 介面
 整合版本：使用 Flask + Jinja2 + Bulma CSS
 """
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
+import subprocess
+import shutil
+from datetime import datetime
 
 import yaml
 
@@ -186,7 +188,7 @@ class CTFManager:
                             print(f"載入挑戰失敗 {challenge_dir}: {load_error}")
 
         except Exception as list_error:
-            print(f"載入挑戰列表失敗: {list_error}")
+            print(f"載入挑戰列表失敗：{list_error}")
 
         return challenges
 
@@ -223,9 +225,7 @@ class CTFManager:
             difficulty = challenge_data.get("difficulty", "easy").strip()
             author = challenge_data.get("author", "IS1AB").strip()
             description = challenge_data.get("description", "").strip()
-            challenge_type = challenge_data.get(
-                "challenge_type", "static_container"
-            ).strip()
+            challenge_type = challenge_data.get("challenge_type", "static_container").strip()
 
             # 基本驗證
             if not name or not category:
@@ -233,26 +233,17 @@ class CTFManager:
 
             # 驗證名稱格式
             if not name.replace("_", "").replace("-", "").isalnum():
-                return {
-                    "status": "error",
-                    "message": "題目名稱只能包含字母、數字、底線和連字號",
-                }
+                return {"status": "error", "message": "題目名稱只能包含字母、數字、底線和連字號"}
 
             # 驗證分類
             valid_categories = ["web", "pwn", "reverse", "crypto", "forensic", "misc"]
             if category not in valid_categories:
-                return {
-                    "status": "error",
-                    "message": f"無效的分類，有效分類: {', '.join(valid_categories)}",
-                }
+                return {"status": "error", "message": f"無效的分類，有效分類：{', '.join(valid_categories)}"}
 
             # 驗證難度
             valid_difficulties = ["baby", "easy", "middle", "hard", "impossible"]
             if difficulty not in valid_difficulties:
-                return {
-                    "status": "error",
-                    "message": f"無效的難度，有效難度: {', '.join(valid_difficulties)}",
-                }
+                return {"status": "error", "message": f"無效的難度，有效難度：{', '.join(valid_difficulties)}"}
 
             # 創建題目目錄
             challenge_path = CHALLENGES_DIR / category / name
@@ -261,12 +252,12 @@ class CTFManager:
 
             # 創建目錄結構
             challenge_path.mkdir(parents=True, exist_ok=True)
-
+            
             # 創建子目錄
             subdirs = ["src", "files", "writeup"]
             if challenge_type in ["static_container", "dynamic_container"]:
                 subdirs.extend(["docker", "bin"])
-
+            
             for subdir in subdirs:
                 (challenge_path / subdir).mkdir(exist_ok=True)
 
@@ -288,64 +279,60 @@ class CTFManager:
                     "port": 8080,
                     "url": "",
                     "requires_build": True,
-                    "resources": {"memory": "256Mi", "cpu": "100m"},
+                    "resources": {
+                        "memory": "256Mi",
+                        "cpu": "100m"
+                    }
                 },
                 "hints": [
-                    {"level": 1, "cost": 0, "content": "第一個提示，通常是免費的。"}
+                    {
+                        "level": 1,
+                        "cost": 0,
+                        "content": "第一個提示，通常是免費的。"
+                    }
                 ],
                 "flag": f"is1abCTF{{{name}_example_flag}}",
                 "flag_description": "Flag 位置的描述",
                 "solution_steps": [
                     "第一步：分析題目",
                     "第二步：找出漏洞",
-                    "第三步：利用漏洞獲取 flag",
+                    "第三步：利用漏洞獲取 flag"
                 ],
                 "internal_notes": f"開發筆記：{name} 題目",
-                "learning_objectives": ["學習相關技術概念"],
-                "required_skills": ["基礎技能要求"],
+                "learning_objectives": [
+                    "學習相關技術概念"
+                ],
+                "required_skills": [
+                    "基礎技能要求"
+                ],
                 "testing": {
                     "test_cases": [],
                     "verified_solutions": [],
                     "last_tested": "",
                     "tested_by": "",
-                    "test_result": "pending",
-                },
+                    "test_result": "pending"
+                }
             }
 
             # 保存 private.yml
             private_yml_path = challenge_path / "private.yml"
             with open(private_yml_path, "w", encoding="utf-8") as f:
-                yaml.dump(
-                    private_config,
-                    f,
-                    default_flow_style=False,
-                    allow_unicode=True,
-                    sort_keys=False,
-                )
+                yaml.dump(private_config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
             # 創建 public.yml (移除敏感資訊)
-            public_config = {
-                k: v
-                for k, v in private_config.items()
-                if not k.startswith(("flag", "solution_", "internal_", "testing"))
-            }
-
+            public_config = {k: v for k, v in private_config.items() 
+                           if not k.startswith(('flag', 'solution_', 'internal_', 'testing'))}
+            
             # 移除敏感的 hints 內容
-            if "hints" in public_config:
-                public_config["hints"] = [
-                    {"level": hint["level"], "cost": hint["cost"]}
-                    for hint in public_config["hints"]
+            if 'hints' in public_config:
+                public_config['hints'] = [
+                    {"level": hint["level"], "cost": hint["cost"]} 
+                    for hint in public_config['hints']
                 ]
 
             public_yml_path = challenge_path / "public.yml"
             with open(public_yml_path, "w", encoding="utf-8") as f:
-                yaml.dump(
-                    public_config,
-                    f,
-                    default_flow_style=False,
-                    allow_unicode=True,
-                    sort_keys=False,
-                )
+                yaml.dump(public_config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
             # 創建 README.md
             readme_content = f"""# {name}
@@ -353,11 +340,11 @@ class CTFManager:
 **分類**: {category}  
 **難度**: {difficulty}  
 **作者**: {author}  
-**分數**: {private_config["points"]}
+**分數**: {private_config['points']}
 
 ## 題目描述
 
-{description or "請填寫題目描述"}
+{description or '請填寫題目描述'}
 
 ## 檔案結構
 
@@ -394,9 +381,9 @@ class CTFManager:
             # 如果是容器類型，創建基本的 Docker 檔案
             if challenge_type in ["static_container", "dynamic_container"]:
                 docker_dir = challenge_path / "docker"
-
+                
                 # 創建 Dockerfile
-                dockerfile_content = """FROM ubuntu:20.04
+                dockerfile_content = f"""FROM ubuntu:20.04
 
 # 設定工作目錄
 WORKDIR /app
@@ -418,7 +405,7 @@ EXPOSE 8080
 # 啟動應用程式
 CMD ["./start.sh"]
 """
-
+                
                 with open(docker_dir / "Dockerfile", "w", encoding="utf-8") as f:
                     f.write(dockerfile_content)
 
@@ -436,10 +423,8 @@ services:
     mem_limit: 256m
     cpus: 0.1
 """
-
-                with open(
-                    docker_dir / "docker-compose.yml", "w", encoding="utf-8"
-                ) as f:
+                
+                with open(docker_dir / "docker-compose.yml", "w", encoding="utf-8") as f:
                     f.write(compose_content)
 
                 # 創建啟動腳本
@@ -456,7 +441,7 @@ echo "Starting challenge..."
 # 保持容器運行
 tail -f /dev/null
 """
-
+                
                 start_path = challenge_path / "src" / "start.sh"
                 with open(start_path, "w", encoding="utf-8") as f:
                     f.write(start_script)
@@ -469,12 +454,12 @@ tail -f /dev/null
                     "category": category,
                     "difficulty": difficulty,
                     "path": str(challenge_path),
-                    "challenge_type": challenge_type,
-                },
+                    "challenge_type": challenge_type
+                }
             }
 
         except Exception as create_error:
-            return {"status": "error", "message": f"創建題目失敗: {str(create_error)}"}
+            return {"status": "error", "message": f"創建題目失敗：{str(create_error)}"}
 
     def validate_challenge(self, challenge_path: str) -> Dict[str, Any]:
         """驗證挑戰"""
@@ -483,7 +468,7 @@ tail -f /dev/null
             return {"status": "success", "data": {"valid": True}}
 
         except Exception as validate_error:
-            return {"status": "error", "message": f"驗證失敗: {str(validate_error)}"}
+            return {"status": "error", "message": f"驗證失敗：{str(validate_error)}"}
 
 
 # 創建 CTF 管理器實例

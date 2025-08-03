@@ -1,0 +1,28 @@
+title: web_basic_xss
+author: IS1AB Team
+difficulty: easy
+category: web
+description: 一個基礎的 XSS 漏洞題目，適合初學者練習
+challenge_type: static_container
+source_code_provided: false
+files: []
+status: developing
+points: 100
+tags:
+- web
+- easy
+created_at: '2025-08-04T05:18:53.839996'
+deploy_info:
+  port: 8080
+  url: ''
+  requires_build: true
+  resources:
+    memory: 256Mi
+    cpu: 100m
+hints:
+- level: 1
+  cost: 0
+learning_objectives:
+- 學習相關技術概念
+required_skills:
+- 基礎技能要求
