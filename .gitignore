@@ -1,0 +1,297 @@
+# ================================================
+# CTF Template .gitignore
+# 適用於 IS1AB CTF 比賽專案管理模板
+# ================================================
+
+# ================== Python ==================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# UV Python package manager
+uv.lock
+
+# ================== CTF 特定檔案 ==================
+# 敏感檔案 - 絕對不能提交！
+**/flag.txt
+**/FLAG
+**/*flag*
+**/*FLAG*
+**/writeup/**/flag
+**/solution/**/flag
+
+# 私密設定檔
+**/private.yml
+**/secret.yml
+**/secrets.json
+**/config.local.*
+**/.env.local
+**/.env.production
+
+# 真實 Flag 和解答
+**/real_flag.txt
+**/actual_flag.txt
+**/production_flag.txt
+**/admin_flag.txt
+
+# 內部文檔
+**/internal/
+**/writeup/solution.md
+**/writeup/exploit.py
+**/writeup/solve.py
+**/writeup/hints.md
+
+# 編譯後的題目檔案
+**/challenges/**/bin/**
+!**/challenges/**/bin/.gitkeep
+
+# 暫存檔案
+**/tmp/
+**/temp/
+**/cache/
+**/*.tmp
+**/*.temp
+
+# ================== 開發環境 ==================
+# IDE 設定檔
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# ================== Docker ==================
+# Docker 相關
+docker-compose.override.yml
+.docker/
+**/logs/
+**/volumes/
+
+# ================== 日誌檔案 ==================
+# 系統日誌
+*.log
+logs/
+*.log.*
+*.out
+*.err
+
+# Web 服務器日誌
+access.log
+error.log
+*.access.log
+*.error.log
+
+# ================== 備份檔案 ==================
+# 備份檔案
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+*~
+
+# 壓縮檔案 (可能含有解答)
+*.zip
+*.tar.gz
+*.tar.bz2
+*.rar
+*.7z
+!**/files/*.zip
+!**/files/*.tar.gz
+
+# ================== 資料庫 ==================
+# SQLite 資料庫
+*.db
+*.sqlite
+*.sqlite3
+
+# ================== 節點模組 ==================
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ================== 前端建置 ==================
+# 前端建置檔案
+dist/
+build/
+.nuxt/
+.next/
+.svelte-kit/
+
+# ================== 服務和部署 ==================
+# 部署相關
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraformrc
+terraform.rc
+
+# Kubernetes 機密設定
+**/k8s/**/*secret*.yaml
+**/k8s/**/*secret*.yml
+
+# ================== 測試和除錯 ==================
+# 測試檔案
+**/test_*.py
+**/debug_*.py
+**/temp_*.py
+
+# 效能分析
+*.prof
+
+# ================== CTF 平台檔案 ==================
+# CTFd 相關
+**/uploads/
+**/CTFd.db
+
+# GZCTF 相關
+**/data/
+**/files/uploads/
+
+# ================== 自訂排除 ==================
+# 本地開發環境變數
+.env.development
+.env.staging
+
+# 個人筆記
+**/notes/
+**/personal/
+**/scratch/
+NOTES.md
+TODO.md
+
+# 暫存的題目開發
+**/wip/
+**/work-in-progress/
+
+# 測試用的題目
+**/test-challenges/
+**/demo-challenges/
+
+# ================== 保護檔案 ==================
+# 特別保護：可能含有敏感資訊的檔案類型
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# 設定檔案可能含有密碼
+**/database.yml
+**/production.json
+**/credentials.json
+
+# ================== 建置產出 ==================
+# 編譯產出
+*.o
+*.a
+*.lib
+*.dll
+*.dylib
+*.so.*
+
+# 可執行檔
+*.exe
+**/bin/*
+!**/bin/.gitkeep
+
+# ================== 保留檔案 ==================
+# 強制保留重要的空目錄
+!**/.gitkeep
+!**/README.md
+
+# 保留範例檔案
+!**/example*
+!**/template*
+!**/sample*
+
+# ================================================
+# 說明：
+# 1. 此 .gitignore 專為 CTF 專案設計
+# 2. 重點保護 Flag、解答、私密設定等敏感資訊
+# 3. 適用於多種開發環境和部署方式
+# 4. 如需要版本控制特定檔案，請在對應行前加 !
+# ================================================

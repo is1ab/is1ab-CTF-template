@@ -4,7 +4,7 @@
 
 ## 📋 關於此模板
 
-此模板提供完整的 CTF 比賽管理解決方案，包含：
+此模板提供完整的 CTF 題目管理解決方案，包含：
 - 標準化的題目開發流程
 - 自動化進度追蹤
 - Docker 部署配置
@@ -12,45 +12,36 @@
 
 ## 🎯 快速開始
 
-### 1. 使用此模板創建新專案
+### ⚡ 5 分鐘快速體驗
+
+想要立即開始？請參考 [**快速開始指南**](docs/quick-start-guide.md) 在 15 分鐘內創建您的第一個 CTF 題目！
+
+### 📚 完整工作流程
+
+需要了解完整的三階段開發流程？請閱讀 [**工作流程教學**](docs/workflow-tutorial.md)。
+
+### 🚀 基本步驟
 
 ```bash
-# 方法一：使用 GitHub Template
-# 點擊頁面上的 "Use this template" 按鈕
+# 1. 克隆模板
+git clone https://github.com/is1ab/is1ab-CTF-template.git my-ctf-2024
+cd my-ctf-2024
 
-# 方法二：使用 Git
-git clone https://github.com/your-org/is1ab-CTF-template.git 2024-is1ab-CTF
-cd 2024-is1ab-CTF
-```
-
-### 2. 初始化專案
-
-```bash
-# 安裝依賴
-uv venv  # 創建虛擬環境
-source .venv/bin/activate  # 啟動虛擬環境 (Linux/Mac)
-# .venv\Scripts\activate  # 啟動虛擬環境 (Windows)
+# 2. 安裝依賴
+uv venv && source .venv/bin/activate
 uv pip install -r requirements.txt
 
-# 初始化專案配置
-uv run scripts/init-project.py --year 2024
+# 3. 初始化專案
+uv run scripts/init-project.py --year 2024 --org your-org
 
-# 創建第一個題目
-uv run scripts/create-challenge.py web welcome baby --author GZTime
+# 4. 創建第一個題目
+uv run scripts/create-challenge.py web welcome baby --author YourName
+
+# 5. 啟動 Web 管理介面
+cd web-interface && python server.py
 ```
 
-### 3. 開始開發
-
-```bash
-# 創建新分支開發題目
-git checkout -b challenge/web/welcome
-
-# 編輯題目內容
-# 完成後提交 PR
-git add .
-git commit -m "feat(web): add welcome challenge"
-git push origin challenge/web/welcome
-```
+**🎉 完成！** 訪問 http://localhost:8000 查看您的 CTF 管理介面。
 
 ## 📁 專案結構
 
@@ -70,6 +61,8 @@ is1ab-CTF-template/
 │   ├── update-readme.py          # 更新 README
 │   ├── validate-challenge.py     # 驗證題目
 │   ├── sync-to-public.py         # 同步到公開倉庫
+│   ├── prepare-public-release.py # 準備公開發布
+│   ├── check-sensitive.py        # 檢查敏感資料
 │   └── init-project.py           # 初始化專案
 ├── 📁 templates/                  # 文件模板
 │   ├── README.md.j2              # README 模板
@@ -100,9 +93,9 @@ is1ab-CTF-template/
 - **Docker 自動部署**: 統一的容器化部署流程
 
 ### 🔒 隱私保護
-- **三層架構**: Template → Private → Public
-- **敏感資料分離**: Flag 和 Writeup 不會意外洩露
-- **自動化同步**: 只同步安全內容到公開倉庫
+- **三階段流程**: Template → Private → Public
+- **敏感資料保護**: 自動檢查並防止 Flag 洩露
+- **智能同步**: 只發布標記為安全的內容到公開倉庫
 
 ### 📊 進度管理
 - **視覺化進度表**: 使用表情符號顯示狀態
@@ -200,8 +193,9 @@ uv run scripts/deploy.py --environment production
 
 ## 📚 相關文檔
 
+- [⚡ 快速開始指南](docs/quick-start-guide.md) - 15 分鐘快速上手
+- [🚀 三階段工作流程教學](docs/workflow-tutorial.md) - 完整開發流程指南
 - [📖 設置指南](docs/setup-guide.md) - 詳細的環境設置說明
-- [🚀 UV 設置指南](docs/uv-setup-guide.md) - 現代 Python 包管理工具使用指南
 - [🤝 貢獻指南](docs/contribution-guide.md) - 如何參與開發
 - [🐳 部署指南](docs/deployment-guide.md) - Docker 部署說明
 - [💡 題目開發](docs/challenge-development.md) - 題目開發最佳實踐

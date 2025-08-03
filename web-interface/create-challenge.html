@@ -503,6 +503,7 @@
             const field = event.target;
             const value = field.value.trim();
             let isValid = true;
+            let errorMessage = '';
 
             // 移除之前的驗證狀態
             field.classList.remove('is-valid', 'is-invalid');
@@ -510,6 +511,7 @@
             // 必填欄位檢查
             if (field.hasAttribute('required') && !value) {
                 isValid = false;
+                errorMessage = `${field.labels[0]?.textContent || field.name} 為必填欄位`;
             }
 
             // 特殊驗證規則
@@ -517,12 +519,30 @@
                 const pattern = /^[a-z0-9_]+$/;
                 if (!pattern.test(value)) {
                     isValid = false;
+                    errorMessage = '題目名稱只能包含小寫字母、數字和底線';
+                } else if (value.length < 3) {
+                    isValid = false;
+                    errorMessage = '題目名稱至少需要 3 個字元';
+                } else if (value.length > 50) {
+                    isValid = false;
+                    errorMessage = '題目名稱不能超過 50 個字元';
                 }
             }
 
+            if (field.name === 'description' && value && value.length < 10) {
+                isValid = false;
+                errorMessage = '題目描述至少需要 10 個字元';
+            }
+
             // 設定驗證狀態
-            if (value) {
+            if (value || field.hasAttribute('required')) {
                 field.classList.add(isValid ? 'is-valid' : 'is-invalid');
+                
+                // 更新錯誤訊息
+                const feedback = field.parentElement.querySelector('.invalid-feedback');
+                if (feedback && errorMessage) {
+                    feedback.textContent = errorMessage;
+                }
             }
 
             return isValid;

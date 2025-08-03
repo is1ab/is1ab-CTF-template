@@ -268,15 +268,32 @@
                         <div class="mt-3 p-3 bg-light rounded">
                             <h6 class="mb-2">圖例說明：</h6>
                             <div class="row small">
-                                <div class="col-md-6">
-                                    <div><span class="badge bg-success me-1">✅🚀</span> 已完成並部署</div>
-                                    <div><span class="badge bg-warning me-1">🔨🧪</span> 開發/測試中</div>
+                                <div class="col-md-4">
+                                    <div class="mb-1"><strong>狀態圖示：</strong></div>
                                     <div><span class="badge bg-secondary me-1">📝</span> 規劃中</div>
+                                    <div><span class="badge bg-warning me-1">🔨</span> 開發中</div>
+                                    <div><span class="badge bg-info me-1">🧪</span> 測試中</div>
+                                    <div><span class="badge bg-success me-1">✅</span> 已完成</div>
+                                    <div><span class="badge bg-primary me-1">🚀</span> 已部署</div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div><span class="badge bg-danger me-1">❌</span> 尚未開始</div>
-                                    <div><span class="badge bg-primary me-1">🔌</span> NC 題目</div>
-                                    <div><span class="badge bg-info me-1">🐳</span> 容器題目</div>
+                                <div class="col-md-4">
+                                    <div class="mb-1"><strong>難度配色：</strong></div>
+                                    <div><span class="badge bg-success me-1">🍼</span> Baby</div>
+                                    <div><span class="badge bg-info me-1">⭐</span> Easy</div>
+                                    <div><span class="badge bg-warning me-1">⭐⭐</span> Middle</div>
+                                    <div><span class="badge bg-danger me-1">⭐⭐⭐</span> Hard</div>
+                                    <div><span class="badge bg-dark me-1">💀</span> Impossible</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-1"><strong>其他：</strong></div>
+                                    <div><span class="text-muted me-1">⚪</span> 待創建題目</div>
+                                    <div><span class="text-muted me-1">⬜</span> 不需要</div>
+                                    <div class="mt-2 small text-muted">
+                                        每個卡片顯示：<br>
+                                        • 題目名稱<br>
+                                        • 作者 (👤)<br>
+                                        • 難度 (🎯)
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -425,47 +442,90 @@
 
         // 更新進度矩陣
         function updateProgressMatrix(data) {
-            const categories = ['General', 'Web', 'Pwn', 'Reverse', 'Crypto', 'Forensic', 'Misc'];
-            const maxChallenges = 6; // A-F
+            // 使用後端返回的配額順序，或使用預設順序
+            const categories = data.categories_order || ['general', 'web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc'];
+            const quotaConfig = data.quota_config || {};
+            const maxChallenges = Math.max(6, ...Object.values(quotaConfig), ...categories.map(cat => (data.challenges?.[cat] || []).length));
 
-            // 表頭
-            let headerHtml = '<th>分類</th>';
+            // 表頭 - 使用動態標題
+            let headerHtml = '<th>分類 (現有/目標)</th>';
             for (let i = 0; i < maxChallenges; i++) {
-                headerHtml += `<th>${String.fromCharCode(65 + i)}</th>`;
+                headerHtml += `<th class="text-center" style="width: 150px;">${String.fromCharCode(65 + i)}</th>`;
             }
             document.getElementById('matrixHeader').innerHTML = headerHtml;
 
             // 表格內容
             let bodyHtml = '';
             categories.forEach(category => {
-                const categoryKey = category.toLowerCase();
-                const challenges = data.challenges?.[categoryKey] || [];
+                const challenges = data.challenges?.[category] || [];
+                const targetCount = quotaConfig[category] || challenges.length;
+                const categoryDisplay = `${category.charAt(0).toUpperCase() + category.slice(1)} (${challenges.length}/${targetCount})`;
                 
-                bodyHtml += `<tr><td class="fw-bold">${category}</td>`;
+                bodyHtml += `<tr><td class="fw-bold">${categoryDisplay}</td>`;
                 
                 for (let i = 0; i < maxChallenges; i++) {
                     if (i < challenges.length) {
                         const challenge = challenges[i];
+                        const title = challenge.title || challenge.name || '未命名';
+                        const author = challenge.author || '未知';
+                        const difficulty = challenge.difficulty || 'easy';
                         const status = challenge.status || 'planning';
-                        const challengeType = challenge.challenge_type || 'static_attachment';
-                        const sourceCode = challenge.source_code_provided;
+                        
+                        // 難度顏色映射
+                        const difficultyColors = {
+                            'baby': 'success',
+                            'easy': 'info', 
+                            'middle': 'warning',
+                            'hard': 'danger',
+                            'impossible': 'dark'
+                        };
                         
                         const statusIcon = getStatusIcon(status);
-                        const typeIcon = getTypeIcon(challengeType);
-                        const sourceIcon = sourceCode ? '📄' : '🔒';
+                        const color = difficultyColors[difficulty] || 'secondary';
                         
                         bodyHtml += `
-                            <td class="challenge-cell" 
-                                data-challenge='${JSON.stringify(challenge)}'
-                                onclick="showChallengeDetails('${categoryKey}', ${i})"
-                                style="cursor: pointer;"
-                                title="${challenge.title || 'Challenge ' + String.fromCharCode(65 + i)}">
-                                <div class="fs-5">${statusIcon}${typeIcon}</div>
-                                <small class="text-muted">${sourceIcon}</small>
+                            <td class="text-center challenge-cell p-2" style="min-width: 150px;">
+                                <div class="card border-${color} h-100" onclick="showChallengeDetails('${category}', ${i})" style="cursor: pointer;">
+                                    <div class="card-body p-2">
+                                        <div class="fw-bold mb-1" style="font-size: 0.9rem; color: var(--ctf-gray-900);">
+                                            ${statusIcon} ${title}
+                                        </div>
+                                        <div class="small mb-1" style="color: var(--ctf-gray-600);">
+                                            👤 ${author}
+                                        </div>
+                                        <div class="small">
+                                            <span class="badge bg-${color}" style="font-size: 0.7rem; color: white;">
+                                                🎯 ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        `;
+                    } else if (i < targetCount) {
+                        // 待創建題目
+                        bodyHtml += `
+                            <td class="text-center challenge-cell p-2" style="min-width: 150px;">
+                                <div class="card border-light h-100 border-dashed">
+                                    <div class="card-body p-2 d-flex align-items-center justify-content-center">
+                                        <div style="color: var(--ctf-gray-600);">
+                                            <div class="fs-4">⚪</div>
+                                            <div class="small fw-bold">待創建</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
                         `;
                     } else {
-                        bodyHtml += '<td class="text-muted"><div class="fs-5">❌</div></td>';
+                        // 不需要的欄位
+                        bodyHtml += `
+                            <td class="text-center p-2" style="min-width: 150px;">
+                                <div style="color: var(--ctf-gray-500);">
+                                    <div class="fs-4">⬜</div>
+                                    <div class="small">不需要</div>
+                                </div>
+                            </td>
+                        `;
                     }
                 }
                 
