@@ -1,0 +1,64 @@
+# =============================================================================
+# CTF Challenge Private Configuration - 簡化版本
+# =============================================================================
+
+# 基本資訊
+title: "TODO: 題目標題"
+author: "TODO: 作者名稱"
+difficulty: "easy"  # baby, easy, middle, hard, impossible
+category: "web"     # web, pwn, reverse, crypto, forensic, misc, general
+description: "TODO: 題目描述，說明參賽者需要做什麼"
+
+# 題目配置
+challenge_type: "static_container"  # static_attachment, static_container, nc_challenge 等
+source_code_provided: false
+files: []
+status: "planning"  # planning, developing, testing, completed, deployed
+points: 100
+tags:
+  - "TODO: 標籤1"
+  - "TODO: 標籤2"
+created_at: "2024-01-01T00:00:00"
+
+# 部署資訊
+deploy_info:
+  port: null
+  url: null
+  requires_build: true
+  # NC 題目需要以下配置
+  # nc_port: 9999
+  # timeout: 60
+  # connection_type: "nc"
+
+# 多階段提示系統
+hints:
+  - level: 1
+    cost: 0
+    content: "TODO: 第一個免費提示 - 引導參賽者思考方向"
+    
+  - level: 2
+    cost: 10
+    content: "TODO: 第二個提示 - 提供具體的技術線索"
+    
+  - level: 3
+    cost: 25
+    content: "TODO: 第三個提示 - 給出關鍵步驟或工具"
+
+# =============================================================================
+# 敏感資訊 (不會出現在 public.yml 中)
+# =============================================================================
+
+# 實際的 flag
+flag: "is1abCTF{TODO_replace_with_actual_flag}"
+
+# Flag 獲取說明
+flag_description: "TODO: 描述如何獲得這個 flag"
+
+# 解題步驟
+solution_steps:
+  - "TODO: 第一步解題步驟"
+  - "TODO: 第二步解題步驟"
+  - "TODO: 第三步解題步驟"
+
+# 內部開發筆記
+internal_notes: "TODO: 內部開發筆記，測試要點等"

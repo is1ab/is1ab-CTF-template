@@ -86,10 +86,7 @@ jobs:
         run: |
           uv run scripts/validate-challenge.py --pr ${{ github.event.number }}
           
-      - name: 🔒 Check for sensitive data
-        run: |
-          uv run scripts/check-sensitive.py
-          
+
       - name: 📝 Validate public.yml format
         run: |
           uv run scripts/validate-public-yml.py

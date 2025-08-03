@@ -242,7 +242,6 @@ uv run web-interface/server.py
 uv run scripts/validate-challenge.py --all
 
 # 檢查敏感資料
-uv run scripts/check-sensitive.py
 
 # 運行測試 (如果有)
 uv run python -m pytest

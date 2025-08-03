@@ -16,34 +16,49 @@ class ChallengeValidator:
         
     def validate_challenge(self, challenge_path):
         """驗證單個題目"""
-        challenge_path = Path(challenge_path)
-        
-        if not challenge_path.exists():
-            self.errors.append(f"Challenge path does not exist: {challenge_path}")
-            return False
+        try:
+            challenge_path = Path(challenge_path)
             
-        print(f"🔍 Validating challenge: {challenge_path}")
-        
-        # 讀取 public.yml 以確定題目類型
-        challenge_type = self.get_challenge_type(challenge_path)
-        
-        # 驗證目錄結構
-        self.validate_directory_structure(challenge_path, challenge_type)
-        
-        # 驗證 public.yml
-        self.validate_public_yml(challenge_path)
-        
-        # 驗證 Docker 檔案
-        self.validate_docker_files(challenge_path, challenge_type)
-        
-        # 驗證敏感資料
-        self.check_sensitive_data(challenge_path)
-        
-        # 特定類型驗證
-        if challenge_type == 'nc_challenge':
-            self.validate_nc_challenge(challenge_path)
-        
-        return len(self.errors) == 0
+            if not challenge_path.exists():
+                self.errors.append(f"Challenge path does not exist: {challenge_path}")
+                return False
+                
+            if not challenge_path.is_dir():
+                self.errors.append(f"Challenge path is not a directory: {challenge_path}")
+                return False
+                
+            print(f"🔍 Validating challenge: {challenge_path}")
+            
+            # 讀取 public.yml 以確定題目類型
+            challenge_type = self.get_challenge_type(challenge_path)
+            if challenge_type is None:
+                self.errors.append(f"Cannot determine challenge type from {challenge_path}")
+                return False
+            
+            # 驗證目錄結構
+            self.validate_directory_structure(challenge_path, challenge_type)
+            
+            # 驗證 public.yml
+            self.validate_public_yml(challenge_path)
+            
+            # 驗證 Docker 檔案
+            self.validate_docker_files(challenge_path, challenge_type)
+            
+            # 驗證敏感資料
+            self.check_sensitive_data(challenge_path)
+            
+            # 特定類型驗證
+            if challenge_type == 'nc_challenge':
+                self.validate_nc_challenge(challenge_path)
+            
+            return len(self.errors) == 0
+            
+        except PermissionError as e:
+            self.errors.append(f"Permission error accessing {challenge_path}: {e}")
+            return False
+        except Exception as e:
+            self.errors.append(f"Unexpected error validating {challenge_path}: {e}")
+            return False
     
     def get_challenge_type(self, challenge_path):
         """取得題目類型"""
@@ -52,10 +67,21 @@ class ChallengeValidator:
             try:
                 with open(public_yml, 'r', encoding='utf-8') as f:
                     data = yaml.safe_load(f)
-                    return data.get('challenge_type', 'static_attachment')
-            except:
-                pass
-        return 'static_attachment'
+                    challenge_type = data.get('challenge_type', 'static_attachment')
+                    print(f"📝 Detected challenge type: {challenge_type}")
+                    return challenge_type
+            except yaml.YAMLError as e:
+                self.errors.append(f"YAML parsing error in public.yml: {e}")
+                return None
+            except IOError as e:
+                self.errors.append(f"Cannot read public.yml: {e}")
+                return None
+            except Exception as e:
+                self.errors.append(f"Error reading challenge type: {e}")
+                return None
+        else:
+            self.errors.append(f"Missing public.yml file in {challenge_path}")
+            return None
         
     def validate_directory_structure(self, challenge_path, challenge_type):
         """驗證目錄結構"""
@@ -385,62 +411,81 @@ class ChallengeValidator:
         print()
 
 def main():
-    parser = argparse.ArgumentParser(description='Validate CTF challenges')
-    parser.add_argument('path', nargs='?', help='Path to specific challenge (optional)')
-    parser.add_argument('--all', action='store_true', help='Validate all challenges')
-    parser.add_argument('--pr', type=int, help='PR number to validate')
-    
-    args = parser.parse_args()
-    
-    validator = ChallengeValidator()
-    
-    if args.pr:
-        # 取得 PR 變更的檔案
-        try:
-            result = subprocess.run(['git', 'diff', '--name-only', f'origin/main...HEAD'], 
-                                  capture_output=True, text=True, check=True)
-            changed_files = result.stdout.strip().split('\n')
-            
-            # 找出變更的 challenge 目錄
-            challenge_dirs = set()
-            for file_path in changed_files:
-                if file_path.startswith('challenges/'):
-                    parts = Path(file_path).parts
-                    if len(parts) >= 3:  # challenges/category/name/...
-                        challenge_dir = Path(parts[0]) / parts[1] / parts[2]
-                        challenge_dirs.add(challenge_dir)
-                        
-            if not challenge_dirs:
-                print("✅ No challenges to validate")
-                return
+    try:
+        parser = argparse.ArgumentParser(description='Validate CTF challenges')
+        parser.add_argument('path', nargs='?', help='Path to specific challenge (optional)')
+        parser.add_argument('--all', action='store_true', help='Validate all challenges')
+        parser.add_argument('--pr', type=int, help='PR number to validate')
+        
+        args = parser.parse_args()
+        
+        validator = ChallengeValidator()
+        
+        if args.pr:
+            # 取得 PR 變更的檔案
+            try:
+                result = subprocess.run(['git', 'diff', '--name-only', f'origin/main...HEAD'], 
+                                      capture_output=True, text=True, check=True)
+                changed_files = result.stdout.strip().split('\n')
                 
-            all_valid = True
-            for challenge_dir in challenge_dirs:
+                # 找出變更的 challenge 目錄
+                challenge_dirs = set()
+                for file_path in changed_files:
+                    if file_path.startswith('challenges/'):
+                        parts = Path(file_path).parts
+                        if len(parts) >= 3:  # challenges/category/name/...
+                            challenge_dir = Path(parts[0]) / parts[1] / parts[2]
+                            challenge_dirs.add(challenge_dir)
+                            
+                if not challenge_dirs:
+                    print("✅ No challenges to validate")
+                    return
+                    
+                all_valid = True
+                for challenge_dir in challenge_dirs:
+                    validator.errors = []
+                    validator.warnings = []
+                    if not validator.validate_challenge(challenge_dir):
+                        all_valid = False
+                    validator.print_results(challenge_dir)
+                    
+                sys.exit(0 if all_valid else 1)
+                
+            except subprocess.CalledProcessError as e:
+                print(f"❌ Could not get PR diff: {e}")
+                sys.exit(1)
+            except Exception as e:
+                print(f"❌ Error processing PR: {e}")
+                sys.exit(1)
+                
+        elif args.all:
+            try:
+                success = validator.validate_all_challenges()
+                sys.exit(0 if success else 1)
+            except Exception as e:
+                print(f"❌ Error validating all challenges: {e}")
+                sys.exit(1)
+            
+        elif args.path:
+            try:
                 validator.errors = []
                 validator.warnings = []
-                if not validator.validate_challenge(challenge_dir):
-                    all_valid = False
-                validator.print_results(challenge_dir)
-                
-            sys.exit(0 if all_valid else 1)
+                success = validator.validate_challenge(args.path)
+                validator.print_results(Path(args.path))
+                sys.exit(0 if success else 1)
+            except Exception as e:
+                print(f"❌ Error validating challenge {args.path}: {e}")
+                sys.exit(1)
             
-        except subprocess.CalledProcessError:
-            print("❌ Could not get PR diff")
+        else:
+            print("❌ Please specify --all, --pr <number>, or a specific challenge path")
             sys.exit(1)
             
-    elif args.all:
-        success = validator.validate_all_challenges()
-        sys.exit(0 if success else 1)
-        
-    elif args.path:
-        validator.errors = []
-        validator.warnings = []
-        success = validator.validate_challenge(args.path)
-        validator.print_results(Path(args.path))
-        sys.exit(0 if success else 1)
-        
-    else:
-        print("Please specify --all, --pr <number>, or a specific challenge path")
+    except KeyboardInterrupt:
+        print("\n⚠️  Operation cancelled by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ Unexpected error: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

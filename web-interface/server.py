@@ -157,6 +157,9 @@ class CTFManager:
                 else:
                     source_code_counts['not_provided'] += 1
         
+        # 計算配額進度
+        quota_progress = self.calculate_quota_progress(category_counts, difficulty_counts, type_counts, total_challenges)
+        
         return {
             'total_challenges': total_challenges,
             'status_counts': status_counts,
@@ -164,8 +167,169 @@ class CTFManager:
             'difficulty_counts': difficulty_counts,
             'type_counts': type_counts,
             'source_code_counts': source_code_counts,
+            'quota_progress': quota_progress,
             'last_updated': datetime.now().isoformat()
         }
+    
+    def calculate_quota_progress(self, category_counts: Dict, difficulty_counts: Dict, type_counts: Dict, total_challenges: int) -> Dict:
+        """計算配額完成進度"""
+        quota_config = self.config.get('challenge_quota', {})
+        
+        # 驗證配額設定
+        validation_result = self.validate_quota_config(quota_config)
+        
+        progress = {
+            'category_progress': {},
+            'difficulty_progress': {},
+            'total_progress': {},
+            'validation': validation_result
+        }
+        
+        # 分類進度
+        category_quota = quota_config.get('by_category', {})
+        for category, target in category_quota.items():
+            current = category_counts.get(category, 0)
+            progress['category_progress'][category] = {
+                'current': current,
+                'target': target,
+                'percentage': min(100, (current / target * 100)) if target > 0 else 0,
+                'remaining': max(0, target - current),
+                'status': 'completed' if current >= target else 'in_progress' if current > 0 else 'not_started'
+            }
+        
+        # 難度進度
+        difficulty_quota = quota_config.get('by_difficulty', {})
+        for difficulty, target in difficulty_quota.items():
+            current = difficulty_counts.get(difficulty, 0)
+            progress['difficulty_progress'][difficulty] = {
+                'current': current,
+                'target': target,
+                'percentage': min(100, (current / target * 100)) if target > 0 else 0,
+                'remaining': max(0, target - current),
+                'status': 'completed' if current >= target else 'in_progress' if current > 0 else 'not_started'
+            }
+        
+        # 總進度
+        total_target = quota_config.get('total_target', 0)
+        progress['total_progress'] = {
+            'current': total_challenges,
+            'target': total_target,
+            'percentage': min(100, (total_challenges / total_target * 100)) if total_target > 0 else 0,
+            'remaining': max(0, total_target - total_challenges),
+            'status': 'completed' if total_challenges >= total_target else 'in_progress' if total_challenges > 0 else 'not_started'
+        }
+        
+        return progress
+    
+    def validate_quota_config(self, quota_config: Dict) -> Dict:
+        """驗證配額配置是否合理"""
+        validation_result = {
+            'is_valid': True,
+            'warnings': [],
+            'errors': [],
+            'suggestions': []
+        }
+        
+        validation_rules = quota_config.get('validation', {})
+        category_quota = quota_config.get('by_category', {})
+        difficulty_quota = quota_config.get('by_difficulty', {})
+        total_target = quota_config.get('total_target', 0)
+        
+        # 檢查總目標是否設定
+        if total_target <= 0:
+            validation_result['errors'].append('總目標題目數必須大於 0')
+            validation_result['is_valid'] = False
+        
+        # 檢查分類配額總和
+        category_sum = sum(category_quota.values())
+        if validation_rules.get('category_sum_equals_total', True):
+            tolerance = validation_rules.get('tolerance_percentage', 5) / 100
+            if abs(category_sum - total_target) > total_target * tolerance:
+                if category_sum > total_target:
+                    validation_result['warnings'].append(
+                        f'分類配額總和 ({category_sum}) 超過總目標 ({total_target})，'
+                        f'超出 {category_sum - total_target} 題'
+                    )
+                else:
+                    validation_result['warnings'].append(
+                        f'分類配額總和 ({category_sum}) 少於總目標 ({total_target})，'
+                        f'缺少 {total_target - category_sum} 題'
+                    )
+        
+        # 檢查難度配額總和
+        difficulty_sum = sum(difficulty_quota.values())
+        if validation_rules.get('difficulty_sum_equals_total', True):
+            tolerance = validation_rules.get('tolerance_percentage', 5) / 100
+            if abs(difficulty_sum - total_target) > total_target * tolerance:
+                if difficulty_sum > total_target:
+                    validation_result['warnings'].append(
+                        f'難度配額總和 ({difficulty_sum}) 超過總目標 ({total_target})，'
+                        f'超出 {difficulty_sum - total_target} 題'
+                    )
+                else:
+                    validation_result['warnings'].append(
+                        f'難度配額總和 ({difficulty_sum}) 少於總目標 ({total_target})，'
+                        f'缺少 {total_target - difficulty_sum} 題'
+                    )
+        
+        # 檢查最小配額限制
+        min_category = validation_rules.get('min_challenges_per_category', 1)
+        min_difficulty = validation_rules.get('min_challenges_per_difficulty', 1)
+        
+        for category, count in category_quota.items():
+            if count < min_category:
+                validation_result['warnings'].append(
+                    f'分類 "{category}" 配額 ({count}) 低於建議最小值 ({min_category})'
+                )
+        
+        for difficulty, count in difficulty_quota.items():
+            if count < min_difficulty:
+                validation_result['warnings'].append(
+                    f'難度 "{difficulty}" 配額 ({count}) 低於建議最小值 ({min_difficulty})'
+                )
+        
+        # 提供建議
+        if category_sum != total_target:
+            diff = total_target - category_sum
+            if diff > 0:
+                validation_result['suggestions'].append(
+                    f'建議增加 {diff} 題分類配額以達到總目標'
+                )
+            else:
+                validation_result['suggestions'].append(
+                    f'建議減少 {-diff} 題分類配額以符合總目標'
+                )
+        
+        if difficulty_sum != total_target:
+            diff = total_target - difficulty_sum
+            if diff > 0:
+                validation_result['suggestions'].append(
+                    f'建議增加 {diff} 題難度配額以達到總目標'
+                )
+            else:
+                validation_result['suggestions'].append(
+                    f'建議減少 {-diff} 題難度配額以符合總目標'
+                )
+        
+        # 檢查配額分布合理性
+        if category_quota:
+            max_category = max(category_quota.values())
+            min_category_val = min(category_quota.values())
+            if max_category > min_category_val * 3:
+                validation_result['suggestions'].append(
+                    '分類配額分布不均，建議平衡各分類題目數量'
+                )
+        
+        if difficulty_quota:
+            # 檢查難度梯度是否合理 (一般來說，簡單題目應該比困難題目多)
+            easy_count = difficulty_quota.get('easy', 0) + difficulty_quota.get('baby', 0)
+            hard_count = difficulty_quota.get('hard', 0) + difficulty_quota.get('impossible', 0)
+            if hard_count > easy_count:
+                validation_result['suggestions'].append(
+                    '建議增加簡單題目數量，保持適當的難度梯度'
+                )
+        
+        return validation_result
     
     def get_recent_activity(self) -> List[Dict]:
         """取得最近活動 (從 Git 日誌)"""
@@ -238,44 +402,61 @@ class CTFManager:
                 challenge_type=data.get('challenge_type')
             )
             
+            # 更新 private.yml 以包含額外的資料（如提示）
             challenge_path = CHALLENGES_DIR / data['category'] / data['name']
-            
-            # 更新 public.yml 中的額外資訊
-            if challenge_path.exists():
-                public_yml = challenge_path / 'public.yml'
-                if public_yml.exists():
-                    with open(public_yml, 'r', encoding='utf-8') as f:
-                        config = yaml.safe_load(f)
-                    
-                    # 更新額外資訊
-                    config['description'] = data['description']
-                    config['source_code_provided'] = data.get('source_code_provided', False)
-                    
-                    if data.get('tags'):
-                        config['tags'] = data['tags'] if isinstance(data['tags'], list) else data['tags'].split(',')
-                    
-                    if data.get('learning_objectives'):
-                        config['learning_objectives'] = data['learning_objectives']
-                    
-                    # NC 題目特殊設定
-                    if data.get('challenge_type') == 'nc_challenge':
-                        config['deploy_info'].update({
-                            'nc_port': int(data.get('nc_port', 9999)),
-                            'timeout': int(data.get('nc_timeout', 60))
-                        })
-                    
-                    with open(public_yml, 'w', encoding='utf-8') as f:
-                        yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+            self._update_challenge_config(challenge_path, data)
             
             return {
-                'success': True,
-                'message': f"題目 {data['name']} 創建成功",
+                'message': '題目創建成功',
                 'path': str(challenge_path),
-                'branch': f"challenge/{data['category']}/{data['name']}"
+                'category': data['category'],
+                'name': data['name']
             }
-        
+            
         except Exception as e:
             raise Exception(f"創建題目失敗: {str(e)}")
+    
+    def _update_challenge_config(self, challenge_path, data):
+        """更新題目配置（private.yml 和 public.yml）"""
+        private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
+        
+        if not private_yml.exists():
+            raise Exception(f"找不到 private.yml: {private_yml}")
+        
+        # 讀取現有的 private.yml
+        with open(private_yml, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        # 更新配置
+        if 'description' in data:
+            config['description'] = data['description']
+        if 'tags' in data and data['tags']:
+            config['tags'] = data['tags']
+        if 'learning_objectives' in data:
+            config['learning_objectives'] = data['learning_objectives']
+        if 'hints' in data and data['hints']:
+            config['hints'] = data['hints']
+        
+        # NC 題目特殊配置
+        if data.get('challenge_type') == 'nc_challenge':
+            if 'nc_port' in data:
+                config['deploy_info']['nc_port'] = int(data['nc_port'])
+            if 'nc_timeout' in data:
+                config['deploy_info']['timeout'] = int(data['nc_timeout'])
+        
+        # 儲存更新的 private.yml
+        with open(private_yml, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        
+        # 重新生成 public.yml（移除敏感資訊）
+        public_config = config.copy()
+        sensitive_fields = ['flag', 'flag_description', 'solution_steps', 'internal_notes']
+        for field in sensitive_fields:
+            public_config.pop(field, None)
+        
+        with open(public_yml, 'w', encoding='utf-8') as f:
+            yaml.dump(public_config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
     
     def update_readme(self) -> Dict:
         """更新 README"""
@@ -363,18 +544,40 @@ def get_progress():
         challenges = ctf_manager.get_challenges()
         stats = ctf_manager.calculate_stats(challenges)
         
+        # 從配置獲取分類順序和配額
+        quota_config = ctf_manager.config.get('challenge_quota', {})
+        category_quota = quota_config.get('by_category', {})
+        
+        # 按照配置文件中的順序排列分類
+        categories = list(category_quota.keys()) if category_quota else ['general', 'web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc']
+        
         # 生成進度表格
-        categories = ['general', 'web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc']
         table_rows = []
+        max_challenges_per_category = max([len(challenges.get(cat, [])) for cat in categories] + [6])  # 至少顯示6欄
         
         for category in categories:
-            row = [category.title()]
             challenge_list = challenges.get(category, [])
+            target_count = category_quota.get(category, len(challenge_list))
+            category_display = f"{category.title()} ({len(challenge_list)}/{target_count})"
             
-            for i in range(6):  # A-F 欄位
+            row = [category_display]
+            
+            for i in range(max_challenges_per_category):
                 if i < len(challenge_list):
-                    status = challenge_list[i].get('status', 'planning')
-                    challenge_type = challenge_list[i].get('challenge_type', 'static_attachment')
+                    challenge = challenge_list[i]
+                    title = challenge.get('title', challenge.get('name', '未命名'))
+                    author = challenge.get('author', '未知')
+                    difficulty = challenge.get('difficulty', 'easy')
+                    status = challenge.get('status', 'planning')
+                    
+                    # 難度顏色映射
+                    difficulty_colors = {
+                        'baby': 'success',
+                        'easy': 'info', 
+                        'middle': 'warning',
+                        'hard': 'danger',
+                        'impossible': 'dark'
+                    }
                     
                     # 狀態圖示
                     status_icons = {
@@ -385,28 +588,52 @@ def get_progress():
                         'deployed': '🚀'
                     }
                     
-                    # 類型圖示
-                    type_icons = {
-                        'nc_challenge': '🔌',
-                        'static_container': '🐳',
-                        'dynamic_container': '🔄',
-                        'static_attachment': '📎',
-                        'dynamic_attachment': '📋'
-                    }
-                    
                     icon = status_icons.get(status, '❓')
-                    type_icon = type_icons.get(challenge_type, '')
-                    row.append(f"{icon}{type_icon}")
+                    color = difficulty_colors.get(difficulty, 'secondary')
+                    
+                    # 格式化為包含完整資訊的物件
+                    cell_data = {
+                        'type': 'challenge',
+                        'title': title,
+                        'author': author,
+                        'difficulty': difficulty,
+                        'status': status,
+                        'icon': icon,
+                        'color': color,
+                        'category': category,
+                        'folder_name': challenge.get('folder_name', ''),
+                        'display': f"{icon} {title}\\n👤 {author}\\n🎯 {difficulty.title()}"
+                    }
+                    row.append(cell_data)
+                elif i < target_count:
+                    # 在目標範圍內但尚未創建的題目
+                    row.append({
+                        'type': 'empty',
+                        'display': '⚪ 待創建',
+                        'color': 'light'
+                    })
                 else:
-                    row.append('❌')
+                    # 超出目標的欄位
+                    row.append({
+                        'type': 'unused',
+                        'display': '⬜ 不需要',
+                        'color': 'secondary'
+                    })
             
             table_rows.append(row)
+        
+        # 生成動態表格標題
+        headers = ['分類 (現有/目標)']
+        for i in range(max_challenges_per_category):
+            headers.append(chr(65 + i))  # A, B, C, D...
         
         return jsonify({
             'challenges': challenges,
             'stats': stats,
-            'table_headers': ['分類', 'A', 'B', 'C', 'D', 'E', 'F'],
-            'table_rows': table_rows
+            'quota_config': category_quota,
+            'table_headers': headers,
+            'table_rows': table_rows,
+            'categories_order': categories
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -569,6 +796,265 @@ def get_logs():
         ]
         
         return jsonify(logs[:limit])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ========== 提示管理 API ==========
+
+def update_hints_and_regenerate_public(challenge_path, config):
+    """更新提示並重新生成 public.yml"""
+    private_yml = challenge_path / 'private.yml'
+    public_yml = challenge_path / 'public.yml'
+    
+    # 儲存 private.yml
+    with open(private_yml, 'w', encoding='utf-8') as f:
+        yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    
+    # 生成 public.yml（移除敏感資訊）
+    public_config = config.copy()
+    sensitive_fields = ['flag', 'flag_description', 'solution_steps', 'internal_notes']
+    for field in sensitive_fields:
+        public_config.pop(field, None)
+    
+    with open(public_yml, 'w', encoding='utf-8') as f:
+        yaml.dump(public_config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+@app.route('/api/challenges/<category>/<name>/hints', methods=['GET'])
+def get_challenge_hints(category, name):
+    """獲取題目提示"""
+    try:
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
+        
+        # 優先使用 private.yml，如果不存在則使用 public.yml
+        if private_yml.exists():
+            config_file = private_yml
+        elif public_yml.exists():
+            config_file = public_yml
+        else:
+            return jsonify({'error': '題目配置不存在'}), 404
+        
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        hints = config.get('hints', [])
+        return jsonify({
+            'title': config.get('title', name),
+            'hints': hints
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/challenges/<category>/<name>/hints', methods=['POST'])
+def add_challenge_hint(category, name):
+    """新增題目提示"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': '無效的請求資料'}), 400
+        
+        level = data.get('level')
+        cost = data.get('cost')
+        content = data.get('content')
+        
+        if not all([level is not None, cost is not None, content]):
+            return jsonify({'error': '缺少必要欄位: level, cost, content'}), 400
+        
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
+        
+        # 讀取配置，如果沒有 private.yml 則從 public.yml 創建
+        if private_yml.exists():
+            with open(private_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        elif public_yml.exists():
+            with open(public_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        else:
+            return jsonify({'error': '題目配置不存在'}), 404
+        
+        # 確保 hints 陣列存在
+        if 'hints' not in config:
+            config['hints'] = []
+        
+        # 檢查是否已存在相同 level
+        for hint in config['hints']:
+            if hint.get('level') == level:
+                return jsonify({'error': f'提示等級 {level} 已存在'}), 400
+        
+        # 新增提示
+        new_hint = {
+            'level': int(level),
+            'cost': int(cost),
+            'content': content
+        }
+        
+        config['hints'].append(new_hint)
+        config['hints'].sort(key=lambda x: x.get('level', 0))
+        
+        # 更新 private.yml 並重新生成 public.yml
+        update_hints_and_regenerate_public(challenge_path, config)
+        
+        return jsonify({'message': '提示新增成功', 'hint': new_hint})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/challenges/<category>/<name>/hints/<int:level>', methods=['PUT'])
+def update_challenge_hint(category, name, level):
+    """更新題目提示"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': '無效的請求資料'}), 400
+        
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
+        
+        # 讀取配置，如果沒有 private.yml 則從 public.yml 創建
+        if private_yml.exists():
+            with open(private_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        elif public_yml.exists():
+            with open(public_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        else:
+            return jsonify({'error': '題目配置不存在'}), 404
+        
+        hints = config.get('hints', [])
+        hint_found = False
+        
+        for hint in hints:
+            if hint.get('level') == level:
+                hint_found = True
+                if 'cost' in data:
+                    hint['cost'] = int(data['cost'])
+                if 'content' in data:
+                    hint['content'] = data['content']
+                break
+        
+        if not hint_found:
+            return jsonify({'error': f'找不到提示等級 {level}'}), 404
+        
+        # 更新 private.yml 並重新生成 public.yml
+        update_hints_and_regenerate_public(challenge_path, config)
+        
+        return jsonify({'message': '提示更新成功'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/challenges/<category>/<name>/hints/<int:level>', methods=['DELETE'])
+def delete_challenge_hint(category, name, level):
+    """刪除題目提示"""
+    try:
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
+        
+        # 讀取配置，如果沒有 private.yml 則從 public.yml 創建
+        if private_yml.exists():
+            with open(private_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        elif public_yml.exists():
+            with open(public_yml, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        else:
+            return jsonify({'error': '題目配置不存在'}), 404
+        
+        hints = config.get('hints', [])
+        original_count = len(hints)
+        
+        config['hints'] = [h for h in hints if h.get('level') != level]
+        
+        if len(config['hints']) == original_count:
+            return jsonify({'error': f'找不到提示等級 {level}'}), 404
+        
+        # 更新 private.yml 並重新生成 public.yml
+        update_hints_and_regenerate_public(challenge_path, config)
+        
+        return jsonify({'message': '提示刪除成功'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/challenges/<category>/<name>/details', methods=['GET'])
+def get_challenge_details(category, name):
+    """獲取題目詳細資訊"""
+    try:
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
+        
+        # 優先使用 private.yml，如果不存在則使用 public.yml
+        if private_yml.exists():
+            config_file = private_yml
+        elif public_yml.exists():
+            config_file = public_yml
+        else:
+            return jsonify({'error': '題目配置不存在'}), 404
+        
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        # 基本資訊
+        details = {
+            'title': config.get('title', name),
+            'author': config.get('author', '未知'),
+            'category': category,
+            'difficulty': config.get('difficulty', 'easy'),
+            'description': config.get('description', ''),
+            'points': config.get('points', 100),
+            'status': config.get('status', 'planning'),
+            'challenge_type': config.get('challenge_type', ''),
+            'source_code_provided': config.get('source_code_provided', False),
+            'created_at': config.get('created_at', ''),
+            'tags': config.get('tags', []),
+            'files': config.get('files', []),
+            'deploy_info': config.get('deploy_info', {}),
+            'hints': config.get('hints', [])
+        }
+        
+        # 檢查實際檔案
+        files_dir = challenge_path / 'files'
+        if files_dir.exists():
+            actual_files = []
+            for file_path in files_dir.iterdir():
+                if file_path.is_file():
+                    actual_files.append(file_path.name)
+            if actual_files:
+                details['actual_files'] = actual_files
+        
+        # 檢查是否有 README
+        readme_file = challenge_path / 'README.md'
+        if readme_file.exists():
+            try:
+                with open(readme_file, 'r', encoding='utf-8') as f:
+                    details['readme_content'] = f.read()
+            except Exception:
+                pass
+        
+        # 檢查 writeup
+        writeup_dir = challenge_path / 'writeup'
+        if writeup_dir.exists():
+            writeup_files = []
+            for writeup_file in writeup_dir.iterdir():
+                if writeup_file.is_file() and writeup_file.suffix in ['.md', '.pdf', '.txt']:
+                    writeup_files.append(writeup_file.name)
+            if writeup_files:
+                details['writeup_files'] = writeup_files
+        
+        # 檢查 Docker 配置
+        docker_dir = challenge_path / 'docker'
+        if docker_dir.exists():
+            docker_files = []
+            for docker_file in docker_dir.iterdir():
+                if docker_file.is_file():
+                    docker_files.append(docker_file.name)
+            if docker_files:
+                details['docker_files'] = docker_files
+        
+        return jsonify(details)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

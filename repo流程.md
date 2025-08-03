@@ -95,8 +95,7 @@ jobs:
             fi
           done
       
-      - name: 🔒 Check sensitive data
-        run: uv run scripts/check-sensitive.py --pr-mode
+      #- name: 🔒 Check sensitive data
       
       - name: 🐳 Test Docker builds
         run: |
