@@ -1,0 +1,18 @@
+/* 自定義樣式 */
+.challenge-card {
+    transition: transform 0.2s;
+}
+
+.challenge-card:hover {
+    transform: translateY(-2px);
+}
+
+.hero-body {
+    padding: 1.5rem 1.5rem;
+}
+
+@media screen and (max-width: 768px) {
+    .hero-body {
+        padding: 1rem;
+    }
+}

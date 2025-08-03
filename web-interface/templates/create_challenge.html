@@ -305,6 +305,60 @@
                   </button>
                 </div>
               </div>
+
+              <!-- 原始碼放置位置提示 -->
+              <div class="notification is-info is-light mt-4">
+                <div class="content">
+                  <h5 class="title is-5">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    題目原始碼放置位置說明
+                  </h5>
+                  <div class="columns">
+                    <div class="column">
+                      <h6 class="subtitle is-6">📁 目錄結構</h6>
+                      <div class="content">
+                        <p>創建成功後，請將題目相關檔案放置到以下目錄：</p>
+                        <ul>
+                          <li>
+                            <strong>src/</strong> - 題目原始碼（完整的題目實現）
+                          </li>
+                          <li>
+                            <strong>files/</strong> - 提供給參賽者下載的檔案
+                          </li>
+                          <li><strong>writeup/</strong> - 解題說明文檔</li>
+                          <li>
+                            <strong>docker/</strong> - Docker 部署相關檔案
+                          </li>
+                          <li><strong>bin/</strong> - 編譯後的可執行檔案</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div class="column">
+                      <h6 class="subtitle is-6">💡 重要提醒</h6>
+                      <div class="content">
+                        <ul>
+                          <li>
+                            🔒 <strong>src/</strong> 目錄中的原始碼<span
+                              class="has-text-weight-bold has-text-danger"
+                              >不會</span
+                            >提供給參賽者
+                          </li>
+                          <li>
+                            📦 只有
+                            <strong>files/</strong> 目錄中的檔案會提供下載
+                          </li>
+                          <li>🐳 Web/PWN 類題目建議使用 Docker 部署</li>
+                          <li>
+                            📝 請務必在
+                            <strong>writeup/</strong> 中撰寫詳細解題步驟
+                          </li>
+                          <li>🔍 可以在題目詳情頁面查看完整的檔案結構</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </form>
           </div>
         </div>

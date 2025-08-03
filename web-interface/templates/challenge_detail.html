@@ -318,6 +318,70 @@
         </div>
         {% endif %}
 
+        <!-- 檔案結構說明 -->
+        <div class="card mb-5">
+          <div class="card-header">
+            <p class="card-header-title">
+              <span class="icon mr-2">
+                <i class="fas fa-folder-tree"></i>
+              </span>
+              題目檔案結構
+            </p>
+          </div>
+          <div class="card-content">
+            <div class="content is-small">
+              <div class="box has-background-grey-lighter">
+                <p class="has-text-weight-semibold mb-2">
+                  📁 {{ challenge.category }}/{{ challenge.name }}/
+                </p>
+                <div class="ml-3">
+                  <p>
+                    ├── 📄 <strong>private.yml</strong>
+                    <span class="tag is-danger is-small">私密</span>
+                  </p>
+                  <p>
+                    ├── 📄 <strong>public.yml</strong>
+                    <span class="tag is-success is-small">公開</span>
+                  </p>
+                  <p>├── 📄 <strong>README.md</strong></p>
+                  <p>
+                    ├── 📁 <strong>src/</strong>
+                    <span class="tag is-warning is-small">原始碼</span>
+                  </p>
+                  <p>
+                    ├── 📁 <strong>files/</strong>
+                    <span class="tag is-info is-small">附件</span>
+                  </p>
+                  <p>
+                    ├── 📁 <strong>writeup/</strong>
+                    <span class="tag is-primary is-small">解題</span>
+                  </p>
+                  <p>
+                    ├── 📁 <strong>docker/</strong>
+                    <span class="tag is-light is-small">部署</span>
+                  </p>
+                  <p>
+                    └── 📁 <strong>bin/</strong>
+                    <span class="tag is-dark is-small">執行檔</span>
+                  </p>
+                </div>
+              </div>
+              <div class="mt-3">
+                <p class="has-text-weight-semibold">📂 目錄說明：</p>
+                <ul class="is-size-7">
+                  <li>
+                    <strong>src/</strong> - 題目完整原始碼（不公開給參賽者）
+                  </li>
+                  <li><strong>files/</strong> - 提供給參賽者下載的檔案</li>
+                  <li><strong>writeup/</strong> - 詳細解題步驟和說明</li>
+                  <li><strong>docker/</strong> - Docker 部署配置檔案</li>
+                  <li><strong>bin/</strong> - 編譯後的可執行檔案</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 時間資訊 -->
         <div class="card">
           <div class="card-header">

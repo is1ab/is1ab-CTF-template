@@ -246,6 +246,41 @@
             </div>
           </div>
 
+          <!-- 原始碼放置位置提示 -->
+          <div class="notification is-info is-light mb-4">
+            <div class="content">
+              <h5 class="title is-5">
+                <i class="fas fa-folder-open mr-2"></i>
+                題目檔案結構 - {{ challenge.category }}/{{ challenge.name }}
+              </h5>
+              <div class="columns">
+                <div class="column">
+                  <h6 class="subtitle is-6">📁 目錄說明</h6>
+                  <div class="content">
+                    <ul>
+                      <li><strong>src/</strong> - 題目原始碼（不公開）</li>
+                      <li><strong>files/</strong> - 參賽者下載檔案</li>
+                      <li><strong>writeup/</strong> - 解題說明文檔</li>
+                      <li><strong>docker/</strong> - Docker 部署檔案</li>
+                      <li><strong>bin/</strong> - 編譯後執行檔</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="column">
+                  <h6 class="subtitle is-6">💡 檔案管理提醒</h6>
+                  <div class="content">
+                    <ul>
+                      <li>🔒 原始碼請放在 <strong>src/</strong> 目錄</li>
+                      <li>📦 附件檔案放在 <strong>files/</strong> 目錄</li>
+                      <li>📝 解題步驟寫在 <strong>writeup/</strong></li>
+                      <li>🔍 可在題目詳情頁查看檔案列表</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- 操作按鈕 -->
           <div class="field is-grouped">
             <div class="control">
