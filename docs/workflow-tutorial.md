@@ -157,8 +157,8 @@ cd 2024-is1ab-CTF
 git remote add upstream git@github.com:your-org/2024-is1ab-CTF.git
 
 # 安裝依賴
-uv venv && source .venv/bin/activate
-uv pip install -r requirements.txt
+uv venv 
+uv sync
 
 # 確認環境正常
 uv run scripts/check-sensitive.py

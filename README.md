@@ -28,11 +28,12 @@ git clone https://github.com/is1ab/is1ab-CTF-template.git my-ctf-2024
 cd my-ctf-2024
 
 # 2. 安裝依賴
-uv venv && source .venv/bin/activate
-uv pip install -r requirements.txt
+uv venv
+uv sync
 
 # 3. 初始化專案
-uv run scripts/init-project.py --year 2024 --org your-org
+# [year]-[org-name]-CTF
+uv run scripts/init-project.py --year 2024 --org your-org-name
 
 # 4. 創建第一個題目
 uv run scripts/create-challenge.py web welcome baby --author YourName
@@ -239,4 +240,4 @@ MIT License - 詳見 [LICENSE](LICENSE) 檔案
 
 **⭐ 如果這個模板對你有幫助，請給我們一個 Star！**
 
-最後更新：2024-XX-XX | 版本：v1.0.0
+最後更新：2025-08-03 | 版本：v1.0.0

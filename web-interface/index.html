@@ -443,6 +443,97 @@
     <!-- Toast Container -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
 
+    <!-- 提示管理 Modal -->
+    <div class="modal fade" id="hintsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-lightbulb text-warning"></i> 題目提示管理</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <h6 id="hintsModalTitle">題目名稱</h6>
+                        <p class="text-muted">管理題目的漸進式提示系統</p>
+                    </div>
+                    
+                    <!-- 現有提示列表 -->
+                    <div class="mb-4">
+                        <h6>📋 現有提示</h6>
+                        <div id="existingHints" class="list-group">
+                            <!-- 動態生成 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 新增提示表單 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">➕ 新增提示</h6>
+                        </div>
+                        <div class="card-body">
+                            <form id="addHintForm">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label for="hintLevel" class="form-label">提示等級</label>
+                                        <input type="number" class="form-control" id="hintLevel" min="1" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="hintCost" class="form-label">消耗分數</label>
+                                        <input type="number" class="form-control" id="hintCost" min="0" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">操作</label>
+                                        <div>
+                                            <button type="submit" class="btn btn-primary">新增提示</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <label for="hintContent" class="form-label">提示內容</label>
+                                    <textarea class="form-control" id="hintContent" rows="3" 
+                                        placeholder="輸入漸進式的提示內容..." required></textarea>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 題目詳情 Modal -->
+    <div class="modal fade" id="challengeDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-info-circle text-primary"></i> 題目詳情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="challengeDetailsContent">
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">載入中...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-primary" id="editChallengeBtn" style="display:none;">
+                        <i class="bi bi-pencil"></i> 編輯題目
+                    </button>
+                    <button type="button" class="btn btn-outline-info" id="manageChallengeHintsBtn" style="display:none;">
+                        <i class="bi bi-lightbulb"></i> 管理提示
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 鍵盤快速鍵說明 Modal -->
     <div class="modal fade" id="keyboardHelpModal" tabindex="-1">
         <div class="modal-dialog">
@@ -966,10 +1057,22 @@
                                                     <div class="small mb-1" style="color: var(--ctf-gray-600);">
                                                         👤 ${cell.author}
                                                     </div>
-                                                    <div class="small">
+                                                    <div class="small mb-2">
                                                         <span class="badge bg-${cell.color}" style="font-size: 0.7rem; color: white;">
                                                             🎯 ${cell.difficulty.charAt(0).toUpperCase() + cell.difficulty.slice(1)}
                                                         </span>
+                                                    </div>
+                                                    <div class="btn-group btn-group-sm w-100" role="group">
+                                                        <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                            onclick="openHintsManager('${rowIndex}', '${cellIndex}', '${cell.title}', '${cell.category}', '${cell.folder_name}')"
+                                                            title="管理提示">
+                                                            💡
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                                            onclick="viewChallenge('${cell.category}', '${cell.folder_name}')"
+                                                            title="查看詳情">
+                                                            👁️
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1379,6 +1482,515 @@
                     toastContainer.removeChild(toast);
                 }
             }, 5000);
+        }
+
+        // ========== 提示管理功能 ==========
+        
+        let currentHintsChallenge = {};
+        
+        // 打開提示管理器
+        async function openHintsManager(rowIndex, cellIndex, title, category, folderName) {
+            try {
+                currentHintsChallenge = { category, folderName, title };
+                
+                // 設置模態框標題
+                document.getElementById('hintsModalTitle').textContent = `${title} (${category})`;
+                
+                // 載入現有提示
+                await loadChallengeHints(category, folderName);
+                
+                // 清空表單
+                document.getElementById('addHintForm').reset();
+                
+                // 顯示模態框
+                const modal = new bootstrap.Modal(document.getElementById('hintsModal'));
+                modal.show();
+            } catch (error) {
+                showToast('載入失敗', error.message, 'error');
+            }
+        }
+        
+        // 載入題目提示
+        async function loadChallengeHints(category, folderName) {
+            try {
+                const response = await fetch(`/api/challenges/${category}/${folderName}/hints`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '載入提示失敗');
+                }
+                
+                displayHints(data.hints || []);
+            } catch (error) {
+                console.error('載入提示失敗:', error);
+                displayHints([]);
+            }
+        }
+        
+        // 顯示提示列表
+        function displayHints(hints) {
+            const container = document.getElementById('existingHints');
+            
+            if (hints.length === 0) {
+                container.innerHTML = `
+                    <div class="list-group-item text-center text-muted">
+                        <em>尚未設定任何提示</em>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 按等級排序
+            hints.sort((a, b) => (a.level || 0) - (b.level || 0));
+            
+            const hintsHtml = hints.map(hint => {
+                const costColor = hint.cost === 0 ? 'success' : (hint.cost <= 20 ? 'warning' : 'danger');
+                return `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <h6 class="mb-0 me-2">💡 提示 ${hint.level}</h6>
+                                    <span class="badge bg-${costColor}">
+                                        ${hint.cost === 0 ? '免費' : `${hint.cost} 分`}
+                                    </span>
+                                </div>
+                                <p class="mb-0">${hint.content}</p>
+                            </div>
+                            <div class="btn-group btn-group-sm ms-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                    onclick="editHint(${hint.level}, ${hint.cost}, '${hint.content.replace(/'/g, "\\'")}')">
+                                    ✏️
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                    onclick="deleteHint(${hint.level})">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = hintsHtml;
+        }
+        
+        // 新增提示
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('addHintForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(e.target);
+                const hintData = {
+                    level: parseInt(formData.get('level') || document.getElementById('hintLevel').value),
+                    cost: parseInt(formData.get('cost') || document.getElementById('hintCost').value),
+                    content: formData.get('content') || document.getElementById('hintContent').value
+                };
+                
+                try {
+                    const response = await fetch(`/api/challenges/${currentHintsChallenge.category}/${currentHintsChallenge.folderName}/hints`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(hintData)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(result.error || '新增提示失敗');
+                    }
+                    
+                    showToast('成功', '提示新增成功', 'success');
+                    
+                    // 重新載入提示列表
+                    await loadChallengeHints(currentHintsChallenge.category, currentHintsChallenge.folderName);
+                    
+                    // 清空表單
+                    e.target.reset();
+                } catch (error) {
+                    showToast('新增失敗', error.message, 'error');
+                }
+            });
+        });
+        
+        // 編輯提示
+        function editHint(level, cost, content) {
+            document.getElementById('hintLevel').value = level;
+            document.getElementById('hintCost').value = cost;
+            document.getElementById('hintContent').value = content;
+            
+            // 更改按鈕文字和行為
+            const submitBtn = document.querySelector('#addHintForm button[type="submit"]');
+            submitBtn.textContent = '更新提示';
+            submitBtn.onclick = () => updateHint(level);
+        }
+        
+        // 更新提示
+        async function updateHint(level) {
+            const hintData = {
+                cost: parseInt(document.getElementById('hintCost').value),
+                content: document.getElementById('hintContent').value
+            };
+            
+            try {
+                const response = await fetch(`/api/challenges/${currentHintsChallenge.category}/${currentHintsChallenge.folderName}/hints/${level}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(hintData)
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || '更新提示失敗');
+                }
+                
+                showToast('成功', '提示更新成功', 'success');
+                
+                // 重新載入提示列表
+                await loadChallengeHints(currentHintsChallenge.category, currentHintsChallenge.folderName);
+                
+                // 重置表單和按鈕
+                document.getElementById('addHintForm').reset();
+                const submitBtn = document.querySelector('#addHintForm button[type="submit"]');
+                submitBtn.textContent = '新增提示';
+                submitBtn.onclick = null;
+            } catch (error) {
+                showToast('更新失敗', error.message, 'error');
+            }
+        }
+        
+        // 刪除提示
+        async function deleteHint(level) {
+            if (!confirm(`確定要刪除提示 ${level} 嗎？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/challenges/${currentHintsChallenge.category}/${currentHintsChallenge.folderName}/hints/${level}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || '刪除提示失敗');
+                }
+                
+                showToast('成功', '提示刪除成功', 'success');
+                
+                // 重新載入提示列表
+                await loadChallengeHints(currentHintsChallenge.category, currentHintsChallenge.folderName);
+            } catch (error) {
+                showToast('刪除失敗', error.message, 'error');
+            }
+        }
+        
+        // 顯示題目詳情（統一函數名稱）
+        async function showChallengeDetails(category, challengeIdentifier) {
+            // 驗證基本參數
+            if (!category || category === 'undefined') {
+                showToast('錯誤', '無效的題目分類', 'error');
+                console.error('Invalid category:', category);
+                return;
+            }
+            
+            // 處理不同的調用方式
+            let folderName = challengeIdentifier;
+            
+            // 如果 challengeIdentifier 是數字（索引），則需要找到對應的 folderName
+            if (typeof challengeIdentifier === 'number') {
+                const challenges = challengeData.challenges?.[category];
+                if (challenges && challenges[challengeIdentifier]) {
+                    folderName = challenges[challengeIdentifier].folder_name;
+                } else {
+                    showToast('錯誤', '找不到指定的題目', 'error');
+                    return;
+                }
+            }
+            
+            // 調用查看詳情函數
+            await viewChallenge(category, folderName);
+        }
+        
+        // 查看題目詳情（佔位符函數）
+        async function viewChallenge(category, folderName) {
+            // 驗證參數
+            if (!category || !folderName || category === 'undefined' || folderName === 'undefined') {
+                showToast('錯誤', '無效的題目參數', 'error');
+                console.error('Invalid parameters:', { category, folderName });
+                return;
+            }
+            
+            try {
+                // 顯示模態框並載入
+                const modal = new bootstrap.Modal(document.getElementById('challengeDetailsModal'));
+                document.getElementById('challengeDetailsContent').innerHTML = `
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">載入中...</span>
+                        </div>
+                    </div>
+                `;
+                modal.show();
+                
+                // 獲取題目詳情
+                const response = await fetch(`/api/challenges/${category}/${folderName}/details`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const challenge = await response.json();
+                
+                // 渲染題目詳情
+                renderChallengeDetails(challenge);
+                
+                // 設置按鈕功能
+                document.getElementById('manageChallengeHintsBtn').style.display = 'inline-block';
+                document.getElementById('manageChallengeHintsBtn').onclick = () => {
+                    modal.hide();
+                    openHintsManager(0, 0, challenge.title, category, folderName);
+                };
+                
+            } catch (error) {
+                console.error('載入題目詳情失敗:', error);
+                document.getElementById('challengeDetailsContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>載入失敗</strong><br>
+                        無法載入題目詳情：${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function renderChallengeDetails(challenge) {
+            const difficultyColors = {
+                'baby': 'success',
+                'easy': 'info', 
+                'middle': 'warning',
+                'hard': 'danger',
+                'impossible': 'dark'
+            };
+            
+            const difficultyIcons = {
+                'baby': '🍼',
+                'easy': '⭐',
+                'middle': '⭐⭐', 
+                'hard': '⭐⭐⭐',
+                'impossible': '💀'
+            };
+            
+            const statusColors = {
+                'planning': 'secondary',
+                'development': 'warning',
+                'testing': 'info',
+                'completed': 'success',
+                'deployed': 'primary'
+            };
+            
+            const statusIcons = {
+                'planning': '📝',
+                'development': '🔨',
+                'testing': '🧪',
+                'completed': '✅',
+                'deployed': '🚀'
+            };
+            
+            const hintsHtml = challenge.hints && challenge.hints.length > 0 
+                ? challenge.hints.map(hint => `
+                    <div class="border rounded p-3 mb-2">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0">提示 ${hint.level}</h6>
+                            <span class="badge bg-${hint.cost === 0 ? 'success' : 'warning'}">
+                                ${hint.cost === 0 ? '免費' : `${hint.cost} 分`}
+                            </span>
+                        </div>
+                        <p class="mb-0 text-muted">${hint.content}</p>
+                    </div>
+                `).join('')
+                : '<p class="text-muted">暫無提示</p>';
+            
+            const filesHtml = challenge.files && challenge.files.length > 0
+                ? challenge.files.map(file => `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-file-earmark"></i> ${file}</span>
+                        <span class="badge bg-primary rounded-pill">檔案</span>
+                    </li>
+                `).join('')
+                : '<li class="list-group-item text-muted">無附件檔案</li>';
+            
+            document.getElementById('challengeDetailsContent').innerHTML = `
+                <div class="row">
+                    <!-- 基本資訊 -->
+                    <div class="col-md-8">
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0"><i class="bi bi-info-circle"></i> 基本資訊</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-sm-3"><strong>題目名稱：</strong></div>
+                                    <div class="col-sm-9">${challenge.title}</div>
+                                </div>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-sm-3"><strong>作者：</strong></div>
+                                    <div class="col-sm-9">${challenge.author}</div>
+                                </div>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-sm-3"><strong>分類：</strong></div>
+                                    <div class="col-sm-9">
+                                        <span class="badge bg-primary">${challenge.category}</span>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-sm-3"><strong>難度：</strong></div>
+                                    <div class="col-sm-9">
+                                        <span class="badge bg-${difficultyColors[challenge.difficulty]}">
+                                            ${difficultyIcons[challenge.difficulty]} ${challenge.difficulty.charAt(0).toUpperCase() + challenge.difficulty.slice(1)}
+                                        </span>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-sm-3"><strong>狀態：</strong></div>
+                                    <div class="col-sm-9">
+                                        <span class="badge bg-${statusColors[challenge.status]}">
+                                            ${statusIcons[challenge.status]} ${challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
+                                        </span>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-sm-3"><strong>分數：</strong></div>
+                                    <div class="col-sm-9">${challenge.points} 分</div>
+                                </div>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-sm-3"><strong>題目類型：</strong></div>
+                                    <div class="col-sm-9">
+                                        <span class="badge bg-info">${challenge.challenge_type || '未設定'}</span>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-sm-3"><strong>建立時間：</strong></div>
+                                    <div class="col-sm-9">${challenge.created_at ? new Date(challenge.created_at).toLocaleDateString('zh-TW') : '未知'}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 題目描述 -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0"><i class="bi bi-file-text"></i> 題目描述</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-light">
+                                    ${challenge.description || '暫無描述'}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 附件檔案 -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0"><i class="bi bi-paperclip"></i> 附件檔案</h5>
+                            </div>
+                            <div class="card-body p-0">
+                                <ul class="list-group list-group-flush">
+                                    ${filesHtml}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 側邊欄資訊 -->
+                    <div class="col-md-4">
+                        <!-- 部署資訊 -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0"><i class="bi bi-cloud"></i> 部署資訊</h5>
+                            </div>
+                            <div class="card-body">
+                                ${challenge.deploy_info ? `
+                                    <div class="mb-2">
+                                        <strong>端口：</strong> ${challenge.deploy_info.port || '未設定'}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>URL：</strong> ${challenge.deploy_info.url || '未設定'}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>需要建構：</strong> ${challenge.deploy_info.requires_build ? '是' : '否'}
+                                    </div>
+                                    ${challenge.deploy_info.nc_port ? `
+                                        <div class="mb-2">
+                                            <strong>NC 端口：</strong> ${challenge.deploy_info.nc_port}
+                                        </div>
+                                    ` : ''}
+                                    ${challenge.deploy_info.timeout ? `
+                                        <div class="mb-2">
+                                            <strong>連線超時：</strong> ${challenge.deploy_info.timeout} 秒
+                                        </div>
+                                    ` : ''}
+                                ` : '<p class="text-muted">無部署資訊</p>'}
+                            </div>
+                        </div>
+                        
+                        <!-- 標籤 -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0"><i class="bi bi-tags"></i> 標籤</h5>
+                            </div>
+                            <div class="card-body">
+                                ${challenge.tags && challenge.tags.length > 0 
+                                    ? challenge.tags.map(tag => `<span class="badge bg-secondary me-1">${tag}</span>`).join('') 
+                                    : '<span class="text-muted">無標籤</span>'
+                                }
+                            </div>
+                        </div>
+                        
+                        <!-- 原始碼提供 -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0"><i class="bi bi-code-slash"></i> 原始碼</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    ${challenge.source_code_provided 
+                                        ? '<i class="bi bi-check-circle text-success me-2"></i><span class="text-success">提供原始碼</span>'
+                                        : '<i class="bi bi-x-circle text-danger me-2"></i><span class="text-danger">不提供原始碼</span>'
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 題目提示 -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="bi bi-lightbulb text-warning"></i> 題目提示</h5>
+                                <button class="btn btn-sm btn-outline-primary" onclick="document.getElementById('manageChallengeHintsBtn').click()">
+                                    <i class="bi bi-gear"></i> 管理提示
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                ${hintsHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
     </script>
 </body>

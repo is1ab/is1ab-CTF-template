@@ -402,44 +402,61 @@ class CTFManager:
                 challenge_type=data.get('challenge_type')
             )
             
+            # 更新 private.yml 以包含額外的資料（如提示）
             challenge_path = CHALLENGES_DIR / data['category'] / data['name']
-            
-            # 更新 public.yml 中的額外資訊
-            if challenge_path.exists():
-                public_yml = challenge_path / 'public.yml'
-                if public_yml.exists():
-                    with open(public_yml, 'r', encoding='utf-8') as f:
-                        config = yaml.safe_load(f)
-                    
-                    # 更新額外資訊
-                    config['description'] = data['description']
-                    config['source_code_provided'] = data.get('source_code_provided', False)
-                    
-                    if data.get('tags'):
-                        config['tags'] = data['tags'] if isinstance(data['tags'], list) else data['tags'].split(',')
-                    
-                    if data.get('learning_objectives'):
-                        config['learning_objectives'] = data['learning_objectives']
-                    
-                    # NC 題目特殊設定
-                    if data.get('challenge_type') == 'nc_challenge':
-                        config['deploy_info'].update({
-                            'nc_port': int(data.get('nc_port', 9999)),
-                            'timeout': int(data.get('nc_timeout', 60))
-                        })
-                    
-                    with open(public_yml, 'w', encoding='utf-8') as f:
-                        yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+            self._update_challenge_config(challenge_path, data)
             
             return {
-                'success': True,
-                'message': f"題目 {data['name']} 創建成功",
+                'message': '題目創建成功',
                 'path': str(challenge_path),
-                'branch': f"challenge/{data['category']}/{data['name']}"
+                'category': data['category'],
+                'name': data['name']
             }
-        
+            
         except Exception as e:
             raise Exception(f"創建題目失敗: {str(e)}")
+    
+    def _update_challenge_config(self, challenge_path, data):
+        """更新題目配置（private.yml 和 public.yml）"""
+        private_yml = challenge_path / 'private.yml'
+        public_yml = challenge_path / 'public.yml'
+        
+        if not private_yml.exists():
+            raise Exception(f"找不到 private.yml: {private_yml}")
+        
+        # 讀取現有的 private.yml
+        with open(private_yml, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        # 更新配置
+        if 'description' in data:
+            config['description'] = data['description']
+        if 'tags' in data and data['tags']:
+            config['tags'] = data['tags']
+        if 'learning_objectives' in data:
+            config['learning_objectives'] = data['learning_objectives']
+        if 'hints' in data and data['hints']:
+            config['hints'] = data['hints']
+        
+        # NC 題目特殊配置
+        if data.get('challenge_type') == 'nc_challenge':
+            if 'nc_port' in data:
+                config['deploy_info']['nc_port'] = int(data['nc_port'])
+            if 'nc_timeout' in data:
+                config['deploy_info']['timeout'] = int(data['nc_timeout'])
+        
+        # 儲存更新的 private.yml
+        with open(private_yml, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        
+        # 重新生成 public.yml（移除敏感資訊）
+        public_config = config.copy()
+        sensitive_fields = ['flag', 'flag_description', 'solution_steps', 'internal_notes']
+        for field in sensitive_fields:
+            public_config.pop(field, None)
+        
+        with open(public_yml, 'w', encoding='utf-8') as f:
+            yaml.dump(public_config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
     
     def update_readme(self) -> Dict:
         """更新 README"""
@@ -777,6 +794,238 @@ def get_logs():
         ]
         
         return jsonify(logs[:limit])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ========== 提示管理 API ==========
+
+def update_hints_and_regenerate_public(challenge_path, config):
+    """更新提示並重新生成 public.yml"""
+    private_yml = challenge_path / 'private.yml'
+    public_yml = challenge_path / 'public.yml'
+    
+    # 儲存 private.yml
+    with open(private_yml, 'w', encoding='utf-8') as f:
+        yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    
+    # 生成 public.yml（移除敏感資訊）
+    public_config = config.copy()
+    sensitive_fields = ['flag', 'flag_description', 'solution_steps', 'internal_notes']
+    for field in sensitive_fields:
+        public_config.pop(field, None)
+    
+    with open(public_yml, 'w', encoding='utf-8') as f:
+        yaml.dump(public_config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+@app.route('/api/challenges/<category>/<name>/hints', methods=['GET'])
+def get_challenge_hints(category, name):
+    """獲取題目提示"""
+    try:
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml = challenge_path / 'private.yml'
+        
+        if not private_yml.exists():
+            return jsonify({'error': '題目配置不存在'}), 404
+        
+        with open(private_yml, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        hints = config.get('hints', [])
+        return jsonify({
+            'title': config.get('title', name),
+            'hints': hints
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/challenges/<category>/<name>/hints', methods=['POST'])
+def add_challenge_hint(category, name):
+    """新增題目提示"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': '無效的請求資料'}), 400
+        
+        level = data.get('level')
+        cost = data.get('cost')
+        content = data.get('content')
+        
+        if not all([level is not None, cost is not None, content]):
+            return jsonify({'error': '缺少必要欄位: level, cost, content'}), 400
+        
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml = challenge_path / 'private.yml'
+        
+        if not private_yml.exists():
+            return jsonify({'error': '題目配置不存在'}), 404
+        
+        with open(private_yml, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        # 確保 hints 陣列存在
+        if 'hints' not in config:
+            config['hints'] = []
+        
+        # 檢查是否已存在相同 level
+        for hint in config['hints']:
+            if hint.get('level') == level:
+                return jsonify({'error': f'提示等級 {level} 已存在'}), 400
+        
+        # 新增提示
+        new_hint = {
+            'level': int(level),
+            'cost': int(cost),
+            'content': content
+        }
+        
+        config['hints'].append(new_hint)
+        config['hints'].sort(key=lambda x: x.get('level', 0))
+        
+        # 更新 private.yml 並重新生成 public.yml
+        update_hints_and_regenerate_public(challenge_path, config)
+        
+        return jsonify({'message': '提示新增成功', 'hint': new_hint})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/challenges/<category>/<name>/hints/<int:level>', methods=['PUT'])
+def update_challenge_hint(category, name, level):
+    """更新題目提示"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': '無效的請求資料'}), 400
+        
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml = challenge_path / 'private.yml'
+        
+        if not private_yml.exists():
+            return jsonify({'error': '題目配置不存在'}), 404
+        
+        with open(private_yml, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        hints = config.get('hints', [])
+        hint_found = False
+        
+        for hint in hints:
+            if hint.get('level') == level:
+                hint_found = True
+                if 'cost' in data:
+                    hint['cost'] = int(data['cost'])
+                if 'content' in data:
+                    hint['content'] = data['content']
+                break
+        
+        if not hint_found:
+            return jsonify({'error': f'找不到提示等級 {level}'}), 404
+        
+        # 更新 private.yml 並重新生成 public.yml
+        update_hints_and_regenerate_public(challenge_path, config)
+        
+        return jsonify({'message': '提示更新成功'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/challenges/<category>/<name>/hints/<int:level>', methods=['DELETE'])
+def delete_challenge_hint(category, name, level):
+    """刪除題目提示"""
+    try:
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml = challenge_path / 'private.yml'
+        
+        if not private_yml.exists():
+            return jsonify({'error': '題目配置不存在'}), 404
+        
+        with open(private_yml, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        hints = config.get('hints', [])
+        original_count = len(hints)
+        
+        config['hints'] = [h for h in hints if h.get('level') != level]
+        
+        if len(config['hints']) == original_count:
+            return jsonify({'error': f'找不到提示等級 {level}'}), 404
+        
+        # 更新 private.yml 並重新生成 public.yml
+        update_hints_and_regenerate_public(challenge_path, config)
+        
+        return jsonify({'message': '提示刪除成功'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/challenges/<category>/<name>/details', methods=['GET'])
+def get_challenge_details(category, name):
+    """獲取題目詳細資訊"""
+    try:
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml = challenge_path / 'private.yml'
+        
+        if not private_yml.exists():
+            return jsonify({'error': '題目配置不存在'}), 404
+        
+        with open(private_yml, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        # 基本資訊
+        details = {
+            'title': config.get('title', name),
+            'author': config.get('author', '未知'),
+            'category': category,
+            'difficulty': config.get('difficulty', 'easy'),
+            'description': config.get('description', ''),
+            'points': config.get('points', 100),
+            'status': config.get('status', 'planning'),
+            'challenge_type': config.get('challenge_type', ''),
+            'source_code_provided': config.get('source_code_provided', False),
+            'created_at': config.get('created_at', ''),
+            'tags': config.get('tags', []),
+            'files': config.get('files', []),
+            'deploy_info': config.get('deploy_info', {}),
+            'hints': config.get('hints', [])
+        }
+        
+        # 檢查實際檔案
+        files_dir = challenge_path / 'files'
+        if files_dir.exists():
+            actual_files = []
+            for file_path in files_dir.iterdir():
+                if file_path.is_file():
+                    actual_files.append(file_path.name)
+            if actual_files:
+                details['actual_files'] = actual_files
+        
+        # 檢查是否有 README
+        readme_file = challenge_path / 'README.md'
+        if readme_file.exists():
+            try:
+                with open(readme_file, 'r', encoding='utf-8') as f:
+                    details['readme_content'] = f.read()
+            except Exception:
+                pass
+        
+        # 檢查 writeup
+        writeup_dir = challenge_path / 'writeup'
+        if writeup_dir.exists():
+            writeup_files = []
+            for writeup_file in writeup_dir.iterdir():
+                if writeup_file.is_file() and writeup_file.suffix in ['.md', '.pdf', '.txt']:
+                    writeup_files.append(writeup_file.name)
+            if writeup_files:
+                details['writeup_files'] = writeup_files
+        
+        # 檢查 Docker 配置
+        docker_dir = challenge_path / 'docker'
+        if docker_dir.exists():
+            docker_files = []
+            for docker_file in docker_dir.iterdir():
+                if docker_file.is_file():
+                    docker_files.append(docker_file.name)
+            if docker_files:
+                details['docker_files'] = docker_files
+        
+        return jsonify(details)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

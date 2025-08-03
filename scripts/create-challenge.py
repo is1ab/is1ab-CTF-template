@@ -49,12 +49,16 @@ class ChallengeCreator:
         challenge_path = Path(f"challenges/{category}/{name}")
         self.create_directory_structure(challenge_path, challenge_type)
         
-        # 建立配置檔案
-        public_config = self.create_public_config(name, category, difficulty, author, challenge_type)
+        # 建立配置檔案 (創建 private.yml，後續由它生成 public.yml)
+        private_config = self.create_private_config(name, category, difficulty, author, challenge_type)
+        self.save_private_config(challenge_path, private_config)
+        
+        # 生成 public.yml (從 private.yml 移除敏感資訊)
+        public_config = self.generate_public_from_private(private_config)
         self.save_public_config(challenge_path, public_config)
         
         # 建立模板檔案
-        self.create_template_files(challenge_path, public_config, challenge_type)
+        self.create_template_files(challenge_path, private_config, challenge_type)
         
         # Git 操作
         self.create_git_branch(category, name)
@@ -92,8 +96,9 @@ class ChallengeCreator:
         for dir_name in base_dirs:
             (base_path / dir_name).mkdir(parents=True, exist_ok=True)
             
-    def create_public_config(self, name, category, difficulty, author, challenge_type):
-        """建立 public.yml 配置"""
+    def create_private_config(self, name, category, difficulty, author, challenge_type):
+        """建立 private.yml 配置（包含敏感資訊如 flag）"""
+        flag_prefix = self.config['project']['flag_prefix']
         config = {
             'title': name.replace('_', ' ').replace('-', ' ').title(),
             'author': author,
@@ -107,11 +112,38 @@ class ChallengeCreator:
             'points': self.config['points'].get(difficulty, 100),
             'tags': [category],
             'created_at': datetime.now().isoformat(),
+            # 敏感資訊 (僅在 private.yml 中)
+            'flag': f'{flag_prefix}{{TODO_replace_with_actual_flag}}',
+            'flag_description': 'TODO: 描述如何獲得這個 flag',
+            'solution_steps': [
+                'TODO: 第一步解題步驟',
+                'TODO: 第二步解題步驟', 
+                'TODO: 第三步解題步驟'
+            ],
+            'internal_notes': 'TODO: 內部開發筆記，測試要點等',
             'deploy_info': {
                 'port': None,
                 'url': None,
                 'requires_build': True
-            }
+            },
+            # 多階段提示系統
+            'hints': [
+                {
+                    'level': 1,
+                    'cost': 0,
+                    'content': 'TODO: 第一個免費提示 - 引導參賽者思考方向'
+                },
+                {
+                    'level': 2, 
+                    'cost': 10,
+                    'content': 'TODO: 第二個提示 - 提供具體的技術線索'
+                },
+                {
+                    'level': 3,
+                    'cost': 25,
+                    'content': 'TODO: 第三個提示 - 給出關鍵步驟或工具'
+                }
+            ]
         }
         
         # nc 題目特殊配置
@@ -123,6 +155,23 @@ class ChallengeCreator:
             })
         
         return config
+    
+    def save_private_config(self, challenge_path, config):
+        """儲存 private.yml"""
+        config_file = challenge_path / 'private.yml'
+        with open(config_file, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    
+    def generate_public_from_private(self, private_config):
+        """從 private.yml 生成 public.yml (移除敏感資訊)"""
+        public_config = private_config.copy()
+        
+        # 移除敏感資訊
+        sensitive_fields = ['flag', 'flag_description', 'solution_steps', 'internal_notes']
+        for field in sensitive_fields:
+            public_config.pop(field, None)
+        
+        return public_config
         
     def save_public_config(self, challenge_path, config):
         """儲存 public.yml"""
@@ -462,16 +511,34 @@ flag: {flag_prefix}{{...}}
 - **標籤**: {', '.join(config['tags'])}
 - **建立時間**: {config['created_at'][:10]}
 
+## 💡 題目提示
+
+本題提供漸進式提示系統，幫助參賽者逐步解題：
+
+### 提示 1 (免費)
+{config['hints'][0]['content']}
+
+### 提示 2 (消耗 {config['hints'][1]['cost']} 分)
+{config['hints'][1]['content']}
+
+### 提示 3 (消耗 {config['hints'][2]['cost']} 分)
+{config['hints'][2]['content']}
+
+---
+
 ## 🔍 解題思路 (僅內部可見)
 
 <details>
-<summary>點擊展開解題提示</summary>
+<summary>點擊展開完整解答</summary>
 
-1. TODO: 第一步提示
-2. TODO: 第二步提示  
-3. TODO: 第三步提示
+**解題步驟**:
+1. TODO: 第一步詳細分析
+2. TODO: 第二步具體操作  
+3. TODO: 第三步最終獲取
 
 **實際 Flag**: `{flag_prefix}{{TODO_actual_flag_here}}`
+
+**解題腳本**: 參見 `writeup/exploit.py`
 
 </details>
 

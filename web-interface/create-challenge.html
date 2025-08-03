@@ -237,7 +237,83 @@
                                     </div>
                                 </div>
 
-                                <div class="d-flex justify-content-between">
+                                <!-- 題目提示設定 -->
+                                <div class="mt-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="bi bi-lightbulb text-warning"></i> 題目提示
+                                    </h6>
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle"></i> 
+                                        設計漸進式提示系統，幫助參賽者逐步解題。第一個提示通常免費，後續提示需要消耗分數。
+                                    </div>
+                                    
+                                    <div id="hintsContainer">
+                                        <!-- 提示 1 -->
+                                        <div class="card mb-3 hint-card" data-hint-level="1">
+                                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0">💡 提示 1 (免費)</h6>
+                                                <span class="badge bg-success">免費</span>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="mb-2">
+                                                    <label class="form-label small">提示內容</label>
+                                                    <textarea class="form-control hint-content" rows="2" 
+                                                        placeholder="提供方向性引導，例如：檢查網頁原始碼或分析輸入驗證"></textarea>
+                                                </div>
+                                                <input type="hidden" class="hint-cost" value="0">
+                                            </div>
+                                        </div>
+
+                                        <!-- 提示 2 -->
+                                        <div class="card mb-3 hint-card" data-hint-level="2">
+                                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0">💡 提示 2</h6>
+                                                <div>
+                                                    <input type="number" class="form-control form-control-sm d-inline-block hint-cost" 
+                                                        style="width: 80px;" value="10" min="0" max="100">
+                                                    <span class="small text-muted">分</span>
+                                                </div>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="mb-2">
+                                                    <label class="form-label small">提示內容</label>
+                                                    <textarea class="form-control hint-content" rows="2" 
+                                                        placeholder="提供技術線索，例如：使用特定工具或技術方法"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 提示 3 -->
+                                        <div class="card mb-3 hint-card" data-hint-level="3">
+                                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0">💡 提示 3</h6>
+                                                <div>
+                                                    <input type="number" class="form-control form-control-sm d-inline-block hint-cost" 
+                                                        style="width: 80px;" value="25" min="0" max="100">
+                                                    <span class="small text-muted">分</span>
+                                                </div>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="mb-2">
+                                                    <label class="form-label small">提示內容</label>
+                                                    <textarea class="form-control hint-content" rows="2" 
+                                                        placeholder="提供具體步驟或關鍵 payload"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addHint()">
+                                            <i class="bi bi-plus"></i> 新增提示
+                                        </button>
+                                        <small class="text-muted">
+                                            <i class="bi bi-info-circle"></i> 建議設計 2-4 個提示，成本遞增
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-between mt-4">
                                     <button type="button" class="btn btn-outline-secondary" onclick="prevStep()">
                                         <i class="bi bi-arrow-left"></i> 上一步
                                     </button>
@@ -557,6 +633,9 @@
             if (data.tags) {
                 data.tags = data.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
             }
+            
+            // 收集提示資訊
+            const hints = collectHints();
 
             const reviewHtml = `
                 <div class="row">
@@ -577,6 +656,7 @@
                             <tr><td><strong>描述:</strong></td><td>${data.description ? '已設定' : '未設定'}</td></tr>
                             <tr><td><strong>標籤:</strong></td><td>${data.tags ? data.tags.join(', ') : '無'}</td></tr>
                             <tr><td><strong>學習目標:</strong></td><td>${data.learning_objectives ? '已設定' : '未設定'}</td></tr>
+                            <tr><td><strong>提示數量:</strong></td><td>${hints.length} 個</td></tr>
                             ${data.challenge_type === 'nc_challenge' ? `
                                 <tr><td><strong>NC 端口:</strong></td><td>${data.nc_port || '9999'}</td></tr>
                                 <tr><td><strong>超時時間:</strong></td><td>${data.nc_timeout || '60'} 秒</td></tr>
@@ -584,6 +664,26 @@
                         </table>
                     </div>
                 </div>
+                
+                ${hints.length > 0 ? `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="text-primary">💡 題目提示預覽</h6>
+                            <div class="alert alert-light">
+                                ${hints.map(hint => `
+                                    <div class="mb-2">
+                                        <strong>提示 ${hint.level}:</strong> 
+                                        <span class="badge bg-${hint.cost === 0 ? 'success' : 'warning'} me-2">
+                                            ${hint.cost === 0 ? '免費' : `${hint.cost} 分`}
+                                        </span>
+                                        <br>
+                                        <small class="text-muted">${hint.content || '（尚未填寫內容）'}</small>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
             `;
 
             document.getElementById('reviewInfo').innerHTML = reviewHtml;
@@ -613,6 +713,9 @@
                 if (data.tags) {
                     data.tags = data.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
                 }
+                
+                // 處理提示
+                data.hints = collectHints();
 
                 // 驗證資料
                 const validation = utils.validateChallengeForm(data);
@@ -667,6 +770,152 @@
                 showToast('提示', `題目位於: ${challengeData.result.path}`, 'info');
             }
         }
+
+        // ======== 提示管理功能 ========
+        
+        // 收集所有提示資料
+        function collectHints() {
+            const hints = [];
+            const hintCards = document.querySelectorAll('.hint-card');
+            
+            hintCards.forEach((card, index) => {
+                const level = parseInt(card.dataset.hintLevel);
+                const content = card.querySelector('.hint-content').value.trim();
+                const cost = parseInt(card.querySelector('.hint-cost').value) || 0;
+                
+                if (content) {
+                    hints.push({
+                        level: level,
+                        cost: cost,
+                        content: content
+                    });
+                }
+            });
+            
+            // 按 level 排序
+            hints.sort((a, b) => a.level - b.level);
+            return hints;
+        }
+        
+        // 新增提示
+        function addHint() {
+            const container = document.getElementById('hintsContainer');
+            const existingHints = container.querySelectorAll('.hint-card');
+            const newLevel = existingHints.length + 1;
+            
+            if (newLevel > 6) {
+                showToast('提示', '最多只能設定 6 個提示', 'warning');
+                return;
+            }
+            
+            const defaultCost = Math.min(newLevel * 10, 50);
+            
+            const hintHtml = `
+                <div class="card mb-3 hint-card" data-hint-level="${newLevel}">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">💡 提示 ${newLevel}</h6>
+                        <div class="d-flex align-items-center">
+                            <div class="me-2">
+                                <input type="number" class="form-control form-control-sm d-inline-block hint-cost" 
+                                    style="width: 80px;" value="${defaultCost}" min="0" max="100">
+                                <span class="small text-muted">分</span>
+                            </div>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeHint(this)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <label class="form-label small">提示內容</label>
+                            <textarea class="form-control hint-content" rows="2" 
+                                placeholder="提供適當的提示內容"></textarea>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', hintHtml);
+            
+            // 滾動到新增的提示
+            const newHint = container.lastElementChild;
+            newHint.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // 聚焦到新提示的內容欄位
+            newHint.querySelector('.hint-content').focus();
+        }
+        
+        // 移除提示
+        function removeHint(button) {
+            const card = button.closest('.hint-card');
+            const container = document.getElementById('hintsContainer');
+            const allCards = container.querySelectorAll('.hint-card');
+            
+            if (allCards.length <= 1) {
+                showToast('提示', '至少需要保留一個提示', 'warning');
+                return;
+            }
+            
+            card.remove();
+            
+            // 重新編號所有提示
+            renumberHints();
+        }
+        
+        // 重新編號提示
+        function renumberHints() {
+            const container = document.getElementById('hintsContainer');
+            const cards = container.querySelectorAll('.hint-card');
+            
+            cards.forEach((card, index) => {
+                const level = index + 1;
+                card.dataset.hintLevel = level;
+                
+                const header = card.querySelector('.card-header h6');
+                if (level === 1) {
+                    header.textContent = `💡 提示 ${level} (免費)`;
+                    // 確保第一個提示沒有刪除按鈕
+                    const deleteBtn = card.querySelector('.btn-outline-danger');
+                    if (deleteBtn) {
+                        deleteBtn.remove();
+                    }
+                    // 確保第一個提示成本為 0
+                    const costInput = card.querySelector('.hint-cost');
+                    costInput.value = 0;
+                    costInput.style.display = 'none';
+                    const badge = card.querySelector('.badge');
+                    if (!badge) {
+                        const costDiv = card.querySelector('.card-header > div');
+                        costDiv.innerHTML = '<span class="badge bg-success">免費</span>';
+                    }
+                } else {
+                    header.textContent = `💡 提示 ${level}`;
+                    // 確保非第一個提示有刪除按鈕
+                    const deleteBtn = card.querySelector('.btn-outline-danger');
+                    if (!deleteBtn) {
+                        const costDiv = card.querySelector('.card-header > div');
+                        costDiv.innerHTML = `
+                            <div class="d-flex align-items-center">
+                                <div class="me-2">
+                                    <input type="number" class="form-control form-control-sm d-inline-block hint-cost" 
+                                        style="width: 80px;" value="${Math.min(level * 10, 50)}" min="0" max="100">
+                                    <span class="small text-muted">分</span>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeHint(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
+            });
+        }
+        
+        // 初始化提示區域
+        document.addEventListener('DOMContentLoaded', function() {
+            // 確保第一個提示的設定正確
+            renumberHints();
+        });
 
         // 創建另一個題目
         function createAnother() {

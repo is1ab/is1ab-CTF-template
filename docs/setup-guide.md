@@ -35,9 +35,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh  # Linux/macOS
 
 # 創建虛擬環境並安裝依賴
 uv venv
-source .venv/bin/activate  # Linux/macOS
-# 或 .venv\Scripts\activate  # Windows
-uv pip install -r requirements.txt
+uv sync
 
 # 或傳統方式 (仍然支援)
 python -m venv venv
