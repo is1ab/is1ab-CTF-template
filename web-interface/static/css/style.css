@@ -16,3 +16,58 @@
         padding: 1rem;
     }
 }
+
+/* 修復文字重疊問題 */
+.card-content {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.media-content {
+    min-width: 0;
+    flex: 1;
+}
+
+.title,
+.subtitle {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* 確保卡片內容有適當間距 */
+.card .media-content .title {
+    margin-bottom: 0.25rem;
+}
+
+.card .media-content .subtitle {
+    margin-bottom: 0.5rem;
+}
+
+/* 標籤容器 */
+.tags {
+    margin-top: 0.5rem;
+}
+
+.tags .tag {
+    margin-right: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+/* 響應式調整 */
+@media screen and (max-width: 768px) {
+    .column.is-one-third {
+        padding: 0.5rem;
+    }
+
+    .card-content {
+        padding: 1rem;
+    }
+
+    .title.is-4 {
+        font-size: 1.1rem;
+    }
+
+    .subtitle.is-6 {
+        font-size: 0.9rem;
+    }
+}

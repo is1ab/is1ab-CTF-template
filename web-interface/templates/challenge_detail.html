@@ -204,6 +204,29 @@
           </div>
         </div>
         {% endif %}
+
+        <!-- 附件列表 -->
+        <div class="card mb-5" id="attachments-section">
+          <div class="card-header">
+            <p class="card-header-title">
+              <span class="icon mr-2">
+                <i class="fas fa-paperclip"></i>
+              </span>
+              題目附件
+              <span class="tag is-light ml-2" id="attachments-count"
+                >載入中...</span
+              >
+            </p>
+          </div>
+          <div class="card-content">
+            <div id="attachments-list">
+              <div class="notification is-light">
+                <i class="fas fa-spinner fa-spin mr-2"></i>
+                正在載入附件列表...
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 側邊欄 -->
@@ -406,4 +429,158 @@
     </div>
   </div>
 </section>
+
+<script>
+  // 載入附件列表
+  function loadAttachments() {
+    const category = "{{ challenge.category }}";
+    const name = "{{ challenge.name }}";
+
+    fetch(`/api/challenges/${category}/${name}/files`)
+      .then((response) => response.json())
+      .then((data) => {
+        const attachmentsList = document.getElementById("attachments-list");
+        const attachmentsCount = document.getElementById("attachments-count");
+
+        if (data.status === "success" && data.data.length > 0) {
+          attachmentsCount.textContent = `${data.data.length} 個檔案`;
+
+          let html = "";
+          data.data.forEach((file) => {
+            const fileSize = formatFileSize(file.size);
+            const fileIcon = getFileIcon(file.name);
+
+            html += `
+            <div class="box">
+              <div class="level">
+                <div class="level-left">
+                  <div class="level-item">
+                    <span class="icon has-text-info mr-2">
+                      <i class="${fileIcon}"></i>
+                    </span>
+                    <div>
+                      <p class="title is-6 mb-1">${file.name}</p>
+                      <p class="subtitle is-7 has-text-grey">${fileSize} • ${new Date(
+              file.modified
+            ).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="level-right">
+                  <div class="level-item">
+                    <a href="/api/challenges/${category}/${name}/files/${encodeURIComponent(
+              file.name
+            )}" 
+                       class="button is-primary is-small" 
+                       download="${file.name}">
+                      <span class="icon">
+                        <i class="fas fa-download"></i>
+                      </span>
+                      <span>下載</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          });
+
+          attachmentsList.innerHTML = html;
+        } else {
+          attachmentsCount.textContent = "0 個檔案";
+          attachmentsList.innerHTML = `
+          <div class="notification is-light">
+            <i class="fas fa-info-circle mr-2"></i>
+            此題目暫無附件檔案。如需添加附件，請將檔案放置到 <code>files/</code> 目錄中。
+          </div>
+        `;
+        }
+      })
+      .catch((error) => {
+        console.error("載入附件失敗:", error);
+        document.getElementById("attachments-list").innerHTML = `
+        <div class="notification is-danger is-light">
+          <i class="fas fa-exclamation-triangle mr-2"></i>
+          載入附件列表時發生錯誤
+        </div>
+      `;
+      });
+  }
+
+  // 格式化檔案大小
+  function formatFileSize(bytes) {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  }
+
+  // 獲取檔案圖示
+  function getFileIcon(filename) {
+    const ext = filename.split(".").pop().toLowerCase();
+    const iconMap = {
+      // 程式碼檔案
+      py: "fab fa-python",
+      js: "fab fa-js-square",
+      php: "fab fa-php",
+      java: "fab fa-java",
+      c: "fas fa-code",
+      cpp: "fas fa-code",
+      cc: "fas fa-code",
+      h: "fas fa-code",
+      hpp: "fas fa-code",
+      cs: "fas fa-code",
+      rb: "fas fa-code",
+      go: "fas fa-code",
+      rs: "fas fa-code",
+      sh: "fas fa-terminal",
+      bat: "fas fa-terminal",
+      cmd: "fas fa-terminal",
+      // 文檔檔案
+      pdf: "fas fa-file-pdf",
+      doc: "fas fa-file-word",
+      docx: "fas fa-file-word",
+      txt: "fas fa-file-text",
+      md: "fab fa-markdown",
+      rtf: "fas fa-file-text",
+      // 圖片檔案
+      jpg: "fas fa-file-image",
+      jpeg: "fas fa-file-image",
+      png: "fas fa-file-image",
+      gif: "fas fa-file-image",
+      bmp: "fas fa-file-image",
+      svg: "fas fa-file-image",
+      webp: "fas fa-file-image",
+      // 壓縮檔案
+      zip: "fas fa-file-archive",
+      rar: "fas fa-file-archive",
+      "7z": "fas fa-file-archive",
+      tar: "fas fa-file-archive",
+      gz: "fas fa-file-archive",
+      bz2: "fas fa-file-archive",
+      xz: "fas fa-file-archive",
+      // 可執行檔案
+      exe: "fas fa-cog",
+      msi: "fas fa-cog",
+      deb: "fas fa-cog",
+      rpm: "fas fa-cog",
+      dmg: "fas fa-cog",
+      bin: "fas fa-cog",
+      // 其他
+      json: "fas fa-brackets-curly",
+      xml: "fas fa-code",
+      csv: "fas fa-table",
+      sql: "fas fa-database",
+    };
+
+    return iconMap[ext] || "fas fa-file";
+  }
+
+  // 頁面載入完成後載入附件
+  document.addEventListener("DOMContentLoaded", function () {
+    loadAttachments();
+  });
+</script>
+
 {% endblock %}

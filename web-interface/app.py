@@ -11,7 +11,14 @@ from typing import Any, Dict, List
 import yaml
 
 # Flask 相關套件
-from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask import (
+    Flask,
+    jsonify,
+    render_template,
+    request,
+    send_file,
+    send_from_directory,
+)
 from flask_assets import Bundle, Environment
 from flask_cors import CORS
 from werkzeug.exceptions import BadRequest
@@ -808,6 +815,74 @@ def api_update_challenge(category: str, name: str):
 
     except Exception as update_error:
         return jsonify({"status": "error", "message": str(update_error)}), 500
+
+
+@app.route("/api/challenges/<category>/<name>", methods=["DELETE"])
+def api_delete_challenge(category: str, name: str):
+    """刪除挑戰 API"""
+    try:
+        import shutil
+
+        challenge_path = CHALLENGES_DIR / category / name
+        if not challenge_path.exists():
+            return jsonify({"status": "error", "message": "題目不存在"}), 404
+
+        # 刪除整個挑戰目錄
+        shutil.rmtree(challenge_path)
+
+        return jsonify({"status": "success", "message": "挑戰刪除成功"})
+
+    except Exception as delete_error:
+        return jsonify(
+            {"status": "error", "message": f"刪除挑戰失敗: {str(delete_error)}"}
+        ), 500
+
+
+@app.route("/api/challenges/<category>/<name>/files", methods=["GET"])
+def api_list_challenge_files(category: str, name: str):
+    """API: 列出挑戰檔案"""
+    try:
+        challenge_dir = CHALLENGES_DIR / category / name
+        if not challenge_dir.exists():
+            return jsonify({"status": "error", "message": "挑戰不存在"}), 404
+
+        files_dir = challenge_dir / "files"
+        files = []
+
+        if files_dir.exists():
+            for file_path in files_dir.iterdir():
+                if file_path.is_file():
+                    files.append(
+                        {
+                            "name": file_path.name,
+                            "size": file_path.stat().st_size,
+                            "modified": datetime.fromtimestamp(
+                                file_path.stat().st_mtime
+                            ).isoformat(),
+                        }
+                    )
+
+        return jsonify({"status": "success", "data": files})
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/challenges/<category>/<name>/files/<filename>", methods=["GET"])
+def api_download_challenge_file(category: str, name: str, filename: str):
+    """API: 下載挑戰檔案"""
+    try:
+        challenge_dir = CHALLENGES_DIR / category / name
+        files_dir = challenge_dir / "files"
+        file_path = files_dir / filename
+
+        if not file_path.exists() or not file_path.is_file():
+            return jsonify({"status": "error", "message": "檔案不存在"}), 404
+
+        return send_file(file_path, as_attachment=True, download_name=filename)
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route("/api/challenges/<path:challenge_path>/validate", methods=["POST"])
