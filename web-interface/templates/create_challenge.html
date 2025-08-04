@@ -118,7 +118,7 @@
                         type="number"
                         id="challengePoints"
                         name="points"
-                        placeholder="挑戰分數"
+                        placeholder="將根據難度自動設置"
                         min="1"
                         max="1000"
                         required
@@ -127,6 +127,10 @@
                         <i class="fas fa-star"></i>
                       </span>
                     </div>
+                    <p class="help is-info">
+                      <i class="fas fa-magic"></i>
+                      選擇難度後將自動設置對應分數，您也可以手動修改
+                    </p>
                   </div>
                 </div>
 
@@ -368,6 +372,33 @@
 </section>
 
 <script>
+  // 分數配置 - 從後端傳遞
+  const pointsConfig = {{ config.points | tojson }};
+
+  // 頁面載入完成後初始化
+  document.addEventListener('DOMContentLoaded', function() {
+    const difficultySelect = document.getElementById('challengeDifficulty');
+    const pointsInput = document.getElementById('challengePoints');
+
+    // 監聽難度變更事件
+    difficultySelect.addEventListener('change', function() {
+      const selectedDifficulty = this.value;
+      if (selectedDifficulty && pointsConfig[selectedDifficulty]) {
+        pointsInput.value = pointsConfig[selectedDifficulty];
+        // 添加視覺反饋
+        pointsInput.classList.add('is-success');
+        setTimeout(() => {
+          pointsInput.classList.remove('is-success');
+        }, 1500);
+      }
+    });
+
+    // 初始化時如果已選擇難度，自動設置分數
+    if (difficultySelect.value && pointsConfig[difficultySelect.value]) {
+      pointsInput.value = pointsConfig[difficultySelect.value];
+    }
+  });
+
   // 提示管理功能 - 創建表單專用
   function addHintToCreate() {
     const container = document.getElementById("createHintsContainer");

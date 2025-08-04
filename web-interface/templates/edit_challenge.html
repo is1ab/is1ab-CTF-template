@@ -67,7 +67,7 @@
                     <label class="label">難度 <span class="has-text-danger">*</span></label>
                     <div class="control">
                       <div class="select is-fullwidth">
-                        <select name="difficulty" required>
+                        <select id="editChallengeDifficulty" name="difficulty" required>
                           {% for diff in config.difficulties %}
                           <option value="{{ diff }}" {% if diff == challenge.difficulty %}selected{% endif %}>{{ diff }}</option>
                           {% endfor %}
@@ -83,8 +83,12 @@
                   <div class="field">
                     <label class="label">分數 <span class="has-text-danger">*</span></label>
                     <div class="control">
-                      <input class="input" type="number" name="points" value="{{ challenge.points }}" min="1" max="1000" required>
+                      <input class="input" type="number" id="editChallengePoints" name="points" value="{{ challenge.points }}" min="1" max="1000" required>
                     </div>
+                    <p class="help is-info">
+                      <i class="fas fa-magic"></i>
+                      選擇難度後將自動更新分數，您也可以手動修改
+                    </p>
                   </div>
                 </div>
                 <div class="column">
@@ -387,6 +391,37 @@
 </section>
 
 <script>
+// 分數配置 - 從後端傳遞
+const pointsConfig = {{ config.points | tojson }};
+
+// 頁面載入完成後初始化
+document.addEventListener('DOMContentLoaded', function() {
+  const difficultySelect = document.getElementById('editChallengeDifficulty');
+  const pointsInput = document.getElementById('editChallengePoints');
+  
+  // 監聽難度變更事件
+  difficultySelect.addEventListener('change', function() {
+    const selectedDifficulty = this.value;
+    if (selectedDifficulty && pointsConfig[selectedDifficulty]) {
+      // 詢問用戶是否要更新分數
+      const currentPoints = pointsInput.value;
+      const newPoints = pointsConfig[selectedDifficulty];
+      
+      if (currentPoints != newPoints) {
+        const updatePoints = confirm(`難度已變更為 ${selectedDifficulty}。\n要將分數從 ${currentPoints} 更新為 ${newPoints} 嗎？`);
+        if (updatePoints) {
+          pointsInput.value = newPoints;
+          // 添加視覺反饋
+          pointsInput.classList.add('is-success');
+          setTimeout(() => {
+            pointsInput.classList.remove('is-success');
+          }, 1500);
+        }
+      }
+    }
+  });
+});
+
 // 提示管理功能
 function addHint() {
   const container = document.getElementById('hintsContainer');

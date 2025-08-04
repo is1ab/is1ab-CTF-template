@@ -85,6 +85,7 @@ class CTFManager:
                 "categories": ["web", "pwn", "crypto", "misc", "reverse", "forensic"],
                 "difficulties": ["baby", "easy", "middle", "hard", "impossible"],
                 "challenge_quota": raw_config.get("challenge_quota", {}),
+                "points": raw_config.get("points", {}),
             }
 
             # 從 challenge_quota 提取類別
@@ -212,6 +213,12 @@ class CTFManager:
             category = challenge.get("category", "unknown")
             difficulty = challenge.get("difficulty", "unknown")
             points = challenge.get("points", 0)
+
+            # 確保 points 是整數類型
+            try:
+                points = int(points) if points else 0
+            except (ValueError, TypeError):
+                points = 0
 
             stats["by_category"][category] = stats["by_category"].get(category, 0) + 1
             stats["by_difficulty"][difficulty] = (
