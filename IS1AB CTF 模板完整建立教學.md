@@ -21,9 +21,9 @@ git clone https://github.com/is1ab/is1ab-CTF-template.git
 cd is1ab-CTF-template
 ```
 
-#### 1.2 切換到 testing 分支
+#### 1.2 切換到 main 分支
 ```bash
-git checkout testing
+git checkout main
 ```
 
 ### 階段 2：Private Repository（私有開發階段）
@@ -38,7 +38,7 @@ git checkout testing
 #### 2.2 推送模板到私有 Repository
 ```bash
 git remote set-url origin https://github.com/your-org/2024-is1ab-CTF-private.git
-git push -u origin testing
+git push -u origin main
 ```
 
 #### 2.3 環境設置

@@ -92,8 +92,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 git clone https://github.com/is1ab/is1ab-CTF-template.git
 cd is1ab-CTF-template
 
-# 切換到 testing 分支
-git checkout testing
+# 切換到 main 分支
+git checkout main
 
 # 安裝依賴
 uv sync
@@ -143,8 +143,8 @@ uv run python app.py
 git clone https://github.com/your-org/2024-is1ab-CTF.git
 cd 2024-is1ab-CTF
 
-# 切換到 testing 分支
-git checkout testing
+# 切換到 main 分支
+git checkout main
 
 # 安裝依賴
 uv sync
@@ -171,9 +171,9 @@ git remote add upstream https://github.com/your-org/2024-is1ab-CTF.git
 
 # 同步最新代碼
 git fetch upstream
-git checkout testing
-git merge upstream/testing
-git push origin testing
+git checkout main
+git merge upstream/main
+git push origin main
 ```
 
 #### 2. 創建題目
