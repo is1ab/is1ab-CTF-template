@@ -99,7 +99,7 @@ graph LR
     C -->|PR + Review| D[main of Dev Repo<br/>tested & validated]
     D -->|After Comp| E[Public Repo<br/>Public]
     E -->|Auto Deploy| F[GitHub Pages<br/>Static Site]
-    
+
     style A fill:#e1f5ff
     style B fill:#fff4e1
     style C fill:#fff4e1
@@ -215,7 +215,7 @@ sequenceDiagram
     CI->>PR: 6. 檢查結果（PR 評論）
     Note over PR: 7. Code Review 通過
     PR->>Private: 8. 合併到 main
-    
+
     Note over Private,Public: 階段 3：發布（Private → Public）
     Private->>Public: 9. PR (Private → Public)
     Public->>CI: 10. 觸發 build-public.yml
@@ -386,27 +386,28 @@ cp config.yml.example config.yml
 # 編輯 config.yml 設定專案資訊、平台配置、題目配額等
 ```
 
-### 👤 題目開發者：Fork 和開發流程
+### 👤 題目開發者：Feature Branch 開發流程
 
-#### 1. Fork Private Repository
+#### 1. 取得 Repository 存取權限
+
+**前提條件**：
+
+- ✅ 組織管理員已將您加入 Private Dev Repository
+- ✅ 您擁有 **Write** 權限
+
+**⚠️ 重要**：不需要 Fork！直接在組織 Repository 中使用 Feature Branch 開發
 
 ```bash
-# 在 GitHub 上 Fork 組織的私有 Repository
-# 確保 Fork 也是 Private！
-
-# Clone 個人 Fork
-git clone https://github.com/YOUR-USERNAME/2024-is1ab-CTF.git
+# Clone 組織的 Private Repository
+git clone https://github.com/your-org/2024-is1ab-CTF.git
 cd 2024-is1ab-CTF
 
-# 設置 upstream
-git remote add upstream https://github.com/your-org/2024-is1ab-CTF.git
-
-# 同步最新代碼
-git fetch upstream
+# 確認您在 main 分支並同步最新代碼
 git checkout main
-git merge upstream/main
-git push origin main
+git pull origin main
 ```
+
+> 💡 **提示**：詳細的 Git 工作流程請參閱 [Git Flow 標準化指南](docs/git-flow-standard.md)
 
 #### 2. 創建題目
 
@@ -842,7 +843,7 @@ git gc --prune=now
 | 查找命令     | [快速參考指南](docs/quick-reference.md)                             |
 | 使用 Web GUI | [Web GUI 整合說明](docs/web-gui-integration.md)                     |
 | 創建題目     | [題目創建指南](docs/challenge-creation-guide.md)                    |
-| 角色權限     | [角色與權限管理](docs/roles-and-permissions.md)                    |
+| 角色權限     | [角色與權限管理](docs/roles-and-permissions.md)                     |
 | 解決問題     | [常見問題 FAQ](docs/faq.md) ⭐                                      |
 | 檢查進度     | [新手入門檢查清單](docs/getting-started-checklist.md) ✅            |
 | 故障排除     | [安全流程指南 - 故障排除](docs/security-workflow-guide.md#故障排除) |
