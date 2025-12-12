@@ -1,0 +1,397 @@
+# =============================================================================
+# 🚀 Auto Release to Public Repository
+# =============================================================================
+# 功能：
+# 1. 比賽結束後自動發布題目到公開 Repository
+# 2. 執行完整的安全掃描和建置流程
+# 3. 自動同步到 Public Repository
+# 4. 觸發 GitHub Pages 部署
+# =============================================================================
+
+name: 🚀 Auto Release to Public
+
+on:
+  # 當創建 Release 時自動觸發
+  release:
+    types: [published]
+
+  # 支援手動觸發
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag (例如：2025-01-final)'
+        required: true
+        type: string
+      target_repo:
+        description: 'Target public repository (例如：org/repo-public)'
+        required: true
+        type: string
+      dry_run:
+        description: '測試模式（不實際推送）'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  # ===========================================================================
+  # Job 1: 準備公開發布版本
+  # ===========================================================================
+  prepare-release:
+    name: 📦 準備公開發布版本
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Private Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🐍 Setup Python with uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: 📦 Install Dependencies
+        run: |
+          uv venv
+          uv pip install pyyaml
+
+      - name: 📊 統計題目資訊
+        id: stats
+        run: |
+          echo "📊 統計題目數量..."
+          TOTAL=$(find challenges/ -name "public.yml" 2>/dev/null | wc -l | tr -d ' ')
+          WEB=$(find challenges/web/ -name "public.yml" 2>/dev/null | wc -l | tr -d ' ')
+          PWN=$(find challenges/pwn/ -name "public.yml" 2>/dev/null | wc -l | tr -d ' ')
+          CRYPTO=$(find challenges/crypto/ -name "public.yml" 2>/dev/null | wc -l | tr -d ' ')
+          REVERSE=$(find challenges/reverse/ -name "public.yml" 2>/dev/null | wc -l | tr -d ' ')
+          MISC=$(find challenges/misc/ -name "public.yml" 2>/dev/null | wc -l | tr -d ' ')
+
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "web=$WEB" >> $GITHUB_OUTPUT
+          echo "pwn=$PWN" >> $GITHUB_OUTPUT
+          echo "crypto=$CRYPTO" >> $GITHUB_OUTPUT
+          echo "reverse=$REVERSE" >> $GITHUB_OUTPUT
+          echo "misc=$MISC" >> $GITHUB_OUTPUT
+
+          echo "📊 題目統計:"
+          echo "  總計: $TOTAL"
+          echo "  Web: $WEB"
+          echo "  Pwn: $PWN"
+          echo "  Crypto: $CRYPTO"
+          echo "  Reverse: $REVERSE"
+          echo "  Misc: $MISC"
+
+      - name: 🔒 Pre-Release Security Scan
+        run: |
+          echo "🔒 執行發布前安全掃描..."
+
+          if [ -f "scripts/scan-secrets.py" ]; then
+            uv run python scripts/scan-secrets.py \
+              --path challenges/ \
+              --format markdown \
+              --output pre-release-scan.md \
+              --fail-on-critical
+
+            if [ $? -ne 0 ]; then
+              echo "::error::安全掃描發現 CRITICAL 問題，停止發布流程"
+              exit 1
+            fi
+          else
+            echo "⚠️ scan-secrets.py 不存在，跳過安全掃描"
+          fi
+
+      - name: 🏗️ Build Public Release
+        run: |
+          echo "🏗️ 建置公開版本..."
+
+          # 創建公開發布目錄
+          mkdir -p public-release/challenges
+          mkdir -p public-release/docs
+
+          # 複製每個題目的公開內容
+          for challenge_dir in challenges/*/; do
+            if [ ! -d "$challenge_dir" ]; then
+              continue
+            fi
+
+            challenge_name=$(basename "$challenge_dir")
+            category=$(basename $(dirname "$challenge_dir"))
+
+            echo "  處理題目: $category/$challenge_name"
+
+            # 創建目標目錄
+            mkdir -p "public-release/challenges/$challenge_name"
+
+            # 複製公開檔案
+            if [ -f "$challenge_dir/public.yml" ]; then
+              cp "$challenge_dir/public.yml" "public-release/challenges/$challenge_name/"
+            fi
+
+            # 複製 files 目錄（提供給參賽者的附件）
+            if [ -d "$challenge_dir/files" ]; then
+              cp -r "$challenge_dir/files" "public-release/challenges/$challenge_name/"
+            fi
+
+            # 複製 writeup（如果標記為公開）
+            if [ -d "$challenge_dir/writeup" ]; then
+              # 檢查 writeup 是否應該公開
+              if grep -q "public_writeup: true" "$challenge_dir/public.yml" 2>/dev/null; then
+                cp -r "$challenge_dir/writeup" "public-release/challenges/$challenge_name/"
+              fi
+            fi
+          done
+
+          # 複製必要的文檔
+          cp README.md public-release/ 2>/dev/null || echo "⚠️ README.md 不存在"
+          cp LICENSE public-release/ 2>/dev/null || echo "⚠️ LICENSE 不存在"
+
+          echo "✅ 公開版本建置完成"
+
+      - name: 🔍 Validate Public Release
+        run: |
+          echo "🔍 驗證公開版本..."
+
+          # 檢查是否有 flag 洩漏
+          FLAG_PREFIX=$(grep -E "^\s*flag_prefix:" config.yml 2>/dev/null | awk -F'"' '{print $2}' | head -1)
+          FLAG_PREFIX=${FLAG_PREFIX:-is1abCTF}
+
+          echo "檢查 Flag 格式: ${FLAG_PREFIX}{...}"
+
+          FOUND_FLAGS=$(grep -r "${FLAG_PREFIX}{" public-release/ 2>/dev/null || true)
+
+          if [ -n "$FOUND_FLAGS" ]; then
+            echo "::error::在公開版本中發現 Flag 洩漏！"
+            echo "$FOUND_FLAGS"
+            exit 1
+          fi
+
+          # 檢查敏感檔案
+          FOUND_PRIVATE=$(find public-release/ -name "private.yml" 2>/dev/null || true)
+          if [ -n "$FOUND_PRIVATE" ]; then
+            echo "::error::發現 private.yml 在公開版本中！"
+            echo "$FOUND_PRIVATE"
+            exit 1
+          fi
+
+          echo "✅ 公開版本驗證通過"
+
+      - name: 📝 Generate Release Notes
+        id: release-notes
+        run: |
+          RELEASE_TAG="${{ github.event.inputs.release_tag || github.event.release.tag_name || 'latest' }}"
+
+          cat > release-notes.md << EOF
+          # IS1AB CTF ${RELEASE_TAG}
+
+          ## 📊 題目統計
+
+          - 總題目數: **${{ steps.stats.outputs.total }}** 題
+          - Web: ${{ steps.stats.outputs.web }} 題
+          - Pwn: ${{ steps.stats.outputs.pwn }} 題
+          - Crypto: ${{ steps.stats.outputs.crypto }} 題
+          - Reverse: ${{ steps.stats.outputs.reverse }} 題
+          - Misc: ${{ steps.stats.outputs.misc }} 題
+
+          ## 🔗 連結
+
+          - 📖 題目展示: https://your-org.github.io/2025-is1ab-CTF-public
+          - 📦 公開 Repository: https://github.com/${{ github.event.inputs.target_repo || 'your-org/2025-is1ab-CTF-public' }}
+
+          ## 📅 發布資訊
+
+          - 發布日期: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          - 發布版本: ${RELEASE_TAG}
+
+          ## 🎉 感謝
+
+          感謝所有題目作者與貢獻者！
+
+          ---
+
+          🤖 此 Release 由 GitHub Actions 自動生成
+          EOF
+
+          cat release-notes.md
+
+      - name: 📤 Upload Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-release
+          path: public-release/
+          retention-days: 30
+
+      - name: 📤 Upload Release Notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+          retention-days: 30
+
+  # ===========================================================================
+  # Job 2: 同步到公開 Repository
+  # ===========================================================================
+  sync-to-public:
+    name: 📡 同步到公開 Repository
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    if: ${{ !inputs.dry_run }}
+
+    steps:
+      - name: 📥 Download Release Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: public-release
+          path: public-release/
+
+      - name: 📥 Download Release Notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: .
+
+      - name: 🔐 Setup Git Credentials
+        run: |
+          git config --global user.name "IS1AB Bot"
+          git config --global user.email "bot@is1ab.org"
+
+      - name: 📡 Sync to Public Repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+        run: |
+          TARGET_REPO="${{ github.event.inputs.target_repo || 'your-org/2025-is1ab-CTF-public' }}"
+          RELEASE_TAG="${{ github.event.inputs.release_tag || github.event.release.tag_name || 'latest' }}"
+
+          echo "📡 同步到公開 Repository: $TARGET_REPO"
+          echo "📦 Release Tag: $RELEASE_TAG"
+
+          # Clone public repo
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/${TARGET_REPO}.git public-repo
+          cd public-repo
+
+          # 清空現有內容（除了 .git）
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+
+          # 複製新內容
+          cp -r ../public-release/* .
+
+          # 創建 .nojekyll 檔案（GitHub Pages）
+          touch .nojekyll
+
+          # Commit and push
+          git add .
+          git commit -m "chore: release ${RELEASE_TAG}
+
+          🤖 Automatically generated from private repository
+
+          Release Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Release Tag: ${RELEASE_TAG}
+
+          $(cat ../release-notes.md)" || echo "No changes to commit"
+
+          git push origin main
+
+          echo "✅ 同步完成"
+
+      - name: 🏷️ Create Release Tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+        run: |
+          TARGET_REPO="${{ github.event.inputs.target_repo || 'your-org/2025-is1ab-CTF-public' }}"
+          RELEASE_TAG="${{ github.event.inputs.release_tag || github.event.release.tag_name || 'latest' }}"
+
+          cd public-repo
+
+          # 創建 tag
+          git tag -a "${RELEASE_TAG}" -m "Release ${RELEASE_TAG}"
+          git push origin "${RELEASE_TAG}"
+
+          echo "✅ Tag 創建完成: ${RELEASE_TAG}"
+
+  # ===========================================================================
+  # Job 3: 部署 GitHub Pages
+  # ===========================================================================
+  deploy-pages:
+    name: 🌐 部署 GitHub Pages
+    runs-on: ubuntu-latest
+    needs: sync-to-public
+    if: ${{ !inputs.dry_run }}
+
+    steps:
+      - name: 🌐 Trigger GitHub Pages Deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+        run: |
+          TARGET_REPO="${{ github.event.inputs.target_repo || 'your-org/2025-is1ab-CTF-public' }}"
+
+          echo "🌐 觸發 GitHub Pages 部署..."
+
+          # 觸發 public repo 的 deploy-pages.yml workflow
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            https://api.github.com/repos/${TARGET_REPO}/actions/workflows/deploy-pages.yml/dispatches \
+            -d '{"ref":"main"}'
+
+          echo "✅ GitHub Pages 部署已觸發"
+
+  # ===========================================================================
+  # Job 4: 發布摘要
+  # ===========================================================================
+  summary:
+    name: 📊 發布摘要
+    runs-on: ubuntu-latest
+    needs: [prepare-release, sync-to-public, deploy-pages]
+    if: always()
+
+    steps:
+      - name: 📥 Download Release Notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: .
+
+      - name: 📊 生成摘要報告
+        run: |
+          RELEASE_TAG="${{ github.event.inputs.release_tag || github.event.release.tag_name || 'latest' }}"
+          TARGET_REPO="${{ github.event.inputs.target_repo || 'your-org/2025-is1ab-CTF-public' }}"
+
+          echo "# 🚀 Release 摘要報告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Release 資訊" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release Tag**: \`${RELEASE_TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Repository**: \`${TARGET_REPO}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release Time**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## 📊 執行結果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | 結果 |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 準備發布版本 | ${{ needs.prepare-release.result == 'success' && '✅ 成功' || '❌ 失敗' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 同步到公開 Repo | ${{ needs.sync-to-public.result == 'success' && '✅ 成功' || needs.sync-to-public.result == 'skipped' && '⏭️ 跳過' || '❌ 失敗' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 部署 Pages | ${{ needs.deploy-pages.result == 'success' && '✅ 成功' || needs.deploy-pages.result == 'skipped' && '⏭️ 跳過' || '❌ 失敗' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f release-notes.md ]; then
+            echo "## 📝 Release Notes" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            cat release-notes.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔗 相關連結" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [公開 Repository](https://github.com/${TARGET_REPO})" >> $GITHUB_STEP_SUMMARY
+          echo "- [GitHub Pages](https://$(echo ${TARGET_REPO} | cut -d'/' -f1).github.io/$(echo ${TARGET_REPO} | cut -d'/' -f2))" >> $GITHUB_STEP_SUMMARY
+
+      - name: ❌ 檢查失敗條件
+        if: needs.prepare-release.result == 'failure' || needs.sync-to-public.result == 'failure'
+        run: |
+          echo "::error::Release 流程失敗！請檢查上述錯誤訊息。"
+          exit 1

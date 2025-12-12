@@ -96,11 +96,13 @@ git push origin challenge/web/sql-injection
 
 ### GitHub Repository 權限
 
-| 角色 | 權限 | 說明 |
-|------|------|------|
-| **管理者** | Admin | 完整控制權，包括設定、權限管理、分支保護 |
-| **題目作者** | Write | 可以 push、建立 branch、提交 PR |
-| **審查者** | Read | 只能查看和評論，不能直接修改 |
+| 角色 | GitHub 權限 | 職責範圍 | 建議人數 |
+|------|------------|----------|---------|
+| **Admin** | Admin | - 管理 Repository 設定<br>- 配置 Branch Protection<br>- 管理團隊成員<br>- 處理緊急問題<br>- 執行發布流程 | 2-3 人 |
+| **Maintainer** | Maintain | - 審核 PR<br>- 合併代碼<br>- 管理 Issues<br>- 協調開發進度<br>- 監控 CI/CD | 3-5 人 |
+| **Developer** | Write | - 創建 Feature Branch<br>- 提交題目<br>- 參與 Code Review<br>- 測試題目 | 10-20 人 |
+| **Reviewer** | Triage | - Code Review<br>- 測試題目<br>- 提供反饋<br>- 質量把關 | 5-10 人 |
+| **Guest** | Read | - 查看進度<br>- 瀏覽代碼（僅限已授權）<br>- 提出建議 | 不限 |
 
 ### 分支保護規則
 
