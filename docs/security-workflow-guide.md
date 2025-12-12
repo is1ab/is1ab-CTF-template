@@ -49,16 +49,18 @@ flowchart TB
         T3[GitHub Actions]
     end
 
-    subgraph Private["2️⃣ Private Development Repository"]
+    subgraph Private["2️⃣ Private Challenge Repository"]
         P1[challenges/ 含完整資料]
         P2[private.yml 含 flag]
         P3[public.yml 公開資訊]
+        P4[題目開發者<br/>直接在 org repo 開發]
     end
 
-    subgraph Build["🔨 Build Process"]
+    subgraph Build["🔨 Build Process + PR Review"]
         B1[build.sh]
         B2[Flag 移除]
         B3[安全掃描]
+        B4[Code Review]
     end
 
     subgraph Public["3️⃣ Public Repository"]
@@ -66,11 +68,16 @@ flowchart TB
         PUB2[GitHub Pages]
     end
 
-    Template -->|Use Template| Private
-    Private -->|build.sh| Build
+    Template -->|Use Template<br/>不需要 PR| Private
+    Private -->|PR + Code Review<br/>+ Security Check| Build
     Build -->|驗證通過| Public
     Public --> PUB2
 ```
+
+**重要說明**：
+- ⚠️ **階段 1 → 階段 2**：使用 "Use this template"，**不需要 PR**
+- ⚠️ **階段 2 開發**：題目作者直接在 org 的 Private Repo 開發，**不需要個人 Fork，不需要 PR**
+- ⭐ **階段 2 → 階段 3**：使用 **PR** 進行 Code Review 和安全檢查，**這是唯一使用 PR 的地方**
 
 ### 檔案結構
 
@@ -484,29 +491,42 @@ uv run python scripts/generate-pages.py \
 
 ## 安全流程
 
-### 開發階段
+### 開發與發布流程
 
 ```mermaid
 sequenceDiagram
-    participant Dev as 開發者
-    participant Private as Private Repo
+    participant Dev as 題目開發者
+    participant Private as Private Challenge Repo
     participant Actions as GitHub Actions
     participant Public as Public Repo
 
-    Dev->>Private: 1. 開發題目（含 private.yml）
-    Dev->>Private: 2. 提交 PR
-    Private->>Actions: 3. 觸發 security-scan.yml
+    Note over Dev,Private: 階段 2：開發（直接在 org repo，無需 PR）
+    Dev->>Private: 1. 直接在 Private Repo 開發題目
+    Dev->>Private: 2. 提交 commit（含 private.yml）
+    Private->>Actions: 3. 觸發 security-scan.yml（自動掃描）
     Actions->>Actions: 4. 掃描敏感資料
-    Actions-->>Private: 5. 掃描報告（PR 評論）
-    Dev->>Private: 6. 修復問題
-    Dev->>Private: 7. 合併到 main
-    Private->>Actions: 8. 觸發 build-public.yml
-    Actions->>Actions: 9. 執行 build.sh
-    Actions->>Actions: 10. 安全驗證
-    Actions->>Public: 11. 推送安全版本
-    Public->>Actions: 12. 觸發 deploy-pages.yml
-    Actions->>Actions: 13. 生成並部署 Pages
+    Actions-->>Private: 5. 掃描報告（commit 狀態）
+    Dev->>Private: 6. 修復問題（如需要）
+    Dev->>Private: 7. 推送到 main（無需 PR）
+    
+    Note over Dev,Public: 階段 3：發布（使用 PR）
+    Dev->>Public: 8. 建立 PR: Private → Public
+    Public->>Actions: 9. 觸發 security-scan.yml（PR 掃描）
+    Actions->>Actions: 10. 掃描敏感資料
+    Actions-->>Public: 11. 掃描報告（PR 評論）
+    Dev->>Public: 12. 修復問題（如需要）
+    Note over Public: 13. Code Review 通過
+    Public->>Actions: 14. 觸發 build-public.yml
+    Actions->>Actions: 15. 執行 build.sh
+    Actions->>Actions: 16. 安全驗證
+    Actions->>Public: 17. 合併 PR（推送安全版本）
+    Public->>Actions: 18. 觸發 deploy-pages.yml
+    Actions->>Actions: 19. 生成並部署 Pages
 ```
+
+**關鍵點**：
+- ⚠️ **階段 2 開發**：直接在 Private Repo 提交 commit，**不需要 PR**
+- ⭐ **階段 3 發布**：使用 **PR** 從 Private Repo 到 Public Repo，進行 Code Review 和安全檢查
 
 ### 安全檢查點
 

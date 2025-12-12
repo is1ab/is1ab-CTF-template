@@ -324,43 +324,125 @@ class ChallengeValidator:
             self.warnings.append(f"Could not validate C source: {e}")
             
     def check_sensitive_data(self, challenge_path):
-        """檢查敏感資料"""
+        """檢查敏感資料 - 強化版本"""
+        # 載入 config.yml 獲取 flag_prefix
+        flag_prefix = "is1abCTF"
+        try:
+            config_path = Path(__file__).parent.parent / "config.yml"
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                    flag_prefix = config.get('project', {}).get('flag_prefix', 'is1abCTF')
+        except Exception:
+            pass
+        
+        # 強化敏感資料模式
         sensitive_patterns = [
-            r'is1ab[Cc][Tt][Ff]\{[^}]+\}',  # Flag pattern
-            r'password\s*[:=]\s*["\']?[^"\s\']+',  # Password
-            r'secret\s*[:=]\s*["\']?[^"\s\']+',    # Secret
-            r'token\s*[:=]\s*["\']?[^"\s\']+',     # Token
+            # Flag 格式（動態使用 flag_prefix）
+            (rf'{re.escape(flag_prefix)}\{{[^}}]+\}}', 'CRITICAL', 'Flag 洩漏'),
+            # 通用 CTF Flag 格式
+            (r'[A-Za-z0-9_]+CTF\{[^}]+\}', 'HIGH', '可能的 Flag 格式'),
+            # 硬編碼密碼
+            (r'password\s*[:=]\s*["\']?[^"\s\']{4,}', 'HIGH', '硬編碼密碼'),
+            (r'passwd\s*[:=]\s*["\']?[^"\s\']{4,}', 'HIGH', '硬編碼密碼'),
+            # Secret/Token
+            (r'secret\s*[:=]\s*["\']?[^"\s\']+', 'HIGH', 'Secret 洩漏'),
+            (r'token\s*[:=]\s*["\']?[^"\s\']+', 'HIGH', 'Token 洩漏'),
+            (r'api[_-]?key\s*[:=]\s*["\']?[A-Za-z0-9]{16,}', 'HIGH', 'API Key'),
+            # 私鑰
+            (r'-----BEGIN (RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----', 'CRITICAL', '私鑰洩漏'),
+            # 資料庫連接字串
+            (r'(mysql|postgres|mongodb)://[^:]+:[^@]+@', 'HIGH', '資料庫連接字串'),
         ]
         
-        # 檢查特定檔案
-        files_to_check = [
+        # 檢查所有公開檔案（排除 private 目錄）
+        public_files = [
             'README.md',
             'public.yml',
+            'docker/Dockerfile',
             'docker/docker-compose.yml',
             'docker/start.sh',
-            'docker/run.sh'
+            'docker/run.sh',
         ]
         
-        for file_name in files_to_check:
+        # 遞迴檢查 files/ 目錄（公開檔案）
+        files_dir = challenge_path / 'files'
+        if files_dir.exists():
+            for file_path in files_dir.rglob('*'):
+                if file_path.is_file():
+                    public_files.append(str(file_path.relative_to(challenge_path)))
+        
+        # 檢查 src/ 目錄（源碼可能被公開）
+        src_dir = challenge_path / 'src'
+        if src_dir.exists():
+            for file_path in src_dir.rglob('*'):
+                if file_path.is_file() and file_path.suffix in ['.py', '.js', '.html', '.php', '.c', '.cpp']:
+                    public_files.append(str(file_path.relative_to(challenge_path)))
+        
+        # 執行檢查
+        critical_issues = []
+        for file_name in public_files:
             file_path = challenge_path / file_name
             if file_path.exists():
-                self.check_file_for_sensitive_data(file_path, sensitive_patterns)
+                issues = self.check_file_for_sensitive_data(file_path, sensitive_patterns, flag_prefix)
+                critical_issues.extend(issues)
+        
+        # 如果有 CRITICAL 問題，標記為錯誤
+        for issue in critical_issues:
+            self.errors.append(issue)
                 
-    def check_file_for_sensitive_data(self, file_path, patterns):
-        """檢查檔案中的敏感資料"""
+    def check_file_for_sensitive_data(self, file_path, patterns, flag_prefix):
+        """檢查檔案中的敏感資料 - 強化版本"""
+        issues = []
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
+            
+            # 檢查檔案大小（避免檢查二進制檔案）
+            if len(content) > 1000000:  # 1MB
+                return issues
                 
-            for pattern in patterns:
-                matches = re.findall(pattern, content, re.IGNORECASE)
+            for pattern, severity, description in patterns:
+                matches = re.findall(pattern, content, re.IGNORECASE | re.MULTILINE)
                 if matches:
-                    # 檢查是否為 placeholder 或範例
-                    if not any(keyword in content.lower() for keyword in ['placeholder', 'example', 'fake', 'demo', 'test']):
-                        self.warnings.append(f"Potential sensitive data in {file_path.name}: {matches[0][:20]}...")
+                    for match in matches[:3]:  # 只顯示前 3 個匹配
+                        # 檢查是否為 placeholder 或範例
+                        is_placeholder = any(keyword in content.lower() for keyword in [
+                            'placeholder', 'example', 'fake', 'demo', 'test', 
+                            'your_flag_here', 'flag_here', 'replace_this'
+                        ])
                         
+                        # 檢查是否在註釋中
+                        lines = content.split('\n')
+                        match_line = None
+                        for i, line in enumerate(lines, 1):
+                            if match in line:
+                                match_line = i
+                                # 檢查是否在註釋中
+                                stripped = line.strip()
+                                if stripped.startswith('#') or stripped.startswith('//') or stripped.startswith('/*'):
+                                    is_placeholder = True
+                                break
+                        
+                        if not is_placeholder:
+                            match_preview = match[:30] + '...' if len(match) > 30 else match
+                            issue_msg = f"{severity}: {description} 在 {file_path.name}"
+                            if match_line:
+                                issue_msg += f" (第 {match_line} 行)"
+                            issue_msg += f": {match_preview}"
+                            
+                            if severity == 'CRITICAL':
+                                issues.append(issue_msg)
+                            else:
+                                self.warnings.append(issue_msg)
+                        
+        except UnicodeDecodeError:
+            # 二進制檔案，跳過
+            pass
         except Exception as e:
-            self.warnings.append(f"Could not check {file_path.name}: {e}")
+            self.warnings.append(f"無法檢查 {file_path.name}: {e}")
+        
+        return issues
             
     def validate_all_challenges(self):
         """驗證所有題目"""

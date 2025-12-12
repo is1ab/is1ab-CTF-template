@@ -6,24 +6,31 @@
 
 ```mermaid
 graph LR
-    A[📜 Template] --> B[🔒 Private Repo]
-    B --> C[👥 Individual Forks]
-    C --> D[🔄 Pull Requests]
-    D --> B
-    B --> E[🌐 Public Release]
+    A[📜 Template] -->|Use Template| B[🔒 Private Challenge Repo]
+    B -->|直接開發<br/>無需 Fork/PR| C[題目開發者<br/>org 成員]
+    B -->|PR + Review| E[🌐 Public Repo]
+    E -->|自動部署| F[GitHub Pages]
 ```
 
 ### 三個階段說明
 
-1. **🏗️ 階段一：建立私有倉庫** - 從模板 Fork 建立組織的私有開發倉庫
-2. **👥 階段二：個人開發** - 團隊成員 Fork 私有倉庫進行題目開發
-3. **🚀 階段三：公開發布** - 比賽後將安全內容發布到公開倉庫
+1. **🏗️ 階段一：Template Repository** - 公共模板倉庫，提供標準化結構
+2. **🔒 階段二：Private Challenge Repository** - 每個題目一個 private repo，題目作者直接在 org repo 開發（**不需要個人 Fork，不需要 PR**）
+3. **🌐 階段三：Public Repository** - 比賽後通過 **PR** 發布到公開倉庫（**這是唯一使用 PR 的地方**）
+
+### ⚠️ 重要說明
+
+- ⚠️ **階段 1 → 階段 2**：使用 "Use this template"，**不需要 PR**
+- ⚠️ **階段 2 開發**：題目作者直接在 org 的 Private Repo 開發，**不需要個人 Fork，不需要 PR**
+- ⭐ **階段 2 → 階段 3**：使用 **PR** 進行 Code Review 和安全檢查，**這是唯一使用 PR 的地方**
 
 ---
 
-## 🏗️ 階段一：建立私有倉庫
+## 🏗️ 階段一：建立 Private Challenge Repository
 
-### 1.1 Fork 模板倉庫
+### 1.1 使用 Template 建立 Private Repo
+
+> ⚠️ **重要**：使用 "Use this template" 功能，**不是 Fork**！
 
 ```bash
 # 方法一：使用 GitHub Web 介面
@@ -129,39 +136,44 @@ python server.py --host localhost --port 8000
 
 ---
 
-## 👥 階段二：個人開發流程
+## 🔒 階段二：題目開發流程
 
-### 2.1 個人 Fork 私有倉庫
+> ⚠️ **重要**：題目作者直接在 org 的 Private Challenge Repo 中開發，**不需要個人 Fork，不需要 PR**！
 
-每位團隊成員需要 Fork 組織的私有倉庫：
+### 2.1 加入組織並取得權限
+
+題目作者需要：
+1. 被加入 `is1ab-org` 組織
+2. 獲得 Private Challenge Repo 的 Write 權限
 
 ```bash
-# 使用 GitHub CLI Fork
-gh repo fork your-org/2024-is1ab-CTF --clone
+# 組織管理員操作：邀請成員
+gh api orgs/is1ab-org/members/username \
+  --method PUT \
+  --field role=member
 
-# 或使用 Web 介面
-# 1. 前往 https://github.com/your-org/2024-is1ab-CTF
-# 2. 點擊右上角 "Fork"
-# 3. 選擇個人帳號
-# 4. 確認 Fork
+# 設定 repo 權限
+gh api repos/is1ab-org/challenge-web-sql-injection/collaborators/username \
+  --method PUT \
+  --field permission=push
 ```
 
 ### 2.2 設置開發環境
 
 ```bash
-# 克隆個人 Fork
-git clone git@github.com:your-username/2024-is1ab-CTF.git
-cd 2024-is1ab-CTF
-
-# 設定上游倉庫
-git remote add upstream git@github.com:your-org/2024-is1ab-CTF.git
+# 直接克隆 Private Challenge Repo（在 org 內）
+git clone git@github.com:is1ab-org/challenge-web-sql-injection.git
+cd challenge-web-sql-injection
 
 # 安裝依賴
 uv venv 
 uv sync
 
 # 確認環境正常
+uv run python scripts/create-challenge.py --help
 ```
+
+> 💡 **說明**：每個題目是一個獨立的 Private Repo，題目作者直接在這個 repo 中開發，不需要 Fork。
 
 ### 2.3 創建新題目
 
@@ -251,40 +263,36 @@ cd ../writeup/
 # 檢查敏感資料
 ```
 
-### 2.6 準備提交
+### 2.6 提交變更
+
+> ⚠️ **重要**：直接在 Private Challenge Repo 提交，**不需要 PR**！
 
 ```bash
 # 檢查題目結構
 uv run scripts/validate-challenge.py challenges/web/sql_injection/
 
-# 設定準備發布
-# 編輯 public.yml，設定 ready_for_release: true
+# 執行安全掃描（自動觸發 GitHub Actions）
+uv run python scripts/scan-secrets.py --path challenges/web/sql_injection/
 
-# 提交變更
+# 提交變更（直接推送到 main 分支或開發分支）
 git add .
 git commit -m "feat(web): add SQL injection challenge
 
 - Implement vulnerable login system
 - Add exploit script and writeup  
 - Configure Docker deployment
-- Ready for review"
+- Ready for release"
 
-# 推送到個人 Fork
-git push origin challenge/web/sql-injection
+# 推送到 Private Challenge Repo
+git push origin main
+# 或推送到開發分支
+# git push origin challenge/web/sql-injection
 ```
 
-### 2.7 建立 Pull Request
-
-```bash
-# 使用 GitHub CLI
-gh pr create \
-  --title "feat(web): SQL Injection Login Bypass" \
-  --body "$(cat <<'EOF'
-## 📋 題目資訊
-
-- **分類**: Web
-- **難度**: Middle (300 pts)
-- **作者**: YourName
+> 💡 **說明**：
+> - GitHub Actions 會自動觸發 `security-scan.yml` 進行安全掃描
+> - 如果掃描通過，可以直接合併到 main 分支
+> - **不需要建立 PR 到 Private Repo**
 
 ## 📝 題目描述
 
@@ -353,18 +361,30 @@ PR 建立後會自動觸發以下檢查：
 
 ## 🚀 階段三：公開發布流程
 
+> ⭐ **重要**：這是**唯一使用 PR 的地方**！從 Private Challenge Repo 到 Public Repo。
+
 ### 4.1 準備發布檢查
 
 在比賽結束後，執行完整檢查：
 
 ```bash
-# 驗證所有題目
-uv run scripts/prepare-public-release.py --validate-only
+# 在 Private Challenge Repo 中執行
+cd challenge-web-sql-injection
 
-# 檢查發布報告
-cat release-report.md
+# 驗證題目結構
+uv run scripts/validate-challenge.py challenges/web/sql_injection/
 
-# 修復任何發現的問題
+# 執行安全掃描
+uv run python scripts/scan-secrets.py --path challenges/web/sql_injection/
+
+# 設定 ready_for_release: true
+# 編輯 public.yml，設定 ready_for_release: true
+
+# 執行 build.sh 生成公開版本（本地測試）
+./scripts/build.sh challenges/web/sql_injection/ public-release-test
+
+# 檢查輸出是否安全
+uv run python scripts/scan-secrets.py --path public-release-test
 ```
 
 ### 4.2 建立公開倉庫
@@ -378,16 +398,52 @@ gh repo create your-org/2024-is1ab-CTF-public \
 # 方法二：使用 Web 介面建立空的公開倉庫
 ```
 
-### 4.3 執行自動化發布
+### 4.3 建立 PR 到 Public Repo
+
+> ⭐ **這是唯一使用 PR 的地方**：從 Private Challenge Repo 到 Public Repo
 
 ```bash
-# 準備發布
-uv run scripts/prepare-public-release.py \
-  --public-repo git@github.com:your-org/2024-is1ab-CTF-public.git
+# 在 Private Challenge Repo 中
+# 1. 建立發布分支
+git checkout -b release/web/sql-injection
 
-# 同步到公開倉庫
-uv run scripts/sync-to-public.py \
-  --public-repo git@github.com:your-org/2024-is1ab-CTF-public.git
+# 2. 執行 build.sh 生成公開版本
+./scripts/build.sh challenges/web/sql_injection/ public-release
+
+# 3. 提交變更
+git add public-release/
+git commit -m "chore: prepare public release for sql-injection challenge"
+
+# 4. 推送到 Private Repo
+git push origin release/web/sql-injection
+
+# 5. 建立 PR 到 Public Repo（使用 GitHub CLI 或 Web 介面）
+gh pr create \
+  --repo your-org/2024-is1ab-CTF-public \
+  --title "feat: add SQL Injection challenge" \
+  --body "Public release of SQL Injection challenge" \
+  --base main \
+  --head release/web/sql-injection
+```
+
+### 4.4 PR Review 和安全檢查
+
+PR 建立後會自動觸發：
+
+1. **安全掃描** - `security-scan.yml` 檢查是否有 flag 洩漏
+2. **建置驗證** - `build-public.yml` 執行 build.sh 並驗證輸出
+3. **Code Review** - 維護者審查公開內容
+
+### 4.5 合併 PR 並部署
+
+```bash
+# 審查通過後，合併 PR
+gh pr merge <PR_NUMBER> --repo your-org/2024-is1ab-CTF-public
+
+# GitHub Actions 會自動：
+# 1. 觸發 deploy-pages.yml
+# 2. 生成 GitHub Pages
+# 3. 部署到公開網站
 
 # 檢查公開目錄
 cd public-release/
