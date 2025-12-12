@@ -68,27 +68,25 @@ jobs:
           fi
         done
     
-    - name: 🔒 Security Scan
+    - name: 🔒 Security Scan (Enhanced)
       if: steps.changed-files.outputs.any_changed == 'true'
       run: |
-        echo "🔒 Running security scan..."
+        echo "🔒 Running enhanced security scan..."
         
-        # 檢查敏感資料
-        echo "Checking for sensitive data..."
+        # 使用增強的安全掃描腳本
         for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-          if [ -f "$file" ]; then
-            # 檢查是否包含真實 flag（應該用 fake flag）
-            if grep -i "is1abctf{" "$file" && ! grep -i "fake\|example\|demo\|test" "$file"; then
-              echo "⚠️ Warning: Possible real flag found in $file"
-              echo "Please use fake flags in public files"
-            fi
-            
-            # 檢查敏感字串
-            if grep -E "(password|secret|private_key|api_key)" "$file"; then
-              echo "⚠️ Warning: Possible sensitive data in $file"
+          if [[ "$file" == challenges/* ]]; then
+            challenge_dir=$(echo "$file" | cut -d'/' -f1-3)
+            if [ -d "$challenge_dir" ]; then
+              echo "🔒 Scanning challenge: $challenge_dir"
+              uv run python scripts/scan-secrets.py --path "$challenge_dir" --format markdown || true
             fi
           fi
         done
+        
+        # 檢查所有變更的檔案
+        echo "🔒 Scanning all changed files..."
+        uv run python scripts/scan-secrets.py --path . --files ${{ join(steps.changed-files.outputs.all_changed_files, ' ') }} || true
     
     - name: 📝 Generate Validation Report
       if: always()

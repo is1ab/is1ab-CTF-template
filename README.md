@@ -9,6 +9,12 @@
 
 這個專案提供了完整的 CTF 競賽管理解決方案，包含題目創建、管理、部署和評分系統。支援三階段開發流程：Template → Private → Public Repository。
 
+### 🎯 一句話流程摘要
+
+**Template Repo** → **Use Template 建立 Private Dev Repo** → **Feature Branches 開發題目** → **PR 審查合併到 main** → **比賽後自動發布到 Public Repo** → **GitHub Pages 自動部署**
+
+> 💡 **詳細流程**：請參閱下方的 [三階段開發流程](#-三階段開發流程)
+
 ## ⚡ 快速開始（30 秒）
 
 ```bash
@@ -82,6 +88,34 @@ is1ab-CTF-template/
 
 ## 🎯 三階段開發流程
 
+> 💡 **快速導覽**：[階段 1：Template](#階段-1template-repository-模板階段) | [階段 2：Private](#階段-2private-challenge-repository-開發階段) | [階段 3：Public](#階段-3public-repository-發布階段)
+
+### 📊 完整流程圖
+
+```mermaid
+graph LR
+    A[Template Repo<br/>Public] -->|Use Template| B[Private Dev Repo<br/>org/private]
+    B -->|Feature Branches| C[challenge/web/xxx<br/>challenge/pwn/yyy]
+    C -->|PR + Review| D[main of Dev Repo<br/>tested & validated]
+    D -->|After Comp| E[Public Repo<br/>Public]
+    E -->|Auto Deploy| F[GitHub Pages<br/>Static Site]
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#fff4e1
+    style D fill:#fff4e1
+    style E fill:#e8f5e9
+    style F fill:#e8f5e9
+```
+
+**關鍵點**：
+
+- ⚠️ **階段 1 → 2**：Use Template，不需要 PR
+- ⚠️ **階段 2 開發**：Feature Branches，PR 到 Private Dev Repo 的 main（用於 Code Review）
+- ⭐ **階段 2 → 3**：PR 到 Public Repo，唯一使用 PR 的地方（用於安全檢查和發布審核）
+
+---
+
 ### 階段 1：Template Repository (模板階段)
 
 ```text
@@ -99,27 +133,36 @@ is1ab-CTF-template/
 ### 階段 2：Private Challenge Repository (開發階段)
 
 ```text
-┌─────────────────┐  Use Template  ┌─────────────────┐
-│  Template Repo  │───────────────▶│ Challenge Repo  │
-│   (is1ab-org)   │                │   (is1ab-org)   │
-│     Public      │                │     Private     │
-└─────────────────┘                └─────────────────┘
-                                            │
-                                            │ 直接開發
-                                            │ (無需 Fork/PR)
-                                            ▼
-                                   ┌─────────────────┐
-                                   │  題目開發者      │
-                                   │  (org 成員)      │
-                                   └─────────────────┘
+┌─────────────────┐  Use Template  ┌──────────────────────────┐
+│  Template Repo  │───────────────▶│ Private Dev Repo (org)   │
+│   (is1ab-org)   │                │   (is1ab-org, private)   │
+│     Public      │                └──────────────────────────┘
+└─────────────────┘                          │
+                                              │ Feature Branches
+                                              │ (per challenge)
+                                              ▼
+                                   ┌──────────────────────────┐
+                                   │ challenge/web/sql-inj    │
+                                   │ challenge/pwn/buffer     │
+                                   │ challenge/crypto/rsa     │
+                                   └──────────────────────────┘
+                                              │
+                                              │ PR + Review
+                                              ▼
+                                   ┌──────────────────────────┐
+                                   │   main (of dev repo)      │
+                                   │   (tested & validated)    │
+                                   └──────────────────────────┘
 ```
 
 **說明**：
 
-- 每個題目是一個獨立的 **Private Repository**（在 is1ab-org 內）
-- 題目作者被加入 is1ab-org，直接在 Private Repo 中開發
-- ⚠️ **不需要個人 Fork，不需要 PR**
-- 避免權限問題和複雜的倉庫結構
+- 使用 Template 建立 **Private Dev Repo**（在 is1ab-org 內）
+- 題目作者被加入 is1ab-org，獲得 Write 權限
+- 每個題目建立 **Feature Branch**（如 `challenge/web/sql-injection`）
+- 開發完成後提交 **PR 到 Private Dev Repo 的 main**
+- ⚠️ **不需要個人 Fork**，直接在 org repo 的 feature branch 開發
+- PR 用於 Code Review 和自動化驗證（結構檢查、安全掃描、Docker 測試）
 
 ---
 
@@ -144,9 +187,46 @@ is1ab-CTF-template/
 
 - ⭐ **這裡使用 PR 是正確且必要的**
 - PR 用於 Code Review 和安全檢查
-- GitHub Actions 自動過濾敏感資料（flag、writeup）
+- GitHub Actions 自動執行：
+  - ✅ 結構驗證（validate-challenge.py）
+  - ✅ 安全掃描（scan-secrets.py）
+  - ✅ Docker 建置測試
+  - ✅ 敏感資料過濾（build.sh）
 - 自動生成並部署 GitHub Pages
 - 確保公開內容經過審核，不會洩漏題目
+
+### 🔄 自動化 CI/CD 流程
+
+```mermaid
+sequenceDiagram
+    participant Dev as 題目作者
+    participant PR as Pull Request
+    participant CI as GitHub Actions
+    participant Private as Private Dev Repo
+    participant Public as Public Repo
+    participant Pages as GitHub Pages
+
+    Note over Dev,Private: 階段 2：開發（Feature Branch → main）
+    Dev->>PR: 1. 建立 PR (feature branch → main)
+    PR->>CI: 2. 觸發自動化檢查
+    CI->>CI: 3. 結構驗證 (validate-challenge.py)
+    CI->>CI: 4. 安全掃描 (scan-secrets.py)
+    CI->>CI: 5. Docker 建置測試
+    CI->>PR: 6. 檢查結果（PR 評論）
+    Note over PR: 7. Code Review 通過
+    PR->>Private: 8. 合併到 main
+    
+    Note over Private,Public: 階段 3：發布（Private → Public）
+    Private->>Public: 9. PR (Private → Public)
+    Public->>CI: 10. 觸發 build-public.yml
+    CI->>CI: 11. 執行 build.sh (移除敏感資料)
+    CI->>CI: 12. 安全驗證
+    CI->>Public: 13. 合併 PR
+    Public->>CI: 14. 觸發 deploy-pages.yml
+    CI->>Pages: 15. 自動部署
+```
+
+> 📖 **詳細說明**：請參閱 [角色與權限管理](docs/roles-and-permissions.md) 了解完整的權限分配和工作流程
 
 ## 🎯 我是新手，從哪裡開始？
 
@@ -748,6 +828,7 @@ git gc --prune=now
 - [題目創建指南](docs/challenge-creation-guide.md) - 如何創建題目
 - [題目開發指南](docs/challenge-development.md) - 題目開發最佳實踐
 - [題目 Metadata 標準](docs/challenge-metadata-standard.md) - 標準化的題目配置格式
+- [角色與權限管理](docs/roles-and-permissions.md) - 清晰的角色定義和權限分配
 - [工作流程教學](docs/workflow-tutorial.md) - 三階段工作流程詳細說明
 - [部署指南](docs/deployment-guide.md) - 部署到生產環境
 
@@ -761,6 +842,7 @@ git gc --prune=now
 | 查找命令     | [快速參考指南](docs/quick-reference.md)                             |
 | 使用 Web GUI | [Web GUI 整合說明](docs/web-gui-integration.md)                     |
 | 創建題目     | [題目創建指南](docs/challenge-creation-guide.md)                    |
+| 角色權限     | [角色與權限管理](docs/roles-and-permissions.md)                    |
 | 解決問題     | [常見問題 FAQ](docs/faq.md) ⭐                                      |
 | 檢查進度     | [新手入門檢查清單](docs/getting-started-checklist.md) ✅            |
 | 故障排除     | [安全流程指南 - 故障排除](docs/security-workflow-guide.md#故障排除) |
