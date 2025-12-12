@@ -187,9 +187,8 @@ challenges/web/sql_injection/
 │   └── requirements.txt
 ├── attachments/           # 附件目錄
 │   └── source.zip
-├── solution/              # 解題腳本
-│   ├── solve.py
-│   └── writeup.md
+├── writeup/               # 🔒 官方解答
+│   └── README.md
 └── docker/                # Docker 配置
     ├── Dockerfile
     └── docker-compose.yml
@@ -244,9 +243,10 @@ docker-compose up -d
 # 測試題目功能
 curl http://localhost:3000
 
-# 執行解題腳本驗證
-cd ../solution/
-python solve.py
+# 執行解題腳本驗證（如果有）
+cd ../writeup/
+# 如果有解題腳本，執行它
+# python solve.py
 
 # 檢查敏感資料
 ```
@@ -501,8 +501,8 @@ uv run scripts/validate-challenge.py
 # 建立 writeup 模板
 uv run scripts/create-challenge.py --writeup-only web sql_injection
 
-# 編輯 solution/writeup.md
-# 發布時會自動包含在公開倉庫中
+# 編輯 writeup/README.md
+# 發布時會自動包含在公開倉庫中（如果設定 include_writeups: true）
 ```
 
 ### 批量題目操作

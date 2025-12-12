@@ -11,11 +11,11 @@ cd web-interface
 ### 2. 啟動應用
 
 ```bash
-# 使用系統 Python（如果已安裝依賴）
-python app.py
+# 使用 uv（推薦）
+uv run python app.py
 
-# 或使用虛擬環境
-./venv/bin/python app.py
+# 或使用系統 Python（如果已安裝依賴）
+python app.py
 ```
 
 ### 3. 訪問應用
@@ -37,8 +37,8 @@ web-interface/
 ├── static/            # 靜態資源
 │   ├── css/          # 樣式文件
 │   └── js/           # JavaScript 文件
-├── venv/             # Python 虛擬環境
-├── legacy/           # 舊版本文件
+├── .venv/            # uv 虛擬環境（自動生成）
+├── uv.lock          # uv 鎖定檔案
 └── pyproject.toml    # 項目配置
 ```
 
@@ -66,8 +66,9 @@ web-interface/
 
 ### 1. 啟動問題
 
-- 確保已安裝所有依賴：`pip install flask flask-cors flask-assets pyyaml cssmin jsmin markupsafe`
+- 確保已安裝所有依賴：`uv sync`（在 web-interface 目錄）
 - 檢查 Python 版本：需要 Python 3.8+
+- 如果使用 uv，確保已安裝：`curl -LsSf https://astral.sh/uv/install.sh | sh`
 
 ### 2. 模板錯誤
 
@@ -79,11 +80,7 @@ web-interface/
 - 清理瀏覽器緩存
 - 重新啟動應用
 
-## 📝 開發日誌
+## 📖 更多資訊
 
-### 2025年8月4日
-
-- ✅ 移除所有硬編碼 URL
-- ✅ 統一路由參數命名
-- ✅ 修復 JavaScript 語法錯誤
-- ✅ 清理項目文件結構
+- 詳細說明請參閱 [README.md](README.md)
+- 完整文檔請參閱 [docs/web-gui-integration.md](../docs/web-gui-integration.md)

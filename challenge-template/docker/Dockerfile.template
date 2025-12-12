@@ -1,0 +1,35 @@
+# =============================================================================
+# CTF Challenge Dockerfile Template
+# =============================================================================
+# 根據題目類型選擇適合的基礎映像並修改
+
+FROM python:3.11-slim
+
+# 設定工作目錄
+WORKDIR /app
+
+# 安裝系統依賴
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# 創建非 root 用戶（安全最佳實踐）
+RUN useradd -m -s /bin/bash ctfuser
+
+# 複製應用程式檔案
+COPY --chown=ctfuser:ctfuser . /app/
+
+# 安裝 Python 依賴（如果有）
+# RUN pip install --no-cache-dir -r requirements.txt
+
+# 設定環境變數
+ENV FLAG="${FLAG_PLACEHOLDER}"
+
+# 切換到非 root 用戶
+USER ctfuser
+
+# 暴露端口
+EXPOSE 8080
+
+# 啟動命令
+CMD ["python", "app.py"]
+

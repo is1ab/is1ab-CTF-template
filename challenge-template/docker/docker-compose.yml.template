@@ -1,0 +1,42 @@
+# =============================================================================
+# CTF Challenge Docker Compose Template
+# =============================================================================
+
+version: '3.8'
+
+services:
+  challenge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${CHALLENGE_NAME}
+    ports:
+      - "${HOST_PORT}:8080"
+    environment:
+      # ⚠️ 在正式部署時替換為實際 flag
+      - FLAG=${FLAG_PLACEHOLDER}
+    restart: unless-stopped
+    # 資源限制
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    # 安全設定
+    security_opt:
+      - no-new-privileges:true
+    # 唯讀檔案系統（可選，根據需求調整）
+    # read_only: true
+    # 臨時檔案系統（如果需要寫入權限）
+    # tmpfs:
+    #   - /tmp
+
+# =============================================================================
+# 使用方法：
+# 1. 複製此檔案到題目的 docker/ 目錄
+# 2. 替換 ${CHALLENGE_NAME} 為實際題目名稱
+# 3. 替換 ${HOST_PORT} 為分配的端口
+# 4. 替換 ${FLAG_PLACEHOLDER} 為實際 flag
+# 5. 執行: docker-compose up -d
+# =============================================================================
+

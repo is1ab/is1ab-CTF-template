@@ -1,0 +1,352 @@
+# =============================================================================
+# 🌐 Deploy GitHub Pages Workflow
+# =============================================================================
+# 功能：
+# 1. 生成靜態題目展示網站
+# 2. 自動產生題目索引
+# 3. 部署到 GitHub Pages
+# 4. 支援自訂主題和配置
+# =============================================================================
+
+name: 🌐 Deploy GitHub Pages
+
+on:
+  # 當 public-release 目錄有變更時觸發
+  push:
+    branches: [ main ]
+    paths:
+      - 'public-release/**'
+      - 'scripts/generate-pages.py'
+      - '.github/workflows/deploy-pages.yml'
+  
+  # 手動觸發
+  workflow_dispatch:
+    inputs:
+      theme:
+        description: '網站主題'
+        required: false
+        default: 'dark'
+        type: choice
+        options:
+          - dark
+          - light
+      source_dir:
+        description: '來源目錄'
+        required: false
+        default: 'public-release'
+        type: string
+      include_challenges:
+        description: '是否從 challenges 目錄生成（用於預覽）'
+        required: false
+        default: 'false'
+        type: boolean
+
+# 設定 GitHub Pages 權限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 防止並行部署
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # ===========================================================================
+  # Job 1: 建置網站
+  # ===========================================================================
+  build:
+    name: 🔨 建置網站
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🐍 Setup Python with uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      
+      - name: 📦 Install dependencies
+        run: |
+          uv venv
+          uv pip install pyyaml
+      
+      - name: 📋 檢查來源目錄
+        id: check-source
+        run: |
+          SOURCE_DIR="${{ github.event.inputs.source_dir || 'public-release' }}"
+          
+          # 如果選擇從 challenges 生成（預覽模式）
+          if [ "${{ github.event.inputs.include_challenges }}" = "true" ]; then
+            SOURCE_DIR="challenges"
+          fi
+          
+          echo "source_dir=$SOURCE_DIR" >> $GITHUB_OUTPUT
+          
+          if [ -d "$SOURCE_DIR" ]; then
+            CHALLENGE_COUNT=$(find "$SOURCE_DIR" -name "public.yml" | wc -l)
+            echo "找到 $CHALLENGE_COUNT 個題目"
+            echo "has_challenges=true" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::來源目錄不存在: $SOURCE_DIR"
+            echo "has_challenges=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 🔒 安全掃描
+        if: steps.check-source.outputs.has_challenges == 'true'
+        run: |
+          echo "🔒 執行安全掃描..."
+          
+          SOURCE_DIR="${{ steps.check-source.outputs.source_dir }}"
+          FLAG_PREFIX=$(grep -E "^\s*flag_prefix:" config.yml 2>/dev/null | awk -F'"' '{print $2}' | head -1)
+          FLAG_PREFIX=${FLAG_PREFIX:-is1abCTF}
+          
+          # 掃描 Flag
+          if grep -rq "${FLAG_PREFIX}{[^}]*}" "$SOURCE_DIR" --include="*.html" --include="*.md" --include="*.yml" 2>/dev/null; then
+            echo "::error::發現 Flag 洩漏！中止部署。"
+            exit 1
+          fi
+          
+          echo "✅ 安全掃描通過"
+      
+      - name: 🌐 生成網站
+        if: steps.check-source.outputs.has_challenges == 'true'
+        run: |
+          SOURCE_DIR="${{ steps.check-source.outputs.source_dir }}"
+          THEME="${{ github.event.inputs.theme || 'dark' }}"
+          
+          echo "🌐 生成 GitHub Pages..."
+          echo "   來源: $SOURCE_DIR"
+          echo "   主題: $THEME"
+          
+          uv run python scripts/generate-pages.py \
+            --input "$SOURCE_DIR" \
+            --output _site \
+            --theme "$THEME" \
+            --config config.yml
+          
+          echo "✅ 網站生成完成"
+      
+      - name: 📝 生成空白頁面（無題目時）
+        if: steps.check-source.outputs.has_challenges != 'true'
+        run: |
+          mkdir -p _site
+          
+          cat > _site/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="zh-TW">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>CTF Challenge Archive</title>
+              <style>
+                  body {
+                      font-family: system-ui, -apple-system, sans-serif;
+                      background: #1a1a2e;
+                      color: #eee;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      min-height: 100vh;
+                      margin: 0;
+                      text-align: center;
+                  }
+                  .container {
+                      padding: 2rem;
+                  }
+                  h1 { color: #e94560; }
+                  p { color: #aaa; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>🚩 CTF Challenge Archive</h1>
+                  <p>尚無公開題目。請等待比賽結束後發布。</p>
+              </div>
+          </body>
+          </html>
+          EOF
+          
+          echo "📝 已生成預設頁面"
+      
+      - name: 📊 生成建置資訊
+        run: |
+          cat > _site/build-info.json << EOF
+          {
+            "built_at": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+            "source_dir": "${{ steps.check-source.outputs.source_dir }}",
+            "theme": "${{ github.event.inputs.theme || 'dark' }}",
+            "commit": "${{ github.sha }}",
+            "workflow_run": "${{ github.run_number }}"
+          }
+          EOF
+      
+      - name: 📤 上傳 Pages 產物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  # ===========================================================================
+  # Job 2: 部署到 GitHub Pages
+  # ===========================================================================
+  deploy:
+    name: 🚀 部署 Pages
+    runs-on: ubuntu-latest
+    needs: build
+    
+    # 指定部署環境
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: 🚀 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      
+      - name: 📝 輸出部署 URL
+        run: |
+          echo "🎉 網站已部署！"
+          echo "📍 URL: ${{ steps.deployment.outputs.page_url }}"
+
+  # ===========================================================================
+  # Job 3: 部署後驗證
+  # ===========================================================================
+  verify:
+    name: ✅ 驗證部署
+    runs-on: ubuntu-latest
+    needs: deploy
+    
+    steps:
+      - name: 🔍 檢查網站狀態
+        run: |
+          echo "🔍 驗證網站部署..."
+          
+          # 取得 Pages URL
+          PAGES_URL="${{ needs.deploy.outputs.page_url || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}"
+          
+          echo "檢查 URL: $PAGES_URL"
+          
+          # 等待部署生效
+          sleep 30
+          
+          # 檢查首頁
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PAGES_URL" || echo "000")
+          
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ 網站正常運作 (HTTP $HTTP_STATUS)"
+          else
+            echo "⚠️ 網站回應異常 (HTTP $HTTP_STATUS)"
+          fi
+      
+      - name: 🔒 安全驗證
+        continue-on-error: true
+        run: |
+          PAGES_URL="${{ needs.deploy.outputs.page_url || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}"
+          
+          echo "🔒 檢查部署的網站是否有 Flag 洩漏..."
+          
+          # 下載首頁檢查
+          PAGE_CONTENT=$(curl -s "$PAGES_URL" || echo "")
+          
+          # 檢查常見的 Flag 格式
+          if echo "$PAGE_CONTENT" | grep -qE "[A-Za-z0-9_]+CTF\{[^}]+\}"; then
+            echo "::error::警告：網站可能包含 Flag！"
+            exit 1
+          fi
+          
+          echo "✅ 未發現 Flag 洩漏"
+
+  # ===========================================================================
+  # Job 4: 通知
+  # ===========================================================================
+  notify:
+    name: 📢 通知
+    runs-on: ubuntu-latest
+    needs: [build, deploy, verify]
+    if: always()
+    
+    steps:
+      - name: 📊 生成部署摘要
+        run: |
+          echo "# 🌐 GitHub Pages 部署報告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 部署狀態" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 階段 | 狀態 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 建置 | ${{ needs.build.result == 'success' && '✅ 成功' || '❌ 失敗' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 部署 | ${{ needs.deploy.result == 'success' && '✅ 成功' || '❌ 失敗' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 驗證 | ${{ needs.verify.result == 'success' && '✅ 通過' || '⚠️ 警告' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ℹ️ 部署資訊" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **主題**: ${{ github.event.inputs.theme || 'dark' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **來源目錄**: ${{ github.event.inputs.source_dir || 'public-release' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.deploy.result }}" = "success" ]; then
+            echo "## 🔗 網站連結" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "👉 [查看網站](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📅 部署時間: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+      
+      - name: 📢 Slack 通知
+        if: env.SLACK_WEBHOOK_URL != ''
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ "${{ needs.deploy.result }}" = "success" ]; then
+            STATUS="✅ 成功"
+            COLOR="good"
+          else
+            STATUS="❌ 失敗"
+            COLOR="danger"
+          fi
+          
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{
+              \"attachments\": [{
+                \"color\": \"${COLOR}\",
+                \"title\": \"🌐 GitHub Pages 部署 ${STATUS}\",
+                \"fields\": [
+                  {\"title\": \"Repository\", \"value\": \"${{ github.repository }}\", \"short\": true},
+                  {\"title\": \"主題\", \"value\": \"${{ github.event.inputs.theme || 'dark' }}\", \"short\": true}
+                ],
+                \"footer\": \"GitHub Actions\",
+                \"ts\": $(date +%s)
+              }]
+            }" \
+            "$SLACK_WEBHOOK_URL"
+
+# =============================================================================
+# 使用說明
+# =============================================================================
+# 
+# 自動觸發：
+# - 當 public-release/ 目錄有變更時自動觸發
+# - 當 scripts/generate-pages.py 更新時觸發
+# 
+# 手動觸發：
+# 1. 前往 Actions 頁面
+# 2. 選擇 "Deploy GitHub Pages" workflow
+# 3. 點擊 "Run workflow"
+# 4. 選擇主題和來源目錄
+# 
+# 設定 GitHub Pages：
+# 1. 前往 Repository Settings
+# 2. 選擇 Pages
+# 3. Source 選擇 "GitHub Actions"
+# 
+# 所需 Secrets（可選）：
+# - SLACK_WEBHOOK_URL: Slack 通知 Webhook URL
+# =============================================================================
+

@@ -1,0 +1,93 @@
+# ${CHALLENGE_TITLE}
+
+## 📋 題目資訊
+
+| 項目 | 內容 |
+|------|------|
+| **分類** | ${CATEGORY} |
+| **難度** | ${DIFFICULTY} |
+| **分數** | ${POINTS} |
+| **作者** | ${AUTHOR} |
+| **類型** | ${CHALLENGE_TYPE} |
+
+## 📝 題目描述
+
+${CHALLENGE_DESCRIPTION}
+
+## 📁 目錄結構
+
+```
+${CHALLENGE_NAME}/
+├── public.yml          # 公開配置（無敏感資訊）
+├── private.yml         # 🔒 私密配置（含 flag）
+├── README.md           # 此說明文件
+├── src/                # 題目源碼
+│   └── ...
+├── docker/             # Docker 配置
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── ...
+├── files/              # 提供給參賽者的檔案
+│   └── ...
+└── writeup/            # 🔒 官方解答
+    └── README.md
+```
+
+## 🚀 本地測試
+
+### 使用 Docker
+
+```bash
+cd docker/
+docker-compose up -d
+```
+
+### 訪問服務
+
+- Web 服務: http://localhost:${PORT}
+- NC 連線: `nc localhost ${NC_PORT}`
+
+### 停止服務
+
+```bash
+docker-compose down
+```
+
+## ✅ 開發檢查清單
+
+### 題目開發
+- [ ] 完成題目核心功能
+- [ ] 設置正確的 flag
+- [ ] 編寫題目描述
+- [ ] 添加適當的提示
+
+### 測試驗證
+- [ ] 本地測試通過
+- [ ] Docker 建構成功
+- [ ] 解題流程驗證
+- [ ] 多種解法測試
+
+### 文檔完成
+- [ ] 更新 public.yml
+- [ ] 更新 private.yml
+- [ ] 編寫 writeup
+- [ ] 準備參賽者檔案
+
+### 安全檢查
+- [ ] 確認 flag 不在公開檔案中
+- [ ] 確認無敏感資訊洩漏
+- [ ] 確認 private.yml 在 .gitignore
+
+## 🏁 Flag 格式
+
+```
+${FLAG_PREFIX}{...}
+```
+
+## 📞 聯絡方式
+
+如有問題，請聯繫題目作者：${AUTHOR}
+
+---
+*此文件由 create-challenge.py 自動生成*
+

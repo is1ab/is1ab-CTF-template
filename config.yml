@@ -29,30 +29,30 @@ points:
 challenge_quota:
   # 按分類配額 (每個分類需要的題目數量)
   by_category:
-    general: 2     # 通用題目
-    web: 6         # Web 安全
-    pwn: 6         # 二進制漏洞利用
-    reverse: 4     # 逆向工程
-    crypto: 4      # 密碼學
-    forensic: 3    # 數位鑑識
-    misc: 3        # 雜項
+    general: 2 # 通用題目
+    web: 6 # Web 安全
+    pwn: 6 # 二進制漏洞利用
+    reverse: 4 # 逆向工程
+    crypto: 4 # 密碼學
+    forensic: 3 # 數位鑑識
+    misc: 3 # 雜項
 
   # 按難度配額 (每個難度需要的題目數量)
   by_difficulty:
-    baby: 8        # 新手友善題目
-    easy: 10       # 簡單題目
-    middle: 8      # 中等題目
-    hard: 4        # 困難題目
-    impossible: 2  # 極限挑戰
+    baby: 8 # 新手友善題目
+    easy: 10 # 簡單題目
+    middle: 8 # 中等題目
+    hard: 4 # 困難題目
+    impossible: 2 # 極限挑戰
 
   # 總題目數量限制
-  total_target: 32         # 目標總題目數
+  total_target: 32 # 目標總題目數
 
   # 配額驗證規則
   validation:
     # 分類配額總和是否應該等於總目標
     category_sum_equals_total: true
-    # 難度配額總和是否應該等於總目標  
+    # 難度配額總和是否應該等於總目標
     difficulty_sum_equals_total: true
     # 允許的誤差範圍 (百分比)
     tolerance_percentage: 5
@@ -66,7 +66,7 @@ team:
   reviewers:
     - "admin"
     - "senior-dev"
-  
+
 # 通知設定
 notifications:
   slack:
@@ -76,9 +76,20 @@ notifications:
     smtp_server: ""
     from_address: ""
 
+# =============================================================================
 # 安全設定
+# =============================================================================
 security:
+  # 啟用敏感資料掃描
   scan_sensitive_data: true
+
+  # 安全掃描嚴格等級
+  # - strict: 發現任何問題都失敗
+  # - normal: 只在 CRITICAL/HIGH 時失敗
+  # - relaxed: 只在 CRITICAL 時失敗
+  scan_level: "normal"
+
+  # 允許的檔案類型（在 public-release 中）
   allowed_file_types:
     - ".py"
     - ".js"
@@ -91,8 +102,187 @@ security:
     - ".json"
     - ".zip"
     - ".tar.gz"
-  
-  blocked_patterns:
-    - "password"
+    - ".c"
+    - ".cpp"
+    - ".h"
+    - ".sh"
+    - ".dockerfile"
+
+  # 敏感檔案名稱（永遠不會同步到 public repo）
+  sensitive_files:
+    - "private.yml"
+    - "private.yaml"
+    - "secrets.yml"
+    - "secrets.yaml"
+    - "secrets.json"
+    - "flag.txt"
+    - "flag"
+    - ".env"
+    - ".env.local"
+    - ".env.production"
+    - "solution.py"
+    - "exploit.py"
+    - "solve.py"
+    - "credentials.json"
+
+  # 敏感 YAML 欄位（會從 public.yml 中過濾）
+  sensitive_yaml_fields:
+    - "flag"
+    - "flags"
+    - "real_flag"
+    - "actual_flag"
+    - "flag_description"
+    - "flag_type"
+    - "dynamic_flag"
+    - "solution_steps"
+    - "solution"
+    - "solutions"
+    - "internal_notes"
+    - "internal_note"
+    - "private_notes"
+    - "test_credentials"
+    - "credentials"
+    - "admin_password"
+    - "deploy_secrets"
+    - "secrets"
     - "secret_key"
-    - "private_key"
+    - "verified_solutions"
+    - "exploits"
+
+  # 敏感內容模式（正規表達式）
+  sensitive_patterns:
+    # Flag 格式
+    - pattern: "${FLAG_PREFIX}\\{[^}]+\\}"
+      severity: "CRITICAL"
+      description: "Flag 洩漏"
+    # 硬編碼密碼
+    - pattern: "password\\s*[:=]\\s*[\"'][^\"']{4,}[\"']"
+      severity: "HIGH"
+      description: "硬編碼密碼"
+    # API Keys
+    - pattern: "api[_-]?key\\s*[:=]\\s*[\"'][A-Za-z0-9]{16,}[\"']"
+      severity: "HIGH"
+      description: "API Key"
+    # AWS Keys
+    - pattern: "AKIA[0-9A-Z]{16}"
+      severity: "CRITICAL"
+      description: "AWS Access Key"
+    # Private Keys
+    - pattern: "-----BEGIN (RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----"
+      severity: "CRITICAL"
+      description: "私鑰"
+
+  # 要排除的目錄（掃描時跳過）
+  excluded_directories:
+    - ".git"
+    - "__pycache__"
+    - "node_modules"
+    - ".venv"
+    - "venv"
+    - ".idea"
+    - ".vscode"
+    - ".cache"
+    - "dist"
+    - "build"
+    - "challenge-template"
+
+# =============================================================================
+# 公開發布設定
+# =============================================================================
+public_release:
+  # 公開 repository 設定
+  repository:
+    # 格式：owner/repo
+    name: ""
+    # 分支
+    branch: "main"
+
+  # 輸出目錄
+  output_dir: "public-release"
+
+  # 自動同步設定
+  auto_sync:
+    # 是否啟用自動同步
+    enabled: false
+    # 同步觸發條件
+    on_push_to_main: true
+    on_pr_merge: true
+
+  # 包含設定
+  include:
+    # 是否包含 writeup（比賽結束後設為 true）
+    writeups: false
+    # 是否包含 Docker 配置
+    docker_configs: true
+    # 是否包含提示
+    hints: true
+
+  # 排除設定
+  exclude:
+    # 題目狀態排除（這些狀態的題目不會發布）
+    statuses:
+      - "planning"
+      - "developing"
+    # 排除特定題目（路徑列表）
+    challenges: []
+
+# =============================================================================
+# GitHub Pages 設定
+# =============================================================================
+github_pages:
+  # 是否啟用 GitHub Pages
+  enabled: true
+
+  # 網站主題
+  theme: "dark" # dark | light
+
+  # 網站標題（預設使用 project.name）
+  title: ""
+
+  # 網站描述
+  description: ""
+
+  # 自訂 CSS（可選）
+  custom_css: ""
+
+  # 顯示設定
+  display:
+    # 顯示作者
+    show_author: true
+    # 顯示分數
+    show_points: true
+    # 顯示難度
+    show_difficulty: true
+    # 顯示提示
+    show_hints: true
+    # 顯示標籤
+    show_tags: true
+
+# =============================================================================
+# 建置設定
+# =============================================================================
+build:
+  # 建置腳本設定
+  script:
+    # 強制覆蓋輸出目錄
+    force_overwrite: false
+    # 詳細輸出
+    verbose: false
+    # 跳過安全掃描（不建議）
+    skip_scan: false
+
+  # 安全驗證
+  verification:
+    # 建置後二次驗證
+    post_build_scan: true
+    # 發現問題時停止
+    fail_on_issues: true
+
+  # 報告設定
+  reports:
+    # 生成建置報告
+    generate_build_report: true
+    # 生成安全報告
+    generate_security_report: true
+    # 報告格式
+    format: "markdown" # markdown | json | html

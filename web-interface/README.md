@@ -18,7 +18,7 @@ is1ab-CTF-template/
 ├── challenges/           # CTF 題目目錄
 ├── docs/                # 專案文檔
 ├── scripts/             # 輔助腳本
-├── challenge-templates/ # 題目創建模板
+├── challenge-template/ # 題目創建模板（位於專案根目錄）
 ├── config.yml          # 主要配置檔案
 └── archive/            # 舊版本檔案封存
 ```
@@ -68,10 +68,10 @@ uv run python app.py
 
 ## 📖 詳細文檔
 
-- [安裝指南](docs/setup-guide.md)
-- [uv 環境設定](docs/uv-setup-guide.md)
-- [完整建立教學](IS1AB%20CTF%20模板完整建立教學.md)
-- [開發流程](repo流程.md)
+- [安裝指南](../docs/setup-guide.md)
+- [uv 環境設定](../docs/uv-setup-guide.md)
+- [工作流程教學](../docs/workflow-tutorial.md)
+- [Web GUI 整合說明](../docs/web-gui-integration.md)
 
 ## 🛠️ 技術堆疊
 

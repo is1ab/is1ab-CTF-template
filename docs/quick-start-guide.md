@@ -81,18 +81,19 @@ ls -la
 ```
 welcome/
 ├── README.md          # 題目說明
-├── public.yml         # 公開發布配置  
-├── private.yml        # 私有配置
-├── attachments/       # 附件目錄
-├── src/              # 源碼目錄
+├── public.yml         # 📢 公開資訊（無 flag）
+├── private.yml        # 🔒 敏感資料（含 flag）
+├── src/               # 源碼目錄
 │   └── app.py        # Flask 應用
-├── solution/         # 解題腳本
-│   ├── solve.py
-│   └── writeup.md
-└── docker/           # Docker 配置
-    ├── Dockerfile
-    └── docker-compose.yml
+├── docker/           # Docker 配置
+│   ├── Dockerfile
+│   └── docker-compose.yml
+├── files/            # 提供給選手的檔案
+└── writeup/          # 🔒 官方解答
+    └── README.md
 ```
+
+> ⚠️ **重要**：`private.yml` 包含敏感資料（flag），永遠不會同步到公開 repository！
 
 ### 編輯題目內容
 
@@ -259,9 +260,9 @@ curl http://localhost:3000
 ### 編寫解題腳本
 
 ```bash
-cd ../solution/
+cd ../writeup/
 
-# 編輯解題腳本
+# 編輯解題腳本（可選）
 cat > solve.py << 'EOF'
 #!/usr/bin/env python3
 import requests
@@ -326,10 +327,11 @@ cd ../../
 
 # 啟動 Web 管理介面
 cd web-interface/
-python server.py --host localhost --port 8000
+uv run python app.py
+# 預設會啟動在 http://localhost:8004
 ```
 
-在瀏覽器中訪問 http://localhost:8000，您應該看到：
+在瀏覽器中訪問 http://localhost:8004，您應該看到：
 - 📊 題目進度儀表板
 - 📋 題目配額狀況
 - 🎯 題目矩陣顯示
@@ -388,7 +390,7 @@ uv run scripts/validate-challenge.py challenges/<category>/<name>/
 # 檢查敏感資料
 
 # 啟動 Web 介面
-cd web-interface && python server.py
+cd web-interface && uv run python app.py
 
 # 更新進度
 uv run scripts/update-readme.py
@@ -396,10 +398,11 @@ uv run scripts/update-readme.py
 
 ### 🆘 遇到問題？
 
-- 📖 閱讀 [詳細教學](workflow-tutorial.md)
-- 🐛 查看 [GitHub Issues](../../issues)
-- 💬 參與 [討論區](../../discussions)
-- 📧 聯絡我們：[support@is1ab.org]
+- 🎯 **完全新手**：先看 [5 分鐘快速入門](getting-started.md)
+- 📖 **詳細教學**：閱讀 [安全流程完整指南](security-workflow-guide.md)
+- 🔄 **Git 操作**：查看 [Git 操作教學](git-workflow-guide.md)
+- 🐛 **問題回報**：查看 [GitHub Issues](../../issues)
+- 💬 **討論交流**：參與 [討論區](../../discussions)
 
 ---
 

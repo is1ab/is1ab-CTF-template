@@ -1,0 +1,354 @@
+# =============================================================================
+# 🔒 Security Scan Workflow
+# =============================================================================
+# 功能：
+# 1. 掃描 Flag 格式字串
+# 2. 檢測敏感檔案
+# 3. 驗證 private.yml 不在公開分支
+# 4. 檢查 Docker 環境變數
+# =============================================================================
+
+name: 🔒 Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'challenges/**'
+      - 'public-release/**'
+      - '**.yml'
+      - '**.yaml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'challenges/**'
+      - 'public-release/**'
+  workflow_dispatch:
+    inputs:
+      scan_path:
+        description: '掃描路徑'
+        required: false
+        default: '.'
+      fail_on_high:
+        description: '發現 HIGH 等級問題時失敗'
+        required: false
+        default: 'true'
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  # ===========================================================================
+  # Job 1: Flag 洩漏掃描
+  # ===========================================================================
+  flag-scan:
+    name: 🚩 Flag 洩漏掃描
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 🔍 掃描 Flag 格式
+        id: flag-scan
+        run: |
+          echo "🔍 掃描 Flag 格式字串..."
+          
+          # 從 config.yml 讀取 flag 前綴
+          FLAG_PREFIX=$(grep -E "^\s*flag_prefix:" config.yml 2>/dev/null | awk -F'"' '{print $2}' | head -1)
+          FLAG_PREFIX=${FLAG_PREFIX:-is1abCTF}
+          
+          echo "Flag 前綴: $FLAG_PREFIX"
+          
+          # 掃描 flag 格式（排除 private.yml 和特定目錄）
+          FINDINGS=$(grep -rn "${FLAG_PREFIX}{[^}]*}" \
+            --include="*.yml" \
+            --include="*.yaml" \
+            --include="*.md" \
+            --include="*.py" \
+            --include="*.js" \
+            --include="*.html" \
+            --exclude="private.yml" \
+            --exclude="*.template" \
+            --exclude-dir=".git" \
+            --exclude-dir="node_modules" \
+            --exclude-dir=".venv" \
+            --exclude-dir="challenge-template" \
+            --exclude-dir="challenge-templates" \
+            . 2>/dev/null || true)
+          
+          if [ -n "$FINDINGS" ]; then
+            echo "::error::發現 Flag 洩漏！"
+            echo "發現的 Flag："
+            echo "$FINDINGS"
+            echo "flag_found=true" >> $GITHUB_OUTPUT
+            echo "$FINDINGS" > flag_findings.txt
+          else
+            echo "✅ 未發現 Flag 洩漏"
+            echo "flag_found=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 📤 上傳 Flag 掃描結果
+        if: steps.flag-scan.outputs.flag_found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: flag-scan-results
+          path: flag_findings.txt
+          retention-days: 7
+
+  # ===========================================================================
+  # Job 2: 敏感檔案檢查
+  # ===========================================================================
+  sensitive-files:
+    name: 📁 敏感檔案檢查
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔍 檢查敏感檔案
+        id: sensitive-check
+        run: |
+          echo "🔍 檢查敏感檔案..."
+          
+          SENSITIVE_FILES=(
+            "private.yml"
+            "secrets.yml"
+            "secrets.json"
+            "flag.txt"
+            ".env.local"
+            ".env.production"
+            "credentials.json"
+          )
+          
+          FOUND_FILES=""
+          
+          for pattern in "${SENSITIVE_FILES[@]}"; do
+            # 搜尋公開目錄中的敏感檔案
+            MATCHES=$(find . -name "$pattern" \
+              -not -path "./.git/*" \
+              -not -path "./challenge-template/*" \
+              -not -path "./challenge-templates/*" \
+              2>/dev/null || true)
+            
+            # 特別檢查 public-release 目錄
+            PUBLIC_MATCHES=$(find ./public-release -name "$pattern" 2>/dev/null || true)
+            
+            if [ -n "$PUBLIC_MATCHES" ]; then
+              echo "::error::在 public-release 中發現敏感檔案: $pattern"
+              FOUND_FILES="$FOUND_FILES\n$PUBLIC_MATCHES"
+            fi
+          done
+          
+          if [ -n "$FOUND_FILES" ]; then
+            echo "sensitive_found=true" >> $GITHUB_OUTPUT
+            echo -e "$FOUND_FILES" > sensitive_files.txt
+          else
+            echo "✅ 未在公開目錄中發現敏感檔案"
+            echo "sensitive_found=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 📤 上傳敏感檔案報告
+        if: steps.sensitive-check.outputs.sensitive_found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sensitive-files-report
+          path: sensitive_files.txt
+          retention-days: 7
+
+  # ===========================================================================
+  # Job 3: 進階安全掃描
+  # ===========================================================================
+  advanced-scan:
+    name: 🔬 進階安全掃描
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🐍 Setup Python with uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      
+      - name: 📦 Install dependencies
+        run: |
+          uv venv
+          uv pip install pyyaml
+      
+      - name: 🔬 執行進階掃描
+        id: advanced-scan
+        run: |
+          SCAN_PATH="${{ github.event.inputs.scan_path || '.' }}"
+          
+          echo "🔬 執行進階安全掃描..."
+          echo "掃描路徑: $SCAN_PATH"
+          
+          # 執行自定義掃描腳本
+          if [ -f "scripts/scan-secrets.py" ]; then
+            uv run python scripts/scan-secrets.py \
+              --path "$SCAN_PATH" \
+              --format markdown \
+              --output security-report.md \
+              ${{ github.event.inputs.fail_on_high == 'true' && '--fail-on-high' || '' }} \
+              || echo "scan_failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ scan-secrets.py 不存在，跳過進階掃描"
+          fi
+      
+      - name: 📤 上傳安全報告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: security-report.md
+          retention-days: 30
+          if-no-files-found: ignore
+      
+      - name: 💬 PR 評論
+        if: github.event_name == 'pull_request' && hashFiles('security-report.md') != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let report = '## 🔒 安全掃描報告\n\n';
+            
+            if (fs.existsSync('security-report.md')) {
+              report += fs.readFileSync('security-report.md', 'utf8');
+            } else {
+              report += '✅ 掃描完成，未發現問題。\n';
+            }
+            
+            report += '\n---\n🤖 由 Security Scan Workflow 自動生成';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+
+  # ===========================================================================
+  # Job 4: Docker 安全檢查
+  # ===========================================================================
+  docker-security:
+    name: 🐳 Docker 安全檢查
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🐳 掃描 Docker 配置
+        id: docker-scan
+        run: |
+          echo "🐳 掃描 Docker 配置..."
+          
+          # 從 config.yml 讀取 flag 前綴
+          FLAG_PREFIX=$(grep -E "^\s*flag_prefix:" config.yml 2>/dev/null | awk -F'"' '{print $2}' | head -1)
+          FLAG_PREFIX=${FLAG_PREFIX:-is1abCTF}
+          
+          DOCKER_ISSUES=""
+          
+          # 檢查 Dockerfile 中的硬編碼 Flag
+          for dockerfile in $(find . -name "Dockerfile" -not -path "./.git/*"); do
+            if grep -q "${FLAG_PREFIX}{" "$dockerfile"; then
+              echo "::error::Dockerfile 中發現硬編碼 Flag: $dockerfile"
+              DOCKER_ISSUES="$DOCKER_ISSUES\n- $dockerfile: 硬編碼 Flag"
+            fi
+            
+            # 檢查是否以 root 運行
+            if ! grep -q "USER" "$dockerfile"; then
+              echo "::warning::Dockerfile 未指定非 root 用戶: $dockerfile"
+            fi
+          done
+          
+          # 檢查 docker-compose.yml 中的硬編碼 Flag
+          for compose in $(find . -name "docker-compose*.yml" -not -path "./.git/*"); do
+            if grep -q "${FLAG_PREFIX}{" "$compose"; then
+              echo "::error::docker-compose.yml 中發現硬編碼 Flag: $compose"
+              DOCKER_ISSUES="$DOCKER_ISSUES\n- $compose: 硬編碼 Flag"
+            fi
+          done
+          
+          if [ -n "$DOCKER_ISSUES" ]; then
+            echo "docker_issues=true" >> $GITHUB_OUTPUT
+            echo -e "$DOCKER_ISSUES" > docker_issues.txt
+          else
+            echo "✅ Docker 配置安全檢查通過"
+            echo "docker_issues=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 📤 上傳 Docker 檢查報告
+        if: steps.docker-scan.outputs.docker_issues == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-security-report
+          path: docker_issues.txt
+          retention-days: 7
+
+  # ===========================================================================
+  # Job 5: 第三方安全工具
+  # ===========================================================================
+  third-party-scan:
+    name: 🛡️ 第三方安全掃描
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 🔍 TruffleHog 掃描
+        uses: trufflesecurity/trufflehog@main
+        continue-on-error: true
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha || 'HEAD~1' }}
+          head: HEAD
+          extra_args: --only-verified
+      
+      - name: 🔍 GitLeaks 掃描
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: true
+
+  # ===========================================================================
+  # Job 6: 彙總結果
+  # ===========================================================================
+  summary:
+    name: 📊 彙總結果
+    runs-on: ubuntu-latest
+    needs: [flag-scan, sensitive-files, advanced-scan, docker-security]
+    if: always()
+    
+    steps:
+      - name: 📊 生成彙總報告
+        run: |
+          echo "# 🔒 安全掃描彙總報告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 檢查項目 | 結果 |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Flag 洩漏掃描 | ${{ needs.flag-scan.result == 'success' && '✅ 通過' || '❌ 失敗' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 敏感檔案檢查 | ${{ needs.sensitive-files.result == 'success' && '✅ 通過' || '❌ 失敗' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 進階安全掃描 | ${{ needs.advanced-scan.result == 'success' && '✅ 通過' || '⚠️ 警告' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker 安全檢查 | ${{ needs.docker-security.result == 'success' && '✅ 通過' || '⚠️ 警告' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📅 掃描時間: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+      
+      - name: ❌ 檢查失敗條件
+        if: needs.flag-scan.result == 'failure' || needs.sensitive-files.result == 'failure'
+        run: |
+          echo "::error::安全掃描失敗！請修復問題後重新提交。"
+          exit 1
+

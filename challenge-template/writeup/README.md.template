@@ -1,0 +1,91 @@
+# ${CHALLENGE_TITLE} - Official Writeup
+
+> 🔒 **注意**：此文件包含解題步驟，請勿在比賽期間公開
+
+## 📋 題目資訊
+
+- **分類**: ${CATEGORY}
+- **難度**: ${DIFFICULTY}
+- **分數**: ${POINTS}
+- **作者**: ${AUTHOR}
+- **Flag**: `${FLAG_PLACEHOLDER}`
+
+## 🎯 題目概述
+
+${CHALLENGE_DESCRIPTION}
+
+## 🔍 漏洞分析
+
+TODO: 描述題目中存在的漏洞或挑戰點
+
+### 漏洞類型
+
+- 主要漏洞：TODO
+- 利用條件：TODO
+
+## 🛠️ 解題步驟
+
+### Step 1: 資訊收集
+
+TODO: 描述第一步
+
+```bash
+# 相關命令
+```
+
+### Step 2: 漏洞利用
+
+TODO: 描述漏洞利用過程
+
+```python
+# 利用腳本示例
+```
+
+### Step 3: 獲取 Flag
+
+TODO: 描述如何獲取 flag
+
+## 💻 完整利用腳本
+
+```python
+#!/usr/bin/env python3
+"""
+${CHALLENGE_TITLE} - Exploit Script
+Author: ${AUTHOR}
+"""
+
+import requests
+
+def exploit():
+    """TODO: 實現利用邏輯"""
+    pass
+
+if __name__ == "__main__":
+    exploit()
+```
+
+## 🔧 工具使用
+
+- **工具 1**: 用途說明
+- **工具 2**: 用途說明
+
+## 📚 學習要點
+
+1. TODO: 從這題可以學到什麼
+2. TODO: 相關的安全概念
+3. TODO: 防禦建議
+
+## 🔗 參考資料
+
+- [資源標題](https://example.com)
+
+## 🏆 統計資訊
+
+- **首殺隊伍**: TBD
+- **首殺時間**: TBD
+- **總解題數**: TBD
+- **解題率**: TBD%
+
+---
+*Writeup by ${AUTHOR} | ${CURRENT_DATE}*
+

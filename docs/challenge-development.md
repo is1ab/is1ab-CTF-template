@@ -63,10 +63,10 @@ my_challenge/
 │   ├── Dockerfile
 │   ├── docker-compose.yml
 │   └── nginx.conf
-├── solution/              # 官方解答
-│   ├── solve.py
-│   ├── exploit.py
-│   └── writeup.md
+├── writeup/               # 🔒 官方解答
+│   ├── README.md         # 解答說明
+│   ├── solve.py          # 解題腳本（可選）
+│   └── exploit.py        # 利用腳本（可選）
 ├── attachments/           # 提供給參賽者的檔案
 │   ├── source.zip
 │   └── hints.txt
@@ -483,7 +483,7 @@ exec socat TCP-LISTEN:9999,reuseaddr,fork EXEC:"./vuln",pty,stderr
 ### 4. 解題腳本
 
 ```python
-# solution/solve.py
+# writeup/solve.py
 #!/usr/bin/env python3
 from pwn import *
 
@@ -611,7 +611,7 @@ if __name__ == "__main__":
 ### 2. 解題腳本
 
 ```python
-# solution/solve_rsa.py
+# writeup/solve_rsa.py
 #!/usr/bin/env python3
 import math
 from Crypto.Util.number import long_to_bytes
