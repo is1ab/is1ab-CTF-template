@@ -258,6 +258,14 @@ terraform.rc
 NOTES.md
 TODO.md
 
+# 臨時的 Summary 和 Review 文件
+*_SUMMARY.md
+*_REVIEW.md
+CLEANUP_*.md
+REVIEW_*.md
+IMPROVEMENTS_*.md
+CODE_REVIEW.md
+
 # 暫存的題目開發
 **/wip/
 **/work-in-progress/
