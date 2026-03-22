@@ -245,15 +245,12 @@ class ChallengeValidator:
         """驗證 NC 題目的特殊檔案"""
         start_sh = docker_dir / 'start.sh'
         run_sh = docker_dir / 'run.sh'
-        
-        if not start_sh.exists():
-            self.errors.append("NC challenge missing start.sh")
-        else:
+
+        # start.sh 和 run.sh 是可選的（Dockerfile 可直接用 socat CMD）
+        if start_sh.exists():
             self.validate_nc_script(start_sh, 'start.sh')
-            
-        if not run_sh.exists():
-            self.errors.append("NC challenge missing run.sh")
-        else:
+
+        if run_sh.exists():
             self.validate_nc_script(run_sh, 'run.sh')
     
     def validate_nc_script(self, script_path, script_name):
