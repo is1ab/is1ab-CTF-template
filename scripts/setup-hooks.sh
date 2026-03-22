@@ -73,13 +73,13 @@ for file in $STAGED_FILES; do
   if [[ "$file" == *"template"* ]] || [[ "$file" == *"private.yml"* ]]; then
     continue
   fi
-  if [[ "$file" == docs/* ]] || [[ "$file" == tests/* ]] || [[ "$file" == QUICKSTART.md ]]; then
+  if [[ "$file" == docs/* ]] || [[ "$file" == tests/* ]] || [[ "$file" == wiki/* ]]; then
     continue
   fi
-  if [[ "$file" == CHALLENGE_TYPES_REFERENCE.md ]] || [[ "$file" == README.md ]]; then
+  if [[ "$file" == QUICKSTART.md ]] || [[ "$file" == README.md ]]; then
     continue
   fi
-  # 跳過 solution/ 目錄（解題腳本會引用 flag pattern）
+  # 跳過 solution/、writeup/ 目錄（解題腳本會引用 flag pattern）
   if [[ "$file" == *"/solution/"* ]] || [[ "$file" == *"/writeup/"* ]]; then
     continue
   fi
@@ -210,9 +210,9 @@ do
       fi
     done
 
-    # 檢查文件內容中的 flag（排除 private.yml、文件、測試、解答）
+    # 檢查文件內容中的 flag（排除 private.yml、文件、測試、解答、wiki）
     if [[ "$file" != *"private.yml"* ]] && [[ "$file" != *"private.yaml"* ]] \
-       && [[ "$file" != docs/* ]] && [[ "$file" != tests/* ]] \
+       && [[ "$file" != docs/* ]] && [[ "$file" != tests/* ]] && [[ "$file" != wiki/* ]] \
        && [[ "$file" != QUICKSTART.md ]] && [[ "$file" != CHALLENGE_TYPES_REFERENCE.md ]] \
        && [[ "$file" != README.md ]] \
        && [[ "$file" != *"/solution/"* ]] && [[ "$file" != *"/writeup/"* ]]; then
@@ -316,7 +316,7 @@ echo -e "${YELLOW}繞過 hooks (不建議):${NC}"
 echo -e "  git commit --no-verify"
 echo -e "  git push --no-verify"
 echo ""
-echo -e "📖 更多資訊: docs/security-workflow-guide.md"
+echo -e "📖 更多資訊: wiki/Security-Workflow-Guide.md"
 echo ""
 
 # 提示 pre-commit 框架

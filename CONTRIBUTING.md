@@ -304,7 +304,7 @@ rm -rf challenges/web/test_challenge
 如果您在貢獻過程中遇到問題，可以：
 
 - 查看 [文檔](docs/README.md)
-- 查看 [常見問題](docs/faq.md)
+- 查看 [常見問題](docs/troubleshooting.md)
 - 建立 [Issue](https://github.com/is1ab/is1ab-CTF-template/issues)
 
 ---

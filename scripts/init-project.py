@@ -223,10 +223,10 @@ uv run scripts/create-challenge.py web welcome baby --author YourName
 ## 🛠️ 開發指南
 
 請參考以下文檔：
-- [設置指南](docs/setup-guide.md)
-- [題目開發指南](docs/challenge-development.md) 
+- [設置指南](wiki/Setup-Guide.md)
+- [題目開發指南](wiki/Challenge-Development.md)
 - [貢獻指南](CONTRIBUTING.md)
-- [部署指南](docs/deployment-guide.md)
+- [部署指南](wiki/Deployment-Guide.md)
 
 ## 📊 開發進度
 

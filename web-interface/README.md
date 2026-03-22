@@ -68,10 +68,10 @@ uv run python app.py
 
 ## 📖 詳細文檔
 
-- [安裝指南](../docs/setup-guide.md)
-- [uv 環境設定](../docs/uv-setup-guide.md)
+- [安裝指南](../wiki/Setup-Guide.md)
+- [uv 環境設定](../wiki/UV-Setup-Guide.md)
 - [CTF 完整工作流程](../docs/ctf-challenge-workflow.md)
-- [Web GUI 整合說明](../docs/web-gui-integration.md)
+- [Web GUI 整合說明](../wiki/Web-GUI-Integration.md)
 
 ## 🛠️ 技術堆疊
 

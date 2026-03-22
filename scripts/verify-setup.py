@@ -72,7 +72,7 @@ def check_github_secrets():
     print("  ℹ️  請手動驗證以下 secrets 已在 GitHub 設置:")
     print("     - PUBLIC_REPO_TOKEN (必須)")
     print("     - SLACK_WEBHOOK_URL (可選)")
-    print("  📖 參考: docs/github-secrets-setup.md")
+    print("  📖 參考: wiki/GitHub-Secrets-Setup.md")
     return True
 
 def check_documentation():
@@ -83,8 +83,8 @@ def check_documentation():
         "README.md",
         "CONTRIBUTING.md",
         "CODE_OF_CONDUCT.md",
-        "docs/getting-started.md",
-        "docs/security-workflow-guide.md"
+        "docs/quick-reference.md",
+        "docs/security-checklist.md"
     ]
 
     missing_docs = [doc for doc in required_docs if not Path(doc).exists()]

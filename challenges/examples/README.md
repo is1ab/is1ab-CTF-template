@@ -221,7 +221,7 @@ pip install pillow
 
 1. 參考對應類型的範例
 2. 使用 `challenge-template/` 作為起點
-3. 閱讀 `docs/challenge-development.md`
+3. 閱讀 `wiki/Challenge-Development.md`
 4. 遵循 `docs/security-checklist.md`
 
 ### 測試題目

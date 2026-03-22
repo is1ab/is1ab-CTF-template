@@ -256,10 +256,10 @@ git push -u origin challenge/crypto/my_first_challenge
 
 | 目標 | 文件 |
 |---|---|
-| 學習不同題目類型的開發方式 | [題目開發指南](docs/challenge-development.md) |
+| 學習不同題目類型的開發方式 | [題目開發指南](wiki/Challenge-Development.md) |
 | 參考完整的範例題目 | [challenges/examples/](challenges/examples/) |
-| 了解提示系統的設計 | [提示系統指南](docs/hints-system-guide.md) |
-| 深入安全流程 | [安全流程指南](docs/security-workflow-guide.md) |
+| 了解提示系統的設計 | [提示系統指南](wiki/Hints-System-Guide.md) |
+| 深入安全流程 | [安全流程指南](wiki/Security-Workflow-Guide.md) |
 | Git 操作速查 | [Git 速查表](docs/git-workflow-cheatsheet.md) |
 | 查看常用指令 | [命令速查表](docs/quick-reference.md) |
 | 解決遇到的問題 | [常見問題](docs/troubleshooting.md) |

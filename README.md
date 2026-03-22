@@ -127,7 +127,7 @@ make viewer          # 生成 Viewer 資料
 | CI | security-scan | Flag 洩漏、敏感資料、第三方掃描 |
 | 建置 | build.sh | 移除所有 private.yml、flag、解答 |
 
-> 詳細說明：[安全流程指南](docs/security-workflow-guide.md) | [安全檢查清單](docs/security-checklist.md)
+> 詳細說明：[安全流程指南](wiki/Security-Workflow-Guide.md) | [安全檢查清單](docs/security-checklist.md)
 
 ---
 
@@ -138,9 +138,9 @@ make viewer          # 生成 Viewer 資料
 - [ ] `make setup` — 安裝 Git Hooks + 驗證環境
 - [ ] 編輯 `config.yml` — 設定 flag_prefix、平台 URL
 - [ ] 編輯 `.github/CODEOWNERS` — 替換 `@admin`/`@senior-dev` 為實際用戶名
-- [ ] 設定 GitHub Secrets — 參閱 [GitHub Secrets 指南](docs/github-secrets-setup.md)
-- [ ] 設定分支保護 — 參閱 [分支保護指南](docs/branch-protection-setup.md)
-- [ ] （推薦）設定 GPG 簽名 — 參閱 [Commit 簽名指南](docs/commit-signing-guide.md)
+- [ ] 設定 GitHub Secrets — 參閱 [GitHub Secrets 指南](wiki/GitHub-Secrets-Setup.md)
+- [ ] 設定分支保護 — 參閱 [分支保護指南](wiki/Branch-Protection-Setup.md)
+- [ ] （推薦）設定 GPG 簽名 — 參閱 [Commit 簽名指南](wiki/Commit-Signing-Guide.md)
 
 ---
 
@@ -154,5 +154,5 @@ MIT License — 詳見 [LICENSE](LICENSE)。
 
 ## 支援
 
-- [常見問題 FAQ](docs/faq.md) | [Troubleshooting](docs/troubleshooting.md)
+- [Troubleshooting](docs/troubleshooting.md) | [完整 FAQ](wiki/FAQ-and-Troubleshooting.md)
 - [提交 Issue](https://github.com/is1ab/is1ab-CTF-template/issues) | [討論區](https://github.com/is1ab/is1ab-CTF-template/discussions)

@@ -83,4 +83,4 @@ web-interface/
 ## 📖 更多資訊
 
 - 詳細說明請參閱 [README.md](README.md)
-- 完整文檔請參閱 [docs/web-gui-integration.md](../docs/web-gui-integration.md)
+- 完整文檔請參閱 [Web GUI 整合說明](../wiki/Web-GUI-Integration.md)
