@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # 安裝必要套件
 RUN apt-get update && \
