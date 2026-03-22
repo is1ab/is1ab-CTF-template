@@ -563,7 +563,7 @@ docker-compose up -d
 
 ## Flag 格式
 ```
-flag: {flag_prefix}{{...}}
+flag: {flag_prefix}{{fake_flag_example}}
 ```
 
 ## 題目類型
@@ -617,7 +617,7 @@ flag: {flag_prefix}{{...}}
 2. TODO: 第二步具體操作  
 3. TODO: 第三步最終獲取
 
-**實際 Flag**: `{flag_prefix}{{TODO_actual_flag_here}}`
+**實際 Flag**: 請見 `private.yml`
 
 **解題腳本**: 參見 `writeup/exploit.py`
 
@@ -682,7 +682,7 @@ TODO: 描述最終獲取 flag 的過程
 ## Flag
 
 ```
-{self.config['project']['flag_prefix']}{{TODO_actual_flag}}
+{self.config['project']['flag_prefix']}{{fake_flag_placeholder}}
 ```
 
 ## 學習重點
@@ -719,7 +719,7 @@ TODO: 描述最終獲取 flag 的過程
     def print_next_steps(self, challenge_path, challenge_type):
         """印出後續步驟"""
         # 從路徑提取 category 和 name
-        parts = challenge_path.replace("\\", "/").split("/")
+        parts = str(challenge_path).replace("\\", "/").split("/")
         category = parts[-2] if len(parts) >= 2 else "category"
         name = parts[-1] if len(parts) >= 1 else "name"
 

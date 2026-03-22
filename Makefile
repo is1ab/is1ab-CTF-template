@@ -8,7 +8,8 @@ help: ## 顯示所有可用的 make targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-setup: ## 初始設置（安裝 Git hooks + 驗證環境）
+setup: ## 初始設置（安裝依賴 + Git hooks + 驗證環境）
+	uv sync --extra dev
 	./scripts/setup-hooks.sh
 	uv run python scripts/verify-setup.py
 

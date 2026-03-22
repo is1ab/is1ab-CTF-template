@@ -49,15 +49,13 @@ def check_config():
     if not config.get("project", {}).get("flag_prefix"):
         issues.append("未設置 flag_prefix")
 
-    # 檢查公開倉庫配置
+    # 檢查公開倉庫配置（可選，公開發布時才需要）
     repo_name = config.get("public_release", {}).get("repository", {}).get("name", "")
     if not repo_name:
-        issues.append("未配置 public_release.repository.name")
+        print("  ⚠️  未配置 public_release.repository.name（公開發布時需要）")
 
-    # 檢查通知配置
-    slack_webhook = config.get("notifications", {}).get("slack", {}).get("webhook_url", "")
-    if not slack_webhook:
-        print("  ⚠️  未配置 Slack webhook (可選)")
+    # 檢查通知配置（可選）
+    # Slack webhook 為可選配置，不顯示提示以避免干擾
 
     if issues:
         print(f"  ❌ 配置問題: {', '.join(issues)}")
