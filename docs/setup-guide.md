@@ -511,7 +511,7 @@ def validate_challenge(path):
 ```yaml
 # 使用 2 空格縮排
 title: "Challenge Title"
-author: "GZTime"
+author: "YourName"
 difficulty: "middle"
 
 # 列表格式

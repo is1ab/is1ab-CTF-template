@@ -964,7 +964,7 @@ uv run python scripts/generate-pages.py [options]
 
 ### 相關文檔
 
-- [Challenge Creation Guide](challenge-creation-guide.md)
+- [Challenge Development Guide](challenge-development.md)
 - [Deployment Guide](deployment-guide.md)
 - [Quick Start Guide](quick-start-guide.md)
 

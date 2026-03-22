@@ -124,7 +124,14 @@ make new-challenge ARGS="pwn my_pwn easy --type nc_challenge"
 # static_container（Web 題目）
 make new-challenge ARGS="web my_web easy --type static_container"
 
+# 鑑識題目
+make new-challenge ARGS="forensic my_forensic easy"
+
 # 腳本會自動偵測類型，但你也可以用 --type 手動指定
+```
+
+> 可用 category：`web`、`pwn`、`reverse`、`crypto`、`forensic`、`misc`、`general`
+> 可用 difficulty：`baby`、`easy`、`middle`、`hard`、`impossible`
 ```
 
 ---

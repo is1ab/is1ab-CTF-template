@@ -40,7 +40,7 @@ class ChallengeCreator:
     def validate_inputs(self, category, name, difficulty):
         """驗證輸入參數"""
         # 驗證分類
-        valid_categories = ['web', 'pwn', 'reverse', 'crypto', 'forensics', 'misc', 'osint']
+        valid_categories = ['web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc', 'general']
         if category not in valid_categories:
             print(f"❌ Invalid category: {category}")
             print(f"💡 Valid categories: {', '.join(valid_categories)}")
@@ -61,7 +61,7 @@ class ChallengeCreator:
         
         return True
     
-    def create_challenge(self, category, name, difficulty, author='GZTime', challenge_type=None):
+    def create_challenge(self, category, name, difficulty, author='', challenge_type=None):
         """創建新題目"""
         try:
             # 輸入驗證
@@ -767,13 +767,13 @@ def main():
     try:
         parser = argparse.ArgumentParser(description='Create new CTF challenge')
         parser.add_argument('category', 
-                           choices=['web', 'pwn', 'reverse', 'crypto', 'forensics', 'misc', 'osint'],
+                           choices=['web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc', 'general'],
                            help='Challenge category')
         parser.add_argument('name', help='Challenge name (use underscore for spaces)')
         parser.add_argument('difficulty', 
                            choices=['baby', 'easy', 'middle', 'hard', 'impossible'],
                            help='Challenge difficulty')
-        parser.add_argument('--author', default='GZTime', help='Challenge author')
+        parser.add_argument('--author', default='', help='Challenge author (reads from config.yml if empty)')
         parser.add_argument('--type', choices=['static_attachment', 'static_container', 'dynamic_attachment', 'dynamic_container', 'nc_challenge'],
                            help='Challenge type (auto-detect if not specified)')
         parser.add_argument('--config', default='config.yml', help='Config file path')

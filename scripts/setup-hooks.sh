@@ -76,7 +76,11 @@ for file in $STAGED_FILES; do
   if [[ "$file" == docs/* ]] || [[ "$file" == tests/* ]] || [[ "$file" == QUICKSTART.md ]]; then
     continue
   fi
-  if [[ "$file" == CHALLENGE_TYPES_REFERENCE.md ]]; then
+  if [[ "$file" == CHALLENGE_TYPES_REFERENCE.md ]] || [[ "$file" == README.md ]]; then
+    continue
+  fi
+  # 跳過 solution/ 目錄（解題腳本會引用 flag pattern）
+  if [[ "$file" == *"/solution/"* ]] || [[ "$file" == *"/writeup/"* ]]; then
     continue
   fi
 
@@ -206,10 +210,12 @@ do
       fi
     done
 
-    # 檢查文件內容中的 flag（排除 private.yml、文件、測試）
+    # 檢查文件內容中的 flag（排除 private.yml、文件、測試、解答）
     if [[ "$file" != *"private.yml"* ]] && [[ "$file" != *"private.yaml"* ]] \
        && [[ "$file" != docs/* ]] && [[ "$file" != tests/* ]] \
-       && [[ "$file" != QUICKSTART.md ]] && [[ "$file" != CHALLENGE_TYPES_REFERENCE.md ]]; then
+       && [[ "$file" != QUICKSTART.md ]] && [[ "$file" != CHALLENGE_TYPES_REFERENCE.md ]] \
+       && [[ "$file" != README.md ]] \
+       && [[ "$file" != *"/solution/"* ]] && [[ "$file" != *"/writeup/"* ]]; then
       if grep -q "${FLAG_PREFIX}{" "$file" 2>/dev/null; then
         # 排除 fake/example/test placeholder
         real_flags=$(grep "${FLAG_PREFIX}{" "$file" | grep -v -E "(fake_flag|example|placeholder|test_flag|your_flag|xxx|\.\.\.)" || true)

@@ -12,7 +12,7 @@ setup: ## 初始設置（安裝 Git hooks + 驗證環境）
 	./scripts/setup-hooks.sh
 	uv run python scripts/verify-setup.py
 
-new-challenge: ## 建立新題目（使用 ARGS 傳參數，例如 make new-challenge ARGS="web/my_challenge"）
+new-challenge: ## 建立新題目（例如 make new-challenge ARGS="web my_challenge easy"）
 	uv run python scripts/create-challenge.py $(ARGS)
 
 validate: ## 驗證單個題目（例如 make validate ARGS="challenges/examples/web/sql_injection"）
