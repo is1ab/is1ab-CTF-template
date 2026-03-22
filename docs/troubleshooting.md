@@ -188,6 +188,6 @@ GitHub Actions 會執行多個檢查。每個檢查的意義：
 
 ## 還是無法解決？
 
-1. 查看 [FAQ](faq.md) 中是否有更多解答
+1. 查看 [完整 FAQ](../wiki/FAQ-and-Troubleshooting.md) 中是否有更多解答
 2. 在 repo 中提交 [Issue](https://github.com/is1ab/is1ab-CTF-template/issues)
 3. 詢問團隊中的 Admin 或 Senior Dev

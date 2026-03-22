@@ -76,7 +76,7 @@
   - 用於接收通知
   - 可在 `config.yml` 中配置
 
-**參考**: [GitHub Secrets 設置指南](github-secrets-setup.md)
+**參考**: [GitHub Secrets 設置指南](../wiki/GitHub-Secrets-Setup.md)
 
 ---
 
@@ -103,7 +103,7 @@
   - [ ] `security-scan / advanced-scan`
   - [ ] `security-scan / docker-security`
 
-**參考**: [分支保護設置指南](branch-protection-setup.md)
+**參考**: [分支保護設置指南](../wiki/Branch-Protection-Setup.md)
 
 ---
 
@@ -170,7 +170,7 @@
   # 應該顯示 "Good signature from..."
   ```
 
-**參考**: [Commit 簽名指南](commit-signing-guide.md)
+**參考**: [Commit 簽名指南](../wiki/Commit-Signing-Guide.md)
 
 ---
 
@@ -205,9 +205,9 @@
   - 符合團隊工作流程
 
 - [ ] **必要文檔已閱讀**:
-  - [ ] [快速開始指南](getting-started.md)
-  - [ ] [安全工作流程指南](security-workflow-guide.md)
-  - [ ] [Git 工作流程指南](git-workflow-guide.md)
+  - [ ] [QUICKSTART.md](../QUICKSTART.md)
+  - [ ] [安全工作流程指南](../wiki/Security-Workflow-Guide.md)
+  - [ ] [Git 速查表](git-workflow-cheatsheet.md)
 
 ---
 
@@ -258,7 +258,7 @@
 
 - [ ] **所有成員已設置 GPG 簽名** (如要求)
 
-**參考**: [角色與權限管理](roles-and-permissions.md)
+**參考**: [角色與權限管理](../wiki/Roles-and-Permissions.md)
 
 ---
 
@@ -332,11 +332,11 @@ rm test_flag.txt
 
 ## 🔗 相關資源
 
-- [完整安全工作流程指南](security-workflow-guide.md)
-- [分支保護設置指南](branch-protection-setup.md)
-- [Commit 簽名指南](commit-signing-guide.md)
-- [GitHub Secrets 設置指南](github-secrets-setup.md)
-- [快速開始指南](getting-started.md)
+- [完整安全工作流程指南](../wiki/Security-Workflow-Guide.md)
+- [分支保護設置指南](../wiki/Branch-Protection-Setup.md)
+- [Commit 簽名指南](../wiki/Commit-Signing-Guide.md)
+- [GitHub Secrets 設置指南](../wiki/GitHub-Secrets-Setup.md)
+- [QUICKSTART.md](../QUICKSTART.md)
 
 ---
 

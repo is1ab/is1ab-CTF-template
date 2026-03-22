@@ -222,9 +222,9 @@ cat report.md
 
 ## 📞 取得幫助
 
-- 📖 [完整指南](security-workflow-guide.md)
-- 🐛 [故障排除](security-workflow-guide.md#故障排除)
-- 🔄 [Git 操作教學](git-workflow-guide.md)
+- 📖 [完整指南](../wiki/Security-Workflow-Guide.md)
+- 🐛 [故障排除](troubleshooting.md)
+- 🔄 [Git 速查表](git-workflow-cheatsheet.md)
 - 📚 [其他文檔](../README.md)
 
 ---

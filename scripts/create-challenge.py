@@ -64,10 +64,14 @@ class ChallengeCreator:
     def create_challenge(self, category, name, difficulty, author='', challenge_type=None):
         """創建新題目"""
         try:
+            # 如果 author 為空，從 config.yml 讀取
+            if not author:
+                author = self.config.get('team', {}).get('default_author', '') if isinstance(self.config, dict) else ''
+
             # 輸入驗證
             if not self.validate_inputs(category, name, difficulty):
                 return False
-                
+
             print(f"🚀 Creating challenge: {category}/{name}")
             
             # 決定題目類型

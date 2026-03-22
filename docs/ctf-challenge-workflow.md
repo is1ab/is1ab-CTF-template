@@ -887,10 +887,10 @@ git push
 ## 📚 相關文檔
 
 - [Git Hooks 設置](../scripts/setup-hooks.sh)
-- [安全工作流程指南](security-workflow-guide.md)
-- [題目開發最佳實踐](challenge-development.md)
-- [GitHub Secrets 設置](github-secrets-setup.md)
-- [分支保護設置](branch-protection-setup.md)
+- [安全工作流程指南](../wiki/Security-Workflow-Guide.md)
+- [題目開發最佳實踐](../wiki/Challenge-Development.md)
+- [GitHub Secrets 設置](../wiki/GitHub-Secrets-Setup.md)
+- [分支保護設置](../wiki/Branch-Protection-Setup.md)
 
 ---
 

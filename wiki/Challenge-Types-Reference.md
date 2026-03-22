@@ -371,7 +371,7 @@ sed -i 's/${CHALLENGE_TITLE}/My Web Challenge/g' public.yml.template
 ## 🔗 相關文檔
 
 - [完整範例](challenges/examples/README.md)
-- [題目開發指南](docs/challenge-development.md)
+- [題目開發指南](Challenge-Development)
 - [安全檢查清單](docs/security-checklist.md)
 - [CTF 工作流程](docs/ctf-challenge-workflow.md)
 
