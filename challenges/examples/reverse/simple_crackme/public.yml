@@ -1,0 +1,78 @@
+# REVERSE 題目範例 - Simple Crackme
+title: "Simple Crackme"
+author: "admin"
+difficulty: "easy"
+category: "reverse"
+
+owners:
+  - "admin"
+assignee: "admin"
+
+description: |
+  找到正確的密碼就能拿到 flag！
+
+  附件：`crackme` - 執行檔
+
+challenge_type: "static_attachment"
+
+points: 130
+
+tags:
+  - "reverse"
+  - "crackme"
+  - "static-analysis"
+
+source_code_provided: false
+
+files:
+  - "crackme"
+
+status: "developing"
+ready_for_release: false
+
+created_at: "2026-01-18"
+updated_at: "2026-01-18"
+
+deploy_info:
+  requires_build: false
+
+hints:
+  - level: 1
+    cost: 0
+    content: |
+      使用反組譯工具查看程式邏輯，例如 IDA、Ghidra 或 objdump。
+
+  - level: 2
+    cost: 10
+    content: |
+      程式會將你的輸入與某個字串進行比較。
+      找到那個字串就是答案！
+
+  - level: 3
+    cost: 25
+    content: |
+      也可以使用 strings 命令直接查看程式中的字串。
+
+learning_objectives:
+  - "學習使用反組譯工具"
+  - "理解程式執行流程"
+  - "掌握靜態分析技巧"
+
+required_skills:
+  - "基礎組合語言"
+  - "C 語言知識"
+
+recommended_tools:
+  - "IDA Pro / Ghidra"
+  - "objdump / gdb"
+  - "strings"
+  - "ltrace / strace"
+
+references:
+  - title: "Reverse Engineering 入門"
+    url: "https://en.wikipedia.org/wiki/Reverse_engineering"
+
+metadata:
+  estimated_solve_time: "20 分鐘"
+  first_blood_bonus: 35
+  max_attempts: -1

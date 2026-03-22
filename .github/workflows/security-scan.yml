@@ -308,6 +308,7 @@ jobs:
           fetch-depth: 0
       
       - name: 🔍 TruffleHog 掃描
+        id: trufflehog
         uses: trufflesecurity/trufflehog@main
         continue-on-error: true
         with:
@@ -315,13 +316,30 @@ jobs:
           base: ${{ github.event.pull_request.base.sha || 'HEAD~1' }}
           head: HEAD
           extra_args: --only-verified
-      
+
       - name: 🔍 GitLeaks 掃描
+        id: gitleaks
         uses: gitleaks/gitleaks-action@v2
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: true
+
+      - name: ⚠️ 檢查第三方掃描結果
+        if: steps.trufflehog.outcome == 'failure' || steps.gitleaks.outcome == 'failure'
+        run: |
+          echo "::warning::第三方安全掃描發現潛在問題"
+          if [ "${{ steps.trufflehog.outcome }}" == "failure" ]; then
+            echo "  - TruffleHog 發現問題，請檢查上方日誌"
+          fi
+          if [ "${{ steps.gitleaks.outcome }}" == "failure" ]; then
+            echo "  - GitLeaks 發現問題，請檢查上方日誌"
+          fi
+          # 在 PR 到 main 分支時，將警告升級為錯誤
+          if [ "${{ github.event_name }}" == "pull_request" ] && [ "${{ github.base_ref }}" == "main" ]; then
+            echo "::error::PR 到 main 分支時，安全掃描問題必須解決"
+            exit 1
+          fi
 
   # ===========================================================================
   # Job 6: 彙總結果

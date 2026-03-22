@@ -462,8 +462,8 @@ java -jar bfg.jar --delete-files private.yml
 
 - [自動化 Release 工作流程](../.github/workflows/auto-release.yml)
 - [安全掃描工具](../scripts/scan-secrets.py)
-- [改善實施指南](IMPROVEMENT_IMPLEMENTATION_GUIDE.md)
-- [自動化 Release 測試指南](auto-release-testing.md)
+- [安全檢查清單](security-checklist.md)
+- [CTF 完整工作流程](ctf-challenge-workflow.md)
 
 ### 外部資源
 

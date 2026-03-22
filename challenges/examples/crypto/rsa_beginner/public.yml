@@ -1,0 +1,89 @@
+# CRYPTO 題目範例 - RSA Beginner
+title: "RSA for Beginners"
+author: "admin"
+difficulty: "easy"
+category: "crypto"
+
+owners:
+  - "admin"
+assignee: "admin"
+
+description: |
+  我用 RSA 加密了 flag，但我的公鑰有點小...
+
+  附件包含：
+  - `public_key.pem` - 公鑰
+  - `encrypted_flag.txt` - 加密後的 flag
+
+challenge_type: "static_attachment"
+
+points: 120
+
+tags:
+  - "crypto"
+  - "rsa"
+  - "weak-key"
+
+source_code_provided: false
+
+files:
+  - "public_key.pem"
+  - "encrypted_flag.txt"
+
+status: "developing"
+ready_for_release: false
+
+created_at: "2026-01-18"
+updated_at: "2026-01-18"
+
+deploy_info:
+  # Crypto 題目通常不需要部署服務
+  requires_build: false
+
+hints:
+  - level: 1
+    cost: 0
+    content: |
+      檢查一下公鑰的大小。
+      RSA 的安全性與密鑰長度有關。
+
+  - level: 2
+    cost: 10
+    content: |
+      n 的值很小，可以直接分解。
+      試試看線上的整數分解工具，例如 factordb.com
+
+  - level: 3
+    cost: 25
+    content: |
+      分解 n 得到 p 和 q 後：
+      1. 計算 φ(n) = (p-1)(q-1)
+      2. 計算私鑰 d = e^(-1) mod φ(n)
+      3. 解密: m = c^d mod n
+
+learning_objectives:
+  - "理解 RSA 加密的基本原理"
+  - "學習如何攻擊弱密鑰"
+  - "掌握模運算和整數分解"
+
+required_skills:
+  - "基礎數論知識"
+  - "Python 程式設計"
+  - "RSA 原理"
+
+recommended_tools:
+  - "Python (pycryptodome)"
+  - "FactorDB"
+  - "RsaCtfTool"
+  - "openssl"
+
+references:
+  - title: "RSA 加密演算法"
+    url: "https://en.wikipedia.org/wiki/RSA_(cryptosystem)"
+  - title: "FactorDB"
+    url: "http://factordb.com/"
+
+metadata:
+  estimated_solve_time: "25 分鐘"
+  first_blood_bonus: 40
+  max_attempts: -1

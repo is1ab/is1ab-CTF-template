@@ -1,0 +1,130 @@
+name: ✅ PR Policy Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: 🔎 Validate branch naming + ownership
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+
+          echo "PR author: $PR_AUTHOR"
+          echo "Head ref: $HEAD_REF"
+
+          # 支援多種分支類型
+          if [[ "$HEAD_REF" =~ ^challenge/([^/]+)/([^/]+)$ ]]; then
+            # 題目分支：執行完整的所有權驗證
+            CATEGORY="${BASH_REMATCH[1]}"
+            NAME="${BASH_REMATCH[2]}"
+            echo "📁 Challenge branch detected: $CATEGORY/$NAME"
+          elif [[ "$HEAD_REF" =~ ^(fix|docs|feature|hotfix|chore|refactor)/(.+)$ ]]; then
+            # 其他合法分支類型：跳過所有權驗證，只執行 flag 掃描
+            BRANCH_TYPE="${BASH_REMATCH[1]}"
+            echo "✅ $BRANCH_TYPE branch detected, skipping ownership check"
+            exit 0
+          else
+            echo "::error::Branch name must match one of:"
+            echo "  - challenge/<category>/<name> (for new challenges)"
+            echo "  - fix/<description> (for bug fixes)"
+            echo "  - docs/<description> (for documentation)"
+            echo "  - feature/<description> (for new features)"
+            echo "  - hotfix/<description> (for urgent fixes)"
+            echo "  - chore/<description> (for maintenance)"
+            echo "  - refactor/<description> (for refactoring)"
+            exit 1
+          fi
+
+          PUBLIC_YML="challenges/$CATEGORY/$NAME/public.yml"
+          README_MD="challenges/$CATEGORY/$NAME/README.md"
+
+          if [ ! -f "$PUBLIC_YML" ]; then
+            echo "::error::Missing $PUBLIC_YML"
+            exit 1
+          fi
+          if [ ! -f "$README_MD" ]; then
+            echo "::error::Missing $README_MD"
+            exit 1
+          fi
+
+          PUBLIC_YML="$PUBLIC_YML" PR_AUTHOR="$PR_AUTHOR" python - << 'PY'
+import os
+import sys
+import yaml
+
+public_yml = os.environ["PUBLIC_YML"]
+pr_author = os.environ["PR_AUTHOR"].lstrip("@").strip()
+
+with open(public_yml, "r", encoding="utf-8") as f:
+    data = yaml.safe_load(f) or {}
+
+owners = data.get("owners") or []
+if isinstance(owners, str):
+    owners = [owners]
+owners = [str(x).lstrip("@").strip() for x in owners if str(x).strip()]
+
+assignee = str(data.get("assignee") or "").lstrip("@").strip()
+
+if assignee and assignee not in owners:
+    print("::error::public.yml policy: assignee must be included in owners")
+    sys.exit(1)
+
+# Require PR author to be in owners OR be the assignee
+if pr_author not in owners and (assignee and pr_author != assignee):
+    print(f"::error::PR author @{pr_author} must be in owners (or be assignee) in {public_yml}")
+    sys.exit(1)
+
+print("✅ Ownership policy passed")
+PY
+        
+      - name: 🔒 Scan changed files for flags (fast)
+        run: |
+          set -euo pipefail
+
+          FLAG_PREFIX=$(grep -E "^\s*flag_prefix:" config.yml 2>/dev/null | awk -F'"' '{print $2}' | head -1)
+          FLAG_PREFIX=${FLAG_PREFIX:-is1abCTF}
+
+          echo "Flag prefix: $FLAG_PREFIX"
+
+          # Only scan the PR diff, exclude private.yml
+          files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | tr -d '\r')
+          echo "$files"
+
+          for f in $files; do
+            if [[ "$f" == *"private.yml"* ]] || [[ "$f" == *"private.yaml"* ]]; then
+              continue
+            fi
+            if [[ -f "$f" ]]; then
+              if grep -q "${FLAG_PREFIX}{" "$f"; then
+                echo "::error::Flag pattern found in $f"
+                exit 1
+              fi
+            fi
+          done
+
+          echo "✅ Flag scan passed"

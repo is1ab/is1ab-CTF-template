@@ -13,6 +13,15 @@ author: "${AUTHOR}"
 difficulty: "${DIFFICULTY}"  # baby | easy | middle | hard | impossible
 category: "${CATEGORY}"       # web | pwn | reverse | crypto | forensic | misc | general
 
+# -----------------------------------------------------------------------------
+# 分工資訊（使用 GitHub username）
+# -----------------------------------------------------------------------------
+owners:
+  - "${AUTHOR}"
+
+# 單一主負責（建議填 GitHub username）
+assignee: "${AUTHOR}"
+
 # 題目描述 - 提供給參賽者的說明
 description: |
   ${CHALLENGE_DESCRIPTION}
@@ -55,6 +64,7 @@ ready_for_release: false
 
 # 創建時間
 created_at: "${CURRENT_DATE}"
+updated_at: "${CURRENT_DATE}"
 
 # -----------------------------------------------------------------------------
 # 部署資訊（公開部分）

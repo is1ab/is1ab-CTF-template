@@ -100,7 +100,7 @@ PUBLIC_REPO=your-org/2024-is1ab-CTF-public
 DOCKER_REGISTRY=registry.example.com
 DOCKER_USERNAME=your-username
 DOCKER_PASSWORD=your-password
-DEPLOY_HOST=140.124.181.153
+DEPLOY_HOST=your-deploy-host
 DEPLOY_KEY=-----BEGIN OPENSSH PRIVATE KEY-----...
 SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 ```
@@ -298,9 +298,9 @@ chmod +x scripts/*.py
 
 ---
 
-# docs/contribution-guide.md
-
 # 🤝 貢獻指南
+
+> 詳細的貢獻指南請參閱 [CONTRIBUTING.md](../CONTRIBUTING.md)
 
 ## 📋 概述
 
@@ -650,3 +650,25 @@ uv run scripts/validate-challenge.py --all
 ---
 
 感謝你的貢獻！每一個改進都讓這個專案變得更好！ 🚀
+
+---
+
+## 📦 UV 環境設置
+
+本專案統一使用 [uv](https://docs.astral.sh/uv/) 作為 Python 包管理工具。詳細的 UV 安裝與設定說明請參閱 [UV Setup Guide](uv-setup-guide.md)。
+
+### 快速安裝
+
+```bash
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 安裝專案依賴
+uv sync
+
+# 安裝開發依賴
+uv sync --extra dev
+
+# 執行測試
+uv run pytest tests/ -v
+```

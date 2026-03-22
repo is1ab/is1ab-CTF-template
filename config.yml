@@ -7,14 +7,14 @@ project:
   description: "IS1AB CTF Competition"
 
 platform:
-  gzctf_url: "http://140.124.181.153:8080/"
-  ctfd_url: "http://140.124.181.153/"
-  zipline_url: "http://140.124.181.153:3000"
+  gzctf_url: ""  # 替換為你的 GZCTF URL，例如 "http://your-server:8080/"
+  ctfd_url: ""  # 替換為你的 CTFd URL，例如 "http://your-server/"
+  zipline_url: ""  # 替換為你的 Zipline URL，例如 "http://your-server:3000"
 
 deployment:
-  host: "140.124.181.153"
+  host: ""  # 替換為你的部署主機 IP 或域名
   port_range: "8000-9000"
-  docker_registry: "registry.is1ab.com"
+  docker_registry: ""  # 替換為你的 Docker Registry，例如 "registry.example.com"
   ssh_user: "ctf"
 
 # 分數配置
@@ -62,10 +62,10 @@ challenge_quota:
 
 # 團隊設定
 team:
-  default_author: "GZTime"
-  reviewers:
-    - "admin"
-    - "senior-dev"
+  default_author: ""  # 替換為預設題目作者名稱
+  reviewers:  # 替換為實際 reviewer 的 GitHub 用戶名
+    - ""
+    - ""
 
 # 通知設定
 notifications:

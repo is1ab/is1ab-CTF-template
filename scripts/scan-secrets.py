@@ -113,8 +113,8 @@ class SecretsScanner:
             (rf'{self.flag_prefix}\{{[^}}]+\}}', Severity.CRITICAL, 'Flag 洩漏'),
             # 通用 CTF Flag 格式
             (r'[A-Za-z0-9_]+CTF\{[^}]+\}', Severity.HIGH, '可能的 Flag 格式'),
-            # Base64 編碼的 Flag
-            (r'[A-Za-z0-9+/]{40,}={0,2}', Severity.MEDIUM, '可能的 Base64 編碼'),
+            # Base64 編碼的 Flag（64+ 字元以減少假陽性）
+            (r'[A-Za-z0-9+/]{64,}={0,2}', Severity.MEDIUM, '可能的 Base64 編碼'),
             # 硬編碼密碼
             (r'password\s*[:=]\s*["\'][^"\']{4,}["\']', Severity.HIGH, '硬編碼密碼'),
             (r'passwd\s*[:=]\s*["\'][^"\']{4,}["\']', Severity.HIGH, '硬編碼密碼'),
@@ -122,7 +122,7 @@ class SecretsScanner:
             (r'api[_-]?key\s*[:=]\s*["\'][A-Za-z0-9]{16,}["\']', Severity.HIGH, 'API Key'),
             # AWS Keys
             (r'AKIA[0-9A-Z]{16}', Severity.CRITICAL, 'AWS Access Key'),
-            (r'[A-Za-z0-9/+=]{40}', Severity.MEDIUM, '可能的 AWS Secret Key'),
+            (r'(?<![A-Za-z0-9/+=])[A-Za-z0-9/+=]{40}(?![A-Za-z0-9/+=])', Severity.MEDIUM, '可能的 AWS Secret Key'),
             # Private Keys
             (r'-----BEGIN (RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----', Severity.CRITICAL, '私鑰'),
             # JWT

@@ -354,7 +354,7 @@ uv run python app.py
 1. **📚 學習完整工作流程**
    ```bash
    # 閱讀詳細教學
-   cat docs/workflow-tutorial.md
+   cat docs/ctf-challenge-workflow.md
    ```
 
 2. **🔧 創建更多題目**

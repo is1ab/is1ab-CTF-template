@@ -598,8 +598,8 @@ Merging is blocked
 
 ### 內部文檔
 
-- [Git Flow 標準化指南](git-flow-standard.md)
-- [改善實施指南](IMPROVEMENT_IMPLEMENTATION_GUIDE.md)
+- [Git 工作流程指南](git-workflow-guide.md)
+- [安全檢查清單](security-checklist.md)
 - [角色與權限管理](roles-and-permissions.md)
 
 ---

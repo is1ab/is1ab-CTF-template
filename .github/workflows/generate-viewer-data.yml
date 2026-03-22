@@ -1,0 +1,99 @@
+name: 👀 Generate Viewer Data
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'challenges/**/public.yml'
+      - 'challenges/**/README.md'
+      - 'config.yml'
+      - 'viewer/site/**'
+      - 'scripts/generate-viewer-data.py'
+      - '.github/workflows/generate-viewer-data.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: viewer-data
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: 🧱 Generate viewer dataset
+        run: |
+          python scripts/generate-viewer-data.py --clean --output viewer/data
+
+      - name: 🔒 Secrets scan (viewer only)
+        run: |
+          python scripts/scan-secrets.py \
+            --path viewer \
+            --format markdown \
+            --output viewer-scan-report.md \
+            --fail-on-high
+
+      - name: 🧾 Upload scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: viewer-scan-report
+          path: viewer-scan-report.md
+          if-no-files-found: ignore
+
+      - name: 🚀 Push to viewer-data branch (CI-managed)
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create (or reset) a dedicated worktree for viewer-data
+          rm -rf /tmp/viewer-data
+          mkdir -p /tmp/viewer-data
+
+          # Fetch branch if exists
+          git fetch origin viewer-data || true
+
+          if git show-ref --verify --quiet refs/remotes/origin/viewer-data; then
+            git worktree add /tmp/viewer-data origin/viewer-data
+          else
+            git worktree add -b viewer-data /tmp/viewer-data
+          fi
+
+          rsync -a --delete viewer/ /tmp/viewer-data/viewer/
+
+          cd /tmp/viewer-data
+
+          # Ensure no extra files linger
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to viewer-data."
+            exit 0
+          fi
+
+          git commit -m "chore(viewer): update viewer-data\n\nGenerated at: $(date -u '+%Y-%m-%dT%H:%M:%SZ')\nSource: $GITHUB_SHA"
+          git push origin HEAD:viewer-data
+
+      - name: 🧹 Cleanup worktree
+        if: always()
+        run: |
+          git worktree remove /tmp/viewer-data --force || true

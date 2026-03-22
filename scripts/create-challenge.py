@@ -714,22 +714,54 @@ TODO: 描述最終獲取 flag 的過程
     
     def print_next_steps(self, challenge_path, challenge_type):
         """印出後續步驟"""
-        print(f"📝 Next steps:")
-        print(f"   1. Edit {challenge_path}/public.yml")
-        
+        # 從路徑提取 category 和 name
+        parts = challenge_path.replace("\\", "/").split("/")
+        category = parts[-2] if len(parts) >= 2 else "category"
+        name = parts[-1] if len(parts) >= 1 else "name"
+
+        print()
+        print("=" * 60)
+        print("📝 接下來你需要做的事情：")
+        print("=" * 60)
+        print()
+        print(f"  1. 編輯 Flag（最重要！）")
+        print(f"     編輯 {challenge_path}/private.yml")
+        print(f"     → 找到 \"flag:\" 欄位，設定你的 flag 值")
+        prefix = self.config.get('flag_prefix', 'FLAG_PREFIX')
+        print(f"     → 格式：{prefix}" + "{你的flag內容}")
+        print()
+        print(f"  2. 填寫題目資訊")
+        print(f"     編輯 {challenge_path}/public.yml")
+        print(f"     → 修改 title、description、tags")
+        print(f"     → ⚠️  不要在這裡放 flag！")
+        print()
+        print(f"  3. 實作題目")
+        print(f"     → 原始碼放在 {challenge_path}/src/")
+
         if challenge_type == 'nc_challenge':
-            print(f"   2. Develop your challenge in {challenge_path}/src/")
-            print(f"   3. Compile: cd {challenge_path}/src && make")
-            print(f"   4. Copy binary to {challenge_path}/docker/bin/")
-            print(f"   5. Update docker/run.sh to execute your program")
-            print(f"   6. Test with: cd {challenge_path}/docker && docker-compose up")
-            print(f"   7. Test connection: nc localhost 9999")
+            print(f"     → 編譯：cd {challenge_path}/src && make")
+            print(f"     → 複製執行檔到 {challenge_path}/docker/bin/")
+            print(f"     → 測試：cd {challenge_path}/docker && docker-compose up")
+            print(f"     → 連線測試：nc localhost 9999")
+        elif challenge_type in ('static_container', 'dynamic_container'):
+            print(f"     → 如需 Docker：編輯 {challenge_path}/docker/")
+            print(f"     → 測試：cd {challenge_path}/docker && docker-compose up")
         else:
-            print(f"   2. Develop your challenge in {challenge_path}/src/")
-            print(f"   3. Test with Docker: cd {challenge_path}/docker && docker-compose up")
-        
-        print(f"   8. Add writeup in {challenge_path}/writeup/")
-        print(f"   9. Create PR when ready")
+            print(f"     → 附件放在 {challenge_path}/files/")
+
+        print()
+        print(f"  4. 驗證")
+        print(f"     make validate ARGS=\"{challenge_path}\"")
+        print(f"     make scan")
+        print()
+        print(f"  5. 提交")
+        print(f"     git add {challenge_path}/")
+        print(f"     git commit -m \"feat({category}): add {name} challenge\"")
+        print(f"     git push origin challenge/{category}/{name}")
+        print()
+        print(f"  📖 完整教學：QUICKSTART.md")
+        print(f"  ❓ 遇到問題：docs/troubleshooting.md")
+        print()
 
 def main():
     try:

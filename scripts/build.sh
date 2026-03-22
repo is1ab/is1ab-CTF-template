@@ -60,6 +60,27 @@ log_step() {
     echo -e "${CYAN}[STEP]${NC} $1"
 }
 
+# 安全的 sed 替換（帶錯誤檢查）
+safe_sed_filter() {
+    local input_file="$1"
+    local output_file="$2"
+    shift 2
+    local sed_args=("$@")
+
+    if ! sed "${sed_args[@]}" "$input_file" > "$output_file" 2>/dev/null; then
+        log_error "sed 過濾失敗: $input_file"
+        rm -f "$output_file"
+        return 1
+    fi
+
+    # 驗證輸出檔案非空
+    if [ ! -s "$output_file" ]; then
+        log_warning "sed 輸出為空: $output_file"
+    fi
+
+    return 0
+}
+
 # -----------------------------------------------------------------------------
 # 顯示使用說明
 # -----------------------------------------------------------------------------
@@ -266,9 +287,13 @@ process_challenge() {
     if [ -f "${challenge_path}/README.md" ]; then
         if [ "$DRY_RUN" = false ]; then
             # 過濾 README 中的敏感資訊
-            sed -E "s/${FLAG_PREFIX}\{[^}]+\}/[REDACTED]/g" \
-                "${challenge_path}/README.md" > "$output_challenge_dir/README.md"
-            log_info "  ✓ 複製 README.md（已過濾）"
+            if safe_sed_filter "${challenge_path}/README.md" "$output_challenge_dir/README.md" \
+                -E "s/${FLAG_PREFIX}\{[^}]+\}/[REDACTED]/g"; then
+                log_info "  ✓ 複製 README.md（已過濾）"
+            else
+                log_warning "  ✗ README.md 過濾失敗"
+                ((FAILED_CHALLENGES++))
+            fi
         fi
     fi
     
@@ -296,9 +321,12 @@ process_challenge() {
             mkdir -p "$output_challenge_dir/writeup"
             # 只複製 README.md，過濾其中的敏感資訊
             if [ -f "${challenge_path}/writeup/README.md" ]; then
-                sed -E "s/${FLAG_PREFIX}\{[^}]+\}/[FLAG REDACTED]/g" \
-                    "${challenge_path}/writeup/README.md" > "$output_challenge_dir/writeup/README.md"
-                log_info "  ✓ 複製 writeup（已過濾 flag）"
+                if safe_sed_filter "${challenge_path}/writeup/README.md" "$output_challenge_dir/writeup/README.md" \
+                    -E "s/${FLAG_PREFIX}\{[^}]+\}/[FLAG REDACTED]/g"; then
+                    log_info "  ✓ 複製 writeup（已過濾 flag）"
+                else
+                    log_warning "  ✗ writeup 過濾失敗"
+                fi
             fi
         fi
     fi
@@ -309,13 +337,17 @@ process_challenge() {
             if [ "$DRY_RUN" = false ]; then
                 mkdir -p "$output_challenge_dir/docker"
                 # 過濾 docker-compose.yml 中的敏感環境變數
-                sed -E \
+                if safe_sed_filter "${challenge_path}/docker/docker-compose.yml" "$output_challenge_dir/docker/docker-compose.yml" \
+                    -E \
                     -e "s/(FLAG=).*/\1\${FLAG}/g" \
                     -e "s/${FLAG_PREFIX}\{[^}]+\}/\${FLAG}/g" \
                     -e "s/(password:).*/\1 \${PASSWORD}/g" \
-                    -e "s/(secret_key:).*/\1 \${SECRET_KEY}/g" \
-                    "${challenge_path}/docker/docker-compose.yml" > "$output_challenge_dir/docker/docker-compose.yml"
-                log_info "  ✓ 複製 docker-compose.yml（已過濾）"
+                    -e "s/(secret_key:).*/\1 \${SECRET_KEY}/g"; then
+                    log_info "  ✓ 複製 docker-compose.yml（已過濾）"
+                else
+                    log_warning "  ✗ docker-compose.yml 過濾失敗"
+                    ((FAILED_CHALLENGES++))
+                fi
             fi
         fi
     fi
@@ -593,6 +625,10 @@ main() {
         log_warning "這是模擬執行。移除 --dry-run 選項以實際建置。"
     fi
 }
+
+# TODO: 未來可加入 SBOM (Software Bill of Materials) 生成
+# 範例：syft dir:$OUTPUT_DIR -o spdx-json > $OUTPUT_DIR/sbom.spdx.json
+# 或使用：cyclonedx-bom -o $OUTPUT_DIR/sbom.json
 
 # 執行主程式
 main

@@ -986,6 +986,6 @@ uv run python scripts/generate-pages.py [options]
 
 ---
 
-**最後更新**：2025-01-XX  
+**最後更新**：2025-01-15  
 **版本**：2.0.0  
 **維護者**：IS1AB Team

@@ -27,7 +27,9 @@ legacy/
 
 # Web interface 靜態資源快取
 app/static/.webassets-cache/
-web-interface/static/.webassets-cache/Distribution / packaging
+web-interface/static/.webassets-cache/
+
+# ================== Distribution / packaging ==================
 .Python
 build/
 develop-eggs/
@@ -85,6 +87,7 @@ venv.bak/
 
 # ================== CTF 特定檔案 ==================
 # 敏感檔案 - 絕對不能提交！
+**/flag
 **/flag.txt
 **/FLAG
 **/*flag*
@@ -94,7 +97,11 @@ venv.bak/
 
 # 私密設定檔
 **/private.yml
+**/private.yaml
 **/secret.yml
+**/secret.yaml
+**/secrets.yml
+**/secrets.yaml
 **/secrets.json
 **/config.local.*
 **/.env.local
@@ -229,10 +236,10 @@ terraform.rc
 **/k8s/**/*secret*.yml
 
 # ================== 測試和除錯 ==================
-# 測試檔案
-**/test_*.py
-**/debug_*.py
-**/temp_*.py
+# 測試檔案（僅忽略 challenges 內的測試/除錯檔案）
+challenges/**/test_*.py
+challenges/**/debug_*.py
+challenges/**/temp_*.py
 
 # 效能分析
 *.prof
@@ -282,11 +289,27 @@ CODE_REVIEW.md
 *.pfx
 *.jks
 *.keystore
+*.crt
+*.csr
+*.cer
+*.der
+
+# SSH 密鑰
+id_rsa
+id_rsa.*
+id_dsa
+id_dsa.*
+id_ecdsa
+id_ecdsa.*
+id_ed25519
+id_ed25519.*
+*.ppk
 
 # 設定檔案可能含有密碼
 **/database.yml
 **/production.json
 **/credentials.json
+**/auth.json
 
 # ================== 建置產出 ==================
 # 編譯產出
@@ -313,10 +336,6 @@ CODE_REVIEW.md
 !**/sample*
 
 # ================================================
-# 說明：
-# 1. 此 .gitignore 專為 CTF 專案設計
-# 2. 重點保護 Flag、解答、私密設定等敏感資訊
-# 3. 適用於多種開發環境和部署方式
-# 4. 如需要版本控制特定檔案，請在對應行前加 !
+# 最後更新：2026-01-19
+# 維護者：IS1AB Team
 # ================================================
-**/static/.webassets-cache/

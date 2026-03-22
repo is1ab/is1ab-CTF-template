@@ -219,9 +219,9 @@ Welcome Event!
 - [提交規範](#提交規範)
 
 ## 🏆 CTF 平台
-- **GZCTF** (新生盃/比賽用): {{ config.platform.gzctf_url or 'http://140.124.181.153:8080/' }}
-- **CTFd** (練習/上課用): {{ config.platform.ctfd_url or 'http://140.124.181.153/' }}
-- **文件分享** (大型附件): {{ config.platform.zipline_url or 'http://140.124.181.153:3000' }}
+- **GZCTF** (新生盃/比賽用): {{ config.platform.gzctf_url or '（請在 config.yml 中設定）' }}
+- **CTFd** (練習/上課用): {{ config.platform.ctfd_url or '（請在 config.yml 中設定）' }}
+- **文件分享** (大型附件): {{ config.platform.zipline_url or '（請在 config.yml 中設定）' }}
 
 ## 📊 題目進度追蹤
 

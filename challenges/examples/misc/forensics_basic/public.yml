@@ -1,0 +1,78 @@
+# MISC 題目範例 - Forensics Basic
+title: "Hidden Message"
+author: "admin"
+difficulty: "baby"
+category: "misc"
+
+owners:
+  - "admin"
+assignee: "admin"
+
+description: |
+  這張圖片裡藏了什麼秘密？
+
+  附件：`image.png`
+
+challenge_type: "static_attachment"
+
+points: 50
+
+tags:
+  - "misc"
+  - "forensics"
+  - "steganography"
+
+source_code_provided: false
+
+files:
+  - "image.png"
+
+status: "developing"
+ready_for_release: false
+
+created_at: "2026-01-18"
+updated_at: "2026-01-18"
+
+deploy_info:
+  requires_build: false
+
+hints:
+  - level: 1
+    cost: 0
+    content: |
+      試試看用文字編輯器或 hex editor 打開圖片。
+      有時候資訊就藏在檔案的最後面...
+
+  - level: 2
+    cost: 5
+    content: |
+      使用 strings 命令查看圖片中的可見字串。
+
+  - level: 3
+    cost: 10
+    content: |
+      flag 就藏在圖片檔案的末尾，以純文字形式存在。
+
+learning_objectives:
+  - "學習基本的檔案分析技巧"
+  - "理解檔案格式結構"
+  - "掌握常見的 forensics 工具"
+
+required_skills:
+  - "Linux 命令列操作"
+  - "基礎檔案格式知識"
+
+recommended_tools:
+  - "strings"
+  - "hexdump / xxd"
+  - "binwalk"
+  - "exiftool"
+
+references:
+  - title: "數位鑑識入門"
+    url: "https://en.wikipedia.org/wiki/Digital_forensics"
+
+metadata:
+  estimated_solve_time: "10 分鐘"
+  first_blood_bonus: 20
+  max_attempts: -1

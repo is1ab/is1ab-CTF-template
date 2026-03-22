@@ -1,0 +1,110 @@
+# ============================================================================
+# CODEOWNERS - 自動分配程式碼審查者
+# ============================================================================
+#
+# ⚠️  重要設置步驟：
+# 1. 將下方的 @admin 替換為團隊管理員的 GitHub 用戶名（如 @john-doe）
+# 2. 將 @senior-dev 替換為資深開發者的用戶名（可以是多人）
+# 3. 可使用組織團隊：@is1ab/security-team
+#
+# 語法：
+#   pattern          @username1 @username2 @org/team-name
+#
+# 注意：
+#   - 規則由上而下匹配，後面的規則會覆蓋前面的
+#   - 至少需要一個審查者批准才能合併 (需配合分支保護規則)
+#   - 如果 @admin 或 @senior-dev 不是有效用戶，GitHub 會忽略此規則
+# ============================================================================
+
+# ================== 預設審查者 ==================
+# 所有文件的預設審查者
+*                           @admin @senior-dev
+
+# ================== 核心配置文件 ==================
+# 配置文件需要更高級別的審查
+/config.yml                 @admin
+/.gitignore                 @admin
+/.github/workflows/*        @admin
+/pyproject.toml            @admin
+/uv.lock                   @admin
+
+# ================== 安全相關 ==================
+# 安全腳本和掃描工具
+/scripts/scan-secrets.py    @admin @senior-dev
+/scripts/build.sh          @admin @senior-dev
+/.github/workflows/security-scan.yml    @admin
+/.github/workflows/build-public.yml     @admin
+
+# Git hooks
+/.git/hooks/*              @admin
+
+# ================== 題目相關 ==================
+# 題目目錄 - 需要分類專家審查
+/challenges/web/**         @admin @senior-dev
+/challenges/pwn/**         @admin @senior-dev
+/challenges/reverse/**     @admin @senior-dev
+/challenges/crypto/**      @admin @senior-dev
+/challenges/forensic/**    @admin @senior-dev
+/challenges/misc/**        @admin @senior-dev
+
+# 題目模板
+/challenge-template/**     @admin
+
+# ================== 文檔 ==================
+# 重要文檔
+/README.md                 @admin
+/CONTRIBUTING.md           @admin
+/CODE_OF_CONDUCT.md        @admin
+/LICENSE                   @admin
+
+# 一般文檔
+/docs/**                   @senior-dev
+
+# 安全相關文檔
+/docs/security-workflow-guide.md        @admin
+/docs/github-secrets-setup.md          @admin
+/docs/branch-protection-setup.md       @admin
+
+# ================== Web 介面 ==================
+/web-interface/**          @senior-dev
+
+# ================== 腳本 ==================
+# 核心腳本需要仔細審查
+/scripts/create-challenge.py           @senior-dev
+/scripts/validate-challenge.py         @senior-dev
+/scripts/prepare-public-release.py     @admin
+/scripts/sync-to-public.py            @admin
+
+# 一般腳本
+/scripts/**                @senior-dev
+
+# ================== GitHub 配置 ==================
+# PR 和 Issue 模板
+/.github/PULL_REQUEST_TEMPLATE.md      @senior-dev
+/.github/ISSUE_TEMPLATE/**             @senior-dev
+
+# Actions workflows
+/.github/workflows/**                  @admin
+
+# ================== 特殊規則 ==================
+# 公開發布目錄 - 需要最高級別審查
+/public-release/**         @admin
+
+# 任何包含 private 或 secret 的文件 (應該被 .gitignore 阻擋，但以防萬一)
+**/private.yml             @admin
+**/private.yaml            @admin
+**/secrets.yml             @admin
+**/secrets.yaml            @admin
+**/secrets.json            @admin
+
+# ============================================================================
+# 使用說明：
+#
+# 1. 將 @admin 和 @senior-dev 替換為實際的 GitHub 用戶名
+# 2. 可以使用組織團隊：@is1ab/security-team
+# 3. 配合分支保護規則使用效果最佳
+# 4. 定期檢查和更新此文件
+#
+# 參考文檔：
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# ============================================================================

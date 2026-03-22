@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CTF Progress Viewer</title>
+    <link rel="stylesheet" href="assets/app.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container">
+        <div class="brand">
+          <div class="brand-title">CTF Progress Viewer</div>
+          <div id="subtitle" class="brand-subtitle">Loading…</div>
+        </div>
+        <div class="actions">
+          <button id="themeBtn" class="btn" title="Toggle light/dark mode">&#9788;</button>
+          <button id="exportBtn" class="btn">Export CSV</button>
+          <button id="refreshBtn" class="btn">Refresh</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="grid">
+        <div class="card">
+          <div class="card-title">Total</div>
+          <div class="metric" id="metricTotal">–</div>
+          <div class="muted" id="metricGeneratedAt">–</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Ready for Release</div>
+          <div class="metric" id="metricReady">–</div>
+          <div class="muted">Count of `ready_for_release: true`</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Completed / Deployed</div>
+          <div class="metric" id="metricDone">–</div>
+          <div class="muted">Status in {completed,deployed}</div>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top: 16px">
+        <div class="card-title">Filters</div>
+        <div class="filters">
+          <input id="q" class="input" placeholder="Search title/name…" />
+          <select id="fCategory" class="select"></select>
+          <select id="fDifficulty" class="select"></select>
+          <select id="fStatus" class="select"></select>
+          <input id="fAssignee" class="input" placeholder="Assignee (GitHub username)" />
+          <label class="checkbox">
+            <input id="fReady" type="checkbox" /> Ready only
+          </label>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top: 16px">
+        <div class="card-title">Challenges</div>
+        <div class="muted" id="listHint"></div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th class="sortable" data-col="title">Title</th>
+                <th class="sortable" data-col="category">Category</th>
+                <th class="sortable" data-col="difficulty">Difficulty</th>
+                <th class="sortable" data-col="status">Status</th>
+                <th>Owners</th>
+                <th class="sortable" data-col="assignee">Assignee</th>
+                <th class="sortable" data-col="updated_at">Updated</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top: 16px">
+        <div class="card-title">Detail</div>
+        <div id="detail" class="detail">
+          <div class="muted">Select a challenge from the list.</div>
+        </div>
+      </section>
+    </main>
+
+    <script src="assets/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,29 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ['--allow-multiple-documents']
+      - id: check-added-large-files
+        args: ['--maxkb=1024']
+
+  - repo: local
+    hooks:
+      - id: scan-secrets
+        name: Scan for secrets and flags
+        entry: uv run python scripts/scan-secrets.py --path
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: validate-challenges
+        name: Validate challenge public.yml
+        entry: uv run python scripts/validate-challenge.py
+        language: system
+        files: 'challenges/.*/public\.yml$'
+        pass_filenames: true
+        stages: [pre-commit]

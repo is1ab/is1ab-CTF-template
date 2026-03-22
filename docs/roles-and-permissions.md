@@ -320,6 +320,6 @@ uv run python scripts/scan-secrets.py --path challenges/
 
 ---
 
-**最後更新**：2025-01-XX  
+**最後更新**：2025-01-15  
 **維護者**：IS1AB Team
 

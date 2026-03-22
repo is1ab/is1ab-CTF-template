@@ -70,7 +70,7 @@ uv run python app.py
 
 - [安裝指南](../docs/setup-guide.md)
 - [uv 環境設定](../docs/uv-setup-guide.md)
-- [工作流程教學](../docs/workflow-tutorial.md)
+- [CTF 完整工作流程](../docs/ctf-challenge-workflow.md)
 - [Web GUI 整合說明](../docs/web-gui-integration.md)
 
 ## 🛠️ 技術堆疊

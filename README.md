@@ -1,19 +1,109 @@
 # IS1AB CTF Template 🚀
 
-一個現代化的 CTF (Capture The Flag) 競賽管理模板，專為 IS1AB 團隊設計。
+> 🎯 **一個企業級 CTF 題目開發與管理模板** - 從 Private 開發到 Public 發布的完整自動化流程
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
+## 🚀 第一次使用？
+
+**30 分鐘內建立你的第一個 CTF 題目** → **[QUICKSTART.md](QUICKSTART.md)**
+
+| 我想... | 去哪裡 |
+|---------|--------|
+| 從零開始建立題目 | [QUICKSTART.md](QUICKSTART.md) |
+| 選擇題目類型 | [題目類型指南](docs/challenge-types-guide.md) |
+| 理解 public/private YAML | [為什麼分兩個設定檔](docs/public-private-explained.md) |
+| 解決遇到的問題 | [常見問題](docs/troubleshooting.md) |
+| Git 操作速查 | [Git 速查表](docs/git-workflow-cheatsheet.md) |
+| 查看常用指令 | [命令速查表](docs/quick-reference.md) |
+
+---
+
 ## 📋 專案概述
 
-這個專案提供了完整的 CTF 競賽管理解決方案，包含題目創建、管理、部署和評分系統。支援三階段開發流程：Template → Private → Public Repository。
+這個專案提供了完整的 CTF 題目開發與管理解決方案，專為**團隊協作開發 CTF 比賽題目**而設計。
 
-### 🎯 一句話流程摘要
+### 🎯 使用場景
 
-**Template Repo** → **Use Template 建立 Private Dev Repo** → **Feature Branches 開發題目** → **PR 審查合併到 main** → **比賽後自動發布到 Public Repo** → **GitHub Pages 自動部署**
+1. **使用此 Template 創建 Private Repository** - 團隊在 private repo 中開發題目
+2. **團隊成員使用 Feature Branch 開發題目** - 每個題目一個分支，通過 PR 合併
+3. **自動化整理題目資訊** - PR 合併時自動更新 README.md 統計
+4. **比賽後發布到 Public Repository** - 自動移除 flag 和敏感資料
+5. **自動部署 GitHub Pages** - 生成精美的題目展示網站
 
-> 💡 **詳細流程**：請參閱下方的 [三階段開發流程](#-三階段開發流程)
+### 🔄 完整工作流程
+
+```
+Template Repository (本專案)
+        ↓ Use Template
+Private Dev Repo (你的開發倉庫)
+        ↓ Feature Branches
+開發者 A: challenge/web/sql_injection ──┐
+開發者 B: challenge/pwn/buffer_overflow ─┼→ Pull Requests
+開發者 C: challenge/crypto/rsa_attack ───┘       ↓
+                                          Code Review + CI/CD
+                                                  ↓
+                                          合併到 main branch
+                                                  ↓
+                                    自動更新 README.md 題目統計
+                                                  ↓
+                                          【比賽期間維持 Private】
+                                                  ↓
+                                          【比賽結束後觸發發布】
+                                                  ↓
+                      Build Public Release (自動移除 flag 和敏感資料)
+                                                  ↓
+                              推送到 Public Repository
+                                                  ↓
+                      GitHub Pages 自動部署題目展示網站
+```
+
+> 📖 **完整流程文檔**：[CTF 題目開發完整流程指南](docs/ctf-challenge-workflow.md)
+> ⚡ **快速參考**：[快速命令參考](docs/quick-reference.md)
+> 👀 **Internal Viewer Spec**：[viewer-data 分支規格](docs/viewer-data-spec.md)
+> 🌐 **Internal Viewer 部署**：[內網部署（Docker/Nginx）](docs/viewer-deployment.md)
+
+## 📚 題目範例
+
+本專案包含 **5 種類型的完整 CTF 題目範例**，展示如何創建各種類型的題目：
+
+| 類型 | 範例名稱 | 難度 | 技術特色 | 路徑 |
+|------|---------|------|---------|------|
+| 🔨 **PWN** | Buffer Overflow 101 | Easy | NC 連線、Docker、Socat | `challenges/examples/pwn/buffer_overflow/` |
+| 🌐 **WEB** | SQL Injection 101 | Easy | Flask、SQLite、Docker | `challenges/examples/web/sql_injection/` |
+| 🔐 **CRYPTO** | RSA for Beginners | Easy | 弱密鑰、靜態附件 | `challenges/examples/crypto/rsa_beginner/` |
+| 🔍 **REVERSE** | Simple Crackme | Easy | 靜態分析、Binary | `challenges/examples/reverse/simple_crackme/` |
+| 📁 **MISC** | Hidden Message | Baby | Forensics、圖片分析 | `challenges/examples/misc/forensics_basic/` |
+
+每個範例都包含：
+- ✅ **完整配置** - `public.yml` + `private.yml` + `README.md`
+- ✅ **源碼實現** - 完整的題目源碼和 Makefile
+- ✅ **Docker 配置** - Dockerfile + docker-compose.yml（如需要）
+- ✅ **官方解答** - Exploit 腳本和解題步驟
+- ✅ **建構腳本** - 一鍵建構和部署
+
+**快速開始**：
+```bash
+# 查看所有範例
+ls challenges/examples/
+
+# 測試 PWN 範例（需要 Docker）
+cd challenges/examples/pwn/buffer_overflow/docker
+./build.sh && docker compose up -d && nc localhost 9999
+
+# 測試 WEB 範例（需要 Docker）
+cd challenges/examples/web/sql_injection/docker
+docker compose up -d
+# 訪問 http://localhost:8080
+
+# 測試 CRYPTO 範例（本地測試）
+cd challenges/examples/crypto/rsa_beginner/src
+python3 generate.py && cd ../solution && python3 solve.py
+```
+
+> 📖 **詳細說明**：[題目範例完整文檔](challenges/examples/README.md)
+> 📋 **題目類型參考**：[CHALLENGE_TYPES_REFERENCE.md](CHALLENGE_TYPES_REFERENCE.md)
 
 ## ⚡ 快速開始（30 秒）
 
@@ -26,29 +116,61 @@ cd is1ab-CTF-template
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 
-# 3. 創建第一個題目
+# 3. 設置 Git Hooks（重要！）
+./scripts/setup-hooks.sh
+
+# 4. 驗證設置
+uv run python scripts/verify-setup.py
+
+# 5. 創建第一個題目
 uv run python scripts/create-challenge.py web hello_world baby --author "YourName"
 
-# 4. 驗證題目
+# 6. 驗證題目
 uv run python scripts/validate-challenge.py challenges/web/hello_world/
 
-# 5. 啟動 Web 介面（可選）
+# 7. 啟動 Web 介面（可選）
 cd web-interface && uv run python app.py
 # 訪問 http://localhost:8004
 ```
 
 > 📖 **詳細說明**：請參閱 [5 分鐘快速入門](docs/getting-started.md) 或 [完整文檔目錄](docs/README.md)
 
+### ✅ 初始化設置檢查清單
+
+在開始開發前，請確保完成以下設置：
+
+- [ ] **安裝 Git Hooks** - `./scripts/setup-hooks.sh`
+  - 防止提交和推送敏感資料（flag、密鑰等）
+
+- [ ] **驗證專案設置** - `uv run python scripts/verify-setup.py`
+  - 檢查配置文件、hooks、文檔完整性
+
+- [ ] **配置 GitHub Secrets**（如需發布到 Public Repo）
+  - `PUBLIC_REPO_TOKEN` - 參閱 [GitHub Secrets 設置指南](docs/github-secrets-setup.md)
+
+- [ ] **設置分支保護規則**（推薦）
+  - 參閱 [分支保護設置指南](docs/branch-protection-setup.md)
+
+- [ ] **設置 CODEOWNERS**
+  - 編輯 `.github/CODEOWNERS`，將 `@admin` 和 `@senior-dev` 替換為實際 GitHub 用戶名
+
+- [ ] **設置 GPG 簽名**（強烈推薦）
+  - 參閱 [Commit 簽名指南](docs/commit-signing-guide.md)
+
+> 📋 **完整檢查清單**：請參閱 [安全配置檢查清單](docs/security-checklist.md)
+
 ### 🎯 常用命令速查
 
-| 操作             | 命令                                                                                       |
-| ---------------- | ------------------------------------------------------------------------------------------ |
-| **創建題目**     | `uv run python scripts/create-challenge.py <category> <name> <difficulty> --author "Name"` |
-| **驗證題目**     | `uv run python scripts/validate-challenge.py challenges/<category>/<name>/`                |
-| **安全掃描**     | `uv run python scripts/scan-secrets.py --path challenges/`                                 |
-| **建置公開版本** | `./scripts/build.sh challenges/<category>/<name>/ public-release`                          |
-| **啟動 Web GUI** | `cd web-interface && uv run python app.py`                                                 |
-| **查看幫助**     | `uv run python scripts/create-challenge.py --help`                                         |
+| 操作               | 命令                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| **設置 Hooks**     | `./scripts/setup-hooks.sh`                                                                 |
+| **驗證設置**       | `uv run python scripts/verify-setup.py`                                                    |
+| **創建題目**       | `uv run python scripts/create-challenge.py <category> <name> <difficulty> --author "Name"` |
+| **驗證題目**       | `uv run python scripts/validate-challenge.py challenges/<category>/<name>/`                |
+| **安全掃描**       | `uv run python scripts/scan-secrets.py --path challenges/`                                 |
+| **建置公開版本**   | `./scripts/build.sh challenges/<category>/<name>/ public-release`                          |
+| **啟動 Web GUI**   | `cd web-interface && uv run python app.py`                                                 |
+| **查看幫助**       | `uv run python scripts/create-challenge.py --help`                                         |
 
 > 💡 **提示**：更多命令請參閱 [快速參考指南](docs/quick-reference.md)
 
@@ -407,7 +529,7 @@ git checkout main
 git pull origin main
 ```
 
-> 💡 **提示**：詳細的 Git 工作流程請參閱 [Git Flow 標準化指南](docs/git-flow-standard.md)
+> 💡 **提示**：詳細的 Git 工作流程請參閱 [Git 工作流程指南](docs/git-workflow-guide.md)
 
 #### 2. 創建題目
 
@@ -811,8 +933,8 @@ git gc --prune=now
 ### 🎯 新手入門（從這裡開始！）
 
 - **[5 分鐘快速入門](docs/getting-started.md)** ⭐ **完全新手必讀** - 最簡單的入門指南
-- **[新手入門檢查清單](docs/getting-started-checklist.md)** ✅ - 確保您已完成所有設置步驟
-- **[快速開始指南](docs/quick-start-guide.md)** - 15 分鐘完整教學，包含 Docker 測試
+- **[安全檢查清單](docs/security-checklist.md)** ✅ - 確保您已完成所有安全設置步驟
+- **[快速命令參考](docs/quick-reference.md)** - 常用命令速查表
 - **[Git 操作完整教學](docs/git-workflow-guide.md)** - 從零開始學習 Git 和 GitHub 操作，包含建立 repo、fork、push、commit 等
 - **[完整文檔目錄](docs/README.md)** 📚 - 所有文檔的索引和導航
 
@@ -830,7 +952,7 @@ git gc --prune=now
 - [題目開發指南](docs/challenge-development.md) - 題目開發最佳實踐
 - [題目 Metadata 標準](docs/challenge-metadata-standard.md) - 標準化的題目配置格式
 - [角色與權限管理](docs/roles-and-permissions.md) - 清晰的角色定義和權限分配
-- [工作流程教學](docs/workflow-tutorial.md) - 三階段工作流程詳細說明
+- [CTF 題目開發完整流程](docs/ctf-challenge-workflow.md) - 三階段工作流程詳細說明
 - [部署指南](docs/deployment-guide.md) - 部署到生產環境
 
 ### 🔍 快速查找
@@ -845,7 +967,7 @@ git gc --prune=now
 | 創建題目     | [題目創建指南](docs/challenge-creation-guide.md)                    |
 | 角色權限     | [角色與權限管理](docs/roles-and-permissions.md)                     |
 | 解決問題     | [常見問題 FAQ](docs/faq.md) ⭐                                      |
-| 檢查進度     | [新手入門檢查清單](docs/getting-started-checklist.md) ✅            |
+| 檢查進度     | [安全檢查清單](docs/security-checklist.md) ✅                       |
 | 故障排除     | [安全流程指南 - 故障排除](docs/security-workflow-guide.md#故障排除) |
 
 ## 🛠️ 技術堆疊

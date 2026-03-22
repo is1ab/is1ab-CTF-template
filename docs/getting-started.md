@@ -282,3 +282,11 @@ vim challenges/web/hello_world/public.yml
 
 **🎉 恭喜！您已經完成快速入門！現在可以開始探索更多功能了！**
 
+---
+
+## 📚 延伸閱讀
+
+- **[15 分鐘完整教學](quick-start-guide.md)** — 包含 Docker 測試和 Web 管理介面
+- **[環境設置指南](setup-guide.md)** — 詳細的系統需求和設定步驟
+- **[快速命令參考](quick-reference.md)** — 常用命令速查表
+

@@ -1,0 +1,99 @@
+# PWN 題目範例 - Buffer Overflow
+title: "Buffer Overflow 101"
+author: "admin"
+difficulty: "easy"
+category: "pwn"
+
+owners:
+  - "admin"
+assignee: "admin"
+
+description: |
+  這是一個經典的 buffer overflow 題目。
+
+  連線資訊：
+  ```
+  nc <host> <port>
+  ```
+
+  附件包含題目的執行檔和 libc。
+
+challenge_type: "nc_challenge"
+
+points: 150
+
+tags:
+  - "pwn"
+  - "buffer-overflow"
+  - "stack"
+
+source_code_provided: false
+
+files:
+  - "chall"
+  - "libc.so.6"
+
+status: "developing"
+ready_for_release: false
+
+created_at: "2026-01-18"
+updated_at: "2026-01-18"
+
+deploy_info:
+  # NC 服務端口
+  nc_port: 9999
+
+  # 連線超時時間（秒）
+  timeout: 60
+
+  # 是否需要 Docker
+  requires_build: true
+
+  # 資源限制
+  resources:
+    memory: "128Mi"
+    cpu: "50m"
+
+hints:
+  - level: 1
+    cost: 0
+    content: |
+      檢查一下程式有沒有開啟保護機制。
+      提示：使用 checksec 工具。
+
+  - level: 2
+    cost: 10
+    content: |
+      找找看程式中是否有危險函數，例如 gets()。
+      嘗試輸入很長的字串看看會發生什麼。
+
+  - level: 3
+    cost: 25
+    content: |
+      計算從輸入點到 return address 的偏移量。
+      可以使用 cyclic pattern 來幫助定位。
+
+learning_objectives:
+  - "理解 buffer overflow 的原理"
+  - "學習如何利用 stack 溢出控制程式流程"
+  - "掌握基本的 pwn 工具使用"
+
+required_skills:
+  - "基礎 C 語言知識"
+  - "組合語言基礎"
+  - "Linux 系統操作"
+
+recommended_tools:
+  - "pwntools"
+  - "gdb / pwndbg / gef"
+  - "checksec"
+  - "ROPgadget"
+
+references:
+  - title: "Buffer Overflow 教學"
+    url: "https://ctf101.org/binary-exploitation/buffer-overflow/"
+
+metadata:
+  estimated_solve_time: "30 分鐘"
+  first_blood_bonus: 50
+  max_attempts: -1

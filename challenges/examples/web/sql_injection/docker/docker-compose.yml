@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: sqli_challenge
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+    # 資源限制
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+    # 環境變數（從 .env 文件讀取，或使用預設值）
+    # 部署時請創建 .env 文件並設定 FLAG=YOUR_FLAG
+    env_file:
+      - .env
+    environment:
+      - FLAG=${FLAG:-FLAG{placeholder_change_me}}
+
+    # 健康檢查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

@@ -418,8 +418,8 @@ Error: Could not trigger workflow
 ### 內部文檔
 
 - [自動化 Release 工作流程](../.github/workflows/auto-release.yml)
-- [改善實施指南](IMPROVEMENT_IMPLEMENTATION_GUIDE.md)
-- [自動化 Release 測試指南](auto-release-testing.md)
+- [安全檢查清單](security-checklist.md)
+- [CTF 完整工作流程](ctf-challenge-workflow.md)
 
 ---
 
