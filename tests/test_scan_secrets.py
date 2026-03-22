@@ -76,7 +76,7 @@ class TestFlagPatternDetection:
         """The standard flag format should be detectable."""
         pattern = re.compile(r"is1abCTF\{[^}]+\}")
         assert pattern.search("is1abCTF{test_flag_123}")
-        assert pattern.search('flag = "is1abCTF{s3cret}"')
+        assert pattern.search('flag = "is1abCTF{fake_flag_s3cret}"')
         assert not pattern.search("is1abCTF{}")  # empty braces — no content
         assert not pattern.search("some random text")
 

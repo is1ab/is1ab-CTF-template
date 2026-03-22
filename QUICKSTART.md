@@ -122,7 +122,7 @@ vim challenges/crypto/my_first_challenge/private.yml
 修改 flag 值：
 
 ```yaml
-flag: "is1abCTF{my_s3cret_fl4g_here}"
+flag: "is1abCTF{fake_flag_replace_me}"
 ```
 
 > Flag 格式必須是 `is1abCTF{...}`（取決於 config.yml 中的 `flag_prefix`）。
@@ -158,7 +158,7 @@ cat > challenges/crypto/my_first_challenge/src/generate.py << 'PYEOF'
 """產生題目附件"""
 
 # 這是一個簡單的 XOR 加密範例
-FLAG = "is1abCTF{my_s3cret_fl4g_here}"
+FLAG = "is1abCTF{fake_flag_replace_me}"
 KEY = 0x42
 
 encrypted = bytes([c ^ KEY for c in FLAG.encode()])

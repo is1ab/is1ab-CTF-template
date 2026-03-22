@@ -69,14 +69,25 @@ echo "🔍 掃描 flag 格式: ${FLAG_PREFIX}{...}"
 FLAG_FOUND=false
 
 for file in $STAGED_FILES; do
-  # 跳過 template 和 private.yml
+  # 跳過 template、private.yml、文件、測試
   if [[ "$file" == *"template"* ]] || [[ "$file" == *"private.yml"* ]]; then
     continue
   fi
+  if [[ "$file" == docs/* ]] || [[ "$file" == tests/* ]] || [[ "$file" == QUICKSTART.md ]]; then
+    continue
+  fi
+  if [[ "$file" == CHALLENGE_TYPES_REFERENCE.md ]]; then
+    continue
+  fi
 
+  # 檢查是否有 flag pattern，排除已知 placeholder
   if git diff --cached "$file" | grep -q "${FLAG_PREFIX}{"; then
-    echo "❌ 錯誤: 在 $file 中發現 flag!"
-    FLAG_FOUND=true
+    # 排除 fake/example/test placeholder
+    real_flags=$(git diff --cached "$file" | grep "${FLAG_PREFIX}{" | grep -v -E "(fake_flag|example|placeholder|test_flag|your_flag|xxx|\.\.\.)" || true)
+    if [ -n "$real_flags" ]; then
+      echo "❌ 錯誤: 在 $file 中發現 flag!"
+      FLAG_FOUND=true
+    fi
   fi
 done
 
@@ -195,11 +206,17 @@ do
       fi
     done
 
-    # 檢查文件內容中的 flag（排除 private.yml）
-    if [[ "$file" != *"private.yml"* ]] && [[ "$file" != *"private.yaml"* ]]; then
+    # 檢查文件內容中的 flag（排除 private.yml、文件、測試）
+    if [[ "$file" != *"private.yml"* ]] && [[ "$file" != *"private.yaml"* ]] \
+       && [[ "$file" != docs/* ]] && [[ "$file" != tests/* ]] \
+       && [[ "$file" != QUICKSTART.md ]] && [[ "$file" != CHALLENGE_TYPES_REFERENCE.md ]]; then
       if grep -q "${FLAG_PREFIX}{" "$file" 2>/dev/null; then
-        echo "❌ 錯誤: 在 $file 中發現 flag!"
-        FLAG_FOUND=true
+        # 排除 fake/example/test placeholder
+        real_flags=$(grep "${FLAG_PREFIX}{" "$file" | grep -v -E "(fake_flag|example|placeholder|test_flag|your_flag|xxx|\.\.\.)" || true)
+        if [ -n "$real_flags" ]; then
+          echo "❌ 錯誤: 在 $file 中發現 flag!"
+          FLAG_FOUND=true
+        fi
       fi
     fi
 

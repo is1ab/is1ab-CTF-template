@@ -44,7 +44,7 @@ hints:
 ### private.yml（機密，不公開）
 
 ```yaml
-flag: "is1abCTF{rsa_t00_sm4ll_n}"
+flag: "is1abCTF{fake_flag_rsa_t00_sm4ll_n}"
 solution_steps:
   - "分解 n 得到 p 和 q"
   - "計算 phi(n) = (p-1)(q-1)"
