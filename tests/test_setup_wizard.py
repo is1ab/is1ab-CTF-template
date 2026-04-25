@@ -262,3 +262,16 @@ def test_post_setup_event_writes_dates(client, temp_config):
     raw = yaml.safe_load(temp_config.read_text())
     assert raw["event"]["start_date"] == "2026-05-01"
     assert raw["event"]["freeze_deadline"] == "2026-04-28"
+
+
+def test_post_setup_quota_writes_dict(client, temp_config):
+    payload = {
+        "by_category": {"web": 6, "pwn": 4, "crypto": 3},
+        "by_difficulty": {"easy": 8, "middle": 5},
+        "total_target": "13",
+    }
+    resp = client.post("/setup/quota", json=payload)
+    assert resp.status_code == 200
+    raw = yaml.safe_load(temp_config.read_text())
+    assert raw["challenge_quota"]["by_category"] == {"web": 6, "pwn": 4, "crypto": 3}
+    assert raw["challenge_quota"]["total_target"] == 13
