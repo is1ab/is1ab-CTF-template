@@ -22,6 +22,33 @@ python app.py
 
 打開瀏覽器訪問：<http://localhost:8004>
 
+## 🧙 初始化精靈
+
+第一次使用請先進入 `/setup` 精靈完成 5 步驟設定：
+
+| Step | 路徑 | 內容 |
+|------|------|------|
+| 1 | `/setup/project` | 競賽名稱、flag prefix、平台 URL |
+| 2 | `/setup/team` | 團隊成員（github_username / 顯示名 / 專長） |
+| 3 | `/setup/event` | 比賽時程與死線 |
+| 4 | `/setup/quota` | 各類別 / 難度的目標題數 |
+| 5 | `/setup/finalize` | 產生 `.github/` 模板（PR template / CODEOWNERS / branch-protection 指引），可選清理舊版驗題欄位 |
+
+可隨時回任一步調整（idempotent）。
+
+## ✅ 驗題流程
+
+驗題透過 **GitHub Pull Request review** 進行（不在 Web GUI 中操作）。
+PR template 由 `/setup/finalize` 產生於 `.github/PULL_REQUEST_TEMPLATE.md`，含出題人與驗題人雙 checklist。
+
+詳細流程：[docs/authoring-challenges.md](../docs/authoring-challenges.md)。
+
+## 📝 建題（與 CLI 雙管道）
+
+- **與命令列等價**：專案根目錄的 `uv run python scripts/create-challenge.py ...` 與本介面的「**創建挑戰**」**擇一即可**，都會建立 `challenges/<類別>/<名稱>/` 及 `public.yml` / `private.yml`。
+- **建題頁**（「創建挑戰」）：需填**出題人**、類別、難度、題目類型等；分數可隨難度自動帶入。
+- **完整說明**（雙方式對照、欄位意義）見專案 `docs/authoring-challenges.md`。
+
 ## 📁 目錄結構
 
 ```

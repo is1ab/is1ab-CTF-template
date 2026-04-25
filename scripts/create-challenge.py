@@ -64,9 +64,31 @@ class ChallengeCreator:
     def create_challenge(self, category, name, difficulty, author='', challenge_type=None):
         """創建新題目"""
         try:
-            # 如果 author 為空，從 config.yml 讀取
+            # author 解析順序：--author > git config user.name > team.default_author
             if not author:
-                author = self.config.get('team', {}).get('default_author', '') if isinstance(self.config, dict) else ''
+                # 1. 試 git user.name
+                try:
+                    proc = subprocess.run(
+                        ["git", "config", "--get", "user.name"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if proc.returncode == 0:
+                        author = (proc.stdout or "").strip()
+                except Exception:
+                    author = ""
+            if not author:
+                # 2. 退回 config.yml 的 team.default_author
+                if isinstance(self.config, dict):
+                    author = self.config.get('team', {}).get('default_author', '') or ''
+                    author = author.strip() if isinstance(author, str) else ''
+            if not author:
+                print("❌ 無法決定出題人。請以下列任一方式指定：")
+                print("   • 命令列: --author \"YourName\"")
+                print("   • git: git config user.name \"YourName\"")
+                print("   • config.yml: team.default_author")
+                return False
 
             # 輸入驗證
             if not self.validate_inputs(category, name, difficulty):
@@ -87,7 +109,9 @@ class ChallengeCreator:
             self.create_directory_structure(challenge_path, challenge_type)
             
             # 建立配置檔案 (創建 private.yml，後續由它生成 public.yml)
-            private_config = self.create_private_config(name, category, difficulty, author, challenge_type)
+            private_config = self.create_private_config(
+                name, category, difficulty, author, challenge_type
+            )
             self.save_private_config(challenge_path, private_config)
             
             # 生成 public.yml (從 private.yml 移除敏感資訊)
@@ -240,7 +264,9 @@ class ChallengeCreator:
         public_config = private_config.copy()
         
         # 移除敏感資訊
-        sensitive_fields = ['flag', 'flag_description', 'solution_steps', 'internal_notes']
+        sensitive_fields = [
+            'flag', 'flag_description', 'solution_steps', 'internal_notes',
+        ]
         for field in sensitive_fields:
             public_config.pop(field, None)
         
@@ -758,7 +784,7 @@ TODO: 描述最終獲取 flag 的過程
         print(f"     make validate ARGS=\"{challenge_path}\"")
         print(f"     make scan")
         print()
-        print(f"  5. 提交")
+        print(f"  5. 提交 PR — 由團隊成員 review（拉 branch 解題、確認 flag 後 approve）")
         print(f"     git add {challenge_path}/")
         print(f"     git commit -m \"feat({category}): add {name} challenge\"")
         print(f"     git push origin challenge/{category}/{name}")
@@ -777,7 +803,8 @@ def main():
         parser.add_argument('difficulty', 
                            choices=['baby', 'easy', 'middle', 'hard', 'impossible'],
                            help='Challenge difficulty')
-        parser.add_argument('--author', default='', help='Challenge author (reads from config.yml if empty)')
+        parser.add_argument('--author', default='',
+                           help='出題人（未填則使用 git user.name，再退回 config.yml team.default_author）')
         parser.add_argument('--type', choices=['static_attachment', 'static_container', 'dynamic_attachment', 'dynamic_container', 'nc_challenge'],
                            help='Challenge type (auto-detect if not specified)')
         parser.add_argument('--config', default='config.yml', help='Config file path')
@@ -789,7 +816,9 @@ def main():
             print(f"⚠️  Config file {args.config} not found, using default settings")
         
         creator = ChallengeCreator(args.config)
-        success = creator.create_challenge(args.category, args.name, args.difficulty, args.author, args.type)
+        success = creator.create_challenge(
+            args.category, args.name, args.difficulty, args.author, args.type
+        )
         
         if success:
             print("\n🎉 Challenge creation completed successfully!")

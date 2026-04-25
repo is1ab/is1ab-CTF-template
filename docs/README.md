@@ -22,6 +22,7 @@ docs/quick-reference.md（常用指令速查）
 | [public-private-explained.md](public-private-explained.md) | 為什麼分 public.yml / private.yml |
 | [ctf-challenge-workflow.md](ctf-challenge-workflow.md) | 完整開發流程（三階段） |
 | [challenge-metadata-standard.md](challenge-metadata-standard.md) | public.yml / private.yml 欄位規格 |
+| [authoring-challenges.md](authoring-challenges.md) | **CLI 與 Web 建題、出題人／驗題人、配額與驗題流程** |
 | [quick-reference.md](quick-reference.md) | 常用命令速查表 |
 | [git-workflow-cheatsheet.md](git-workflow-cheatsheet.md) | Git 操作速查表 |
 | [security-checklist.md](security-checklist.md) | 安全配置檢查清單 |

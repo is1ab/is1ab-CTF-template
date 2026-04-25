@@ -264,6 +264,21 @@
             </p>
           </div>
           <div class="card-content">
+            <div class="buttons are-small mb-3">
+              <button class="button is-link" type="button" id="scanBtn">
+                <span class="icon"><i class="fas fa-shield-halved"></i></span>
+                <span>安全掃描</span>
+              </button>
+              <button class="button is-primary" type="button" id="buildBtn">
+                <span class="icon"><i class="fas fa-hammer"></i></span>
+                <span>建置 public-release</span>
+              </button>
+            </div>
+            <div id="opsOutput" style="display: none">
+              <div class="box">
+                <pre class="is-size-7" style="white-space: pre-wrap" id="opsOutputPre"></pre>
+              </div>
+            </div>
             <div class="content is-small">
               {% if challenge.deploy_info.port %}
               <p><strong>端口：</strong> {{ challenge.deploy_info.port }}</p>
@@ -431,11 +446,66 @@
 </section>
 
 <script>
+  const category = "{{ challenge.category }}";
+  const name = "{{ challenge.name }}";
+
+  function showOpsOutput(text) {
+    const box = document.getElementById("opsOutput");
+    const pre = document.getElementById("opsOutputPre");
+    pre.textContent = text || "";
+    box.style.display = "block";
+  }
+
+  function setBtnLoading(btn, loading) {
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.classList.toggle("is-loading", loading);
+  }
+
+  document.getElementById("scanBtn")?.addEventListener("click", function () {
+    setBtnLoading(this, true);
+    showOpsOutput("掃描中...\n");
+    fetch(`/api/challenges/${encodeURIComponent(category)}/${encodeURIComponent(name)}/scan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    })
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => {
+        if (ok && j.status === "success") {
+          showOpsOutput(j.data.output || "掃描完成（無輸出）");
+        } else {
+          showOpsOutput((j && j.data && j.data.output) || (j && j.message) || "掃描失敗");
+        }
+      })
+      .catch(() => showOpsOutput("掃描請求失敗"))
+      .finally(() => setBtnLoading(this, false));
+  });
+
+  document.getElementById("buildBtn")?.addEventListener("click", function () {
+    const yes = window.confirm("會執行 scripts/build.sh（可能需要一點時間）。確定要建置嗎？");
+    if (!yes) return;
+    setBtnLoading(this, true);
+    showOpsOutput("建置中...\n");
+    fetch(`/api/challenges/${encodeURIComponent(category)}/${encodeURIComponent(name)}/build`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    })
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => {
+        if (ok && j.status === "success") {
+          showOpsOutput(j.data.output || "建置完成（無輸出）");
+        } else {
+          showOpsOutput((j && j.data && j.data.output) || (j && j.message) || "建置失敗");
+        }
+      })
+      .catch(() => showOpsOutput("建置請求失敗"))
+      .finally(() => setBtnLoading(this, false));
+  });
+
   // 載入附件列表
   function loadAttachments() {
-    const category = "{{ challenge.category }}";
-    const name = "{{ challenge.name }}";
-
     fetch(`/api/challenges/${category}/${name}/files`)
       .then((response) => response.json())
       .then((data) => {

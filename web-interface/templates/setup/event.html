@@ -1,0 +1,68 @@
+{% extends "setup/_layout.html" %}
+{% set title = "初始化 - 比賽時程" %}
+{% block step_body %}
+<form id="step-event-form" method="POST" action="{{ url_for('setup_step_save', step='event') }}">
+  <div class="card">
+    <header class="card-header">
+      <p class="card-header-title"><i class="fas fa-calendar-days mr-2"></i> 比賽時程與死線</p>
+    </header>
+    <div class="card-content">
+      <div class="columns">
+        <div class="column">
+          <div class="field">
+            <label class="label">比賽開始</label>
+            <input class="input" type="date" name="start_date" value="{{ config.event.start_date or '' }}">
+          </div>
+        </div>
+        <div class="column">
+          <div class="field">
+            <label class="label">比賽結束</label>
+            <input class="input" type="date" name="end_date" value="{{ config.event.end_date or '' }}">
+          </div>
+        </div>
+      </div>
+      <hr>
+      <div class="columns">
+        <div class="column">
+          <div class="field">
+            <label class="label">出題截止</label>
+            <input class="input" type="date" name="authoring_deadline" value="{{ config.event.authoring_deadline or '' }}">
+          </div>
+        </div>
+        <div class="column">
+          <div class="field">
+            <label class="label">驗題截止</label>
+            <input class="input" type="date" name="review_deadline" value="{{ config.event.review_deadline or '' }}">
+          </div>
+        </div>
+        <div class="column">
+          <div class="field">
+            <label class="label">凍結截止</label>
+            <input class="input" type="date" name="freeze_deadline" value="{{ config.event.freeze_deadline or '' }}">
+          </div>
+        </div>
+      </div>
+      <p class="help">死線僅用於提醒，目前不會 enforce。</p>
+    </div>
+  </div>
+
+  <div class="field is-grouped mt-4">
+    <p class="control"><button type="submit" class="button is-link">儲存並下一步</button></p>
+    <p class="control"><a class="button is-text" href="{{ url_for('setup_step', step='team') }}">回上一步</a></p>
+  </div>
+</form>
+
+<script>
+document.getElementById('step-event-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const resp = await fetch(e.target.action, {method: 'POST', body: fd});
+  const result = await resp.json();
+  if (result.status === 'success') {
+    window.location.href = "{{ url_for('setup_step', step='quota') }}";
+  } else {
+    alert(result.message || '儲存失敗');
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "setup/_layout.html" %}
+{% set title = "初始化 - 團隊成員" %}
+{% block step_body %}
+<div class="card">
+  <header class="card-header">
+    <p class="card-header-title"><i class="fas fa-users mr-2"></i> 團隊成員</p>
+  </header>
+  <div class="card-content">
+    <p class="content has-text-grey">
+      列出所有會在這個 repo 出題或驗題的人。寫入 <code>team.members</code>。
+      不指派固定驗題人；任一成員都可以 review 任一題的 PR。
+    </p>
+
+    <div class="field">
+      <label class="label">預設出題人 (fallback)</label>
+      <input class="input" id="default-author" type="text"
+             value="{{ config.default_author or '' }}"
+             placeholder="當 git user.name 也沒設時的 fallback；建議留空">
+      <p class="help">建議讓每位出題人各自 <code>git config user.name</code>，這欄留空即可。</p>
+    </div>
+
+    <hr>
+
+    <table class="table is-fullwidth" id="members-table">
+      <thead>
+        <tr>
+          <th>GitHub username *</th>
+          <th>顯示名稱</th>
+          <th>專長</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in (config.members or []) %}
+        <tr>
+          <td><input class="input member-username" value="{{ m.github_username }}"></td>
+          <td><input class="input member-display" value="{{ m.display_name }}"></td>
+          <td>
+            <div class="select is-fullwidth">
+              <select class="member-specialty">
+                <option value="" {{ 'selected' if not m.specialty else '' }}>—</option>
+                {% for s in ["web", "pwn", "crypto", "reverse", "forensic", "misc", "general"] %}
+                <option value="{{ s }}" {{ 'selected' if m.specialty == s else '' }}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </td>
+          <td><button type="button" class="button is-small is-danger remove-row">移除</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <button type="button" class="button is-light" id="add-member-row">
+      <i class="fas fa-plus mr-1"></i> 新增成員
+    </button>
+  </div>
+</div>
+
+<div class="field is-grouped mt-4">
+  <p class="control">
+    <button type="button" class="button is-link" id="save-team-btn">儲存並下一步</button>
+  </p>
+  <p class="control">
+    <a class="button is-text" href="{{ url_for('setup_step', step='project') }}">回上一步</a>
+  </p>
+</div>
+
+<script>
+const tbody = document.querySelector('#members-table tbody');
+
+function addRow(data = {}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="input member-username" value="${data.github_username || ''}"></td>
+    <td><input class="input member-display" value="${data.display_name || ''}"></td>
+    <td><div class="select is-fullwidth"><select class="member-specialty">
+      <option value="">—</option>
+      <option value="web">web</option><option value="pwn">pwn</option>
+      <option value="crypto">crypto</option><option value="reverse">reverse</option>
+      <option value="forensic">forensic</option><option value="misc">misc</option>
+      <option value="general">general</option>
+    </select></div></td>
+    <td><button type="button" class="button is-small is-danger remove-row">移除</button></td>`;
+  if (data.specialty) tr.querySelector('.member-specialty').value = data.specialty;
+  tbody.appendChild(tr);
+}
+
+document.getElementById('add-member-row').addEventListener('click', () => addRow());
+tbody.addEventListener('click', (e) => {
+  if (e.target.classList.contains('remove-row')) e.target.closest('tr').remove();
+});
+
+document.getElementById('save-team-btn').addEventListener('click', async () => {
+  const members = Array.from(tbody.querySelectorAll('tr')).map(tr => ({
+    github_username: tr.querySelector('.member-username').value.trim(),
+    display_name: tr.querySelector('.member-display').value.trim(),
+    specialty: tr.querySelector('.member-specialty').value.trim(),
+  })).filter(m => m.github_username);
+
+  const payload = {
+    default_author: document.getElementById('default-author').value.trim(),
+    members: members,
+  };
+  const resp = await fetch("{{ url_for('setup_step_save', step='team') }}", {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  const result = await resp.json();
+  if (result.status === 'success') {
+    window.location.href = "{{ url_for('setup_step', step='event') }}";
+  } else {
+    alert(result.message || '儲存失敗');
+  }
+});
+</script>
+{% endblock %}

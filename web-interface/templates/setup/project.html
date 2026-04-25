@@ -1,0 +1,102 @@
+{% extends "setup/_layout.html" %}
+{% set title = "初始化 - 專案資訊" %}
+{% block step_body %}
+<form id="step-project-form" method="POST" action="{{ url_for('setup_step_save', step='project') }}">
+  <div class="card">
+    <header class="card-header">
+      <p class="card-header-title"><i class="fas fa-rocket mr-2"></i> 專案基本資訊</p>
+    </header>
+    <div class="card-content">
+      <div class="field">
+        <label class="label">競賽名稱 *</label>
+        <input class="input" name="project_name" value="{{ config.competition_name or '' }}" required>
+      </div>
+      <div class="columns">
+        <div class="column">
+          <div class="field">
+            <label class="label">主辦組織</label>
+            <input class="input" name="organization" value="{{ config.organization or '' }}">
+          </div>
+        </div>
+        <div class="column">
+          <div class="field">
+            <label class="label">年份</label>
+            <input class="input" type="number" name="year" value="{{ config.year or '' }}" min="2020" max="2099">
+          </div>
+        </div>
+        <div class="column">
+          <div class="field">
+            <label class="label">Flag Prefix *</label>
+            <input class="input" name="flag_prefix" value="{{ config.project_flag_prefix or 'is1abCTF' }}" required>
+            <p class="help">參賽者送出的 flag 必須以此開頭，例如 <code>is1abCTF{...}</code></p>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">描述</label>
+        <textarea class="textarea" name="description">{{ config.description or '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt-4">
+    <header class="card-header">
+      <p class="card-header-title"><i class="fas fa-server mr-2"></i> 平台與部署（可選）</p>
+    </header>
+    <div class="card-content">
+      <div class="columns">
+        <div class="column">
+          <div class="field">
+            <label class="label">GZCTF URL</label>
+            <input class="input" name="gzctf_url" value="{{ config.platform.gzctf_url if config.platform else '' }}">
+          </div>
+        </div>
+        <div class="column">
+          <div class="field">
+            <label class="label">CTFd URL</label>
+            <input class="input" name="ctfd_url" value="{{ config.platform.ctfd_url if config.platform else '' }}">
+          </div>
+        </div>
+      </div>
+      <div class="columns">
+        <div class="column">
+          <div class="field">
+            <label class="label">部署主機</label>
+            <input class="input" name="host" value="{{ config.deployment.host if config.deployment else '' }}">
+          </div>
+        </div>
+        <div class="column">
+          <div class="field">
+            <label class="label">Docker Registry</label>
+            <input class="input" name="docker_registry" value="{{ config.deployment.docker_registry if config.deployment else '' }}">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="field is-grouped mt-4">
+    <p class="control">
+      <button type="submit" class="button is-link">儲存並下一步</button>
+    </p>
+    <p class="control">
+      <a class="button is-text" href="{{ url_for('setup_step', step='team') }}">略過此步</a>
+    </p>
+  </div>
+</form>
+
+<script>
+document.getElementById('step-project-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const form = e.target;
+  const fd = new FormData(form);
+  const resp = await fetch(form.action, {method: 'POST', body: fd});
+  const result = await resp.json();
+  if (result.status === 'success') {
+    window.location.href = "{{ url_for('setup_step', step='team') }}";
+  } else {
+    alert(result.message || '儲存失敗');
+  }
+});
+</script>
+{% endblock %}

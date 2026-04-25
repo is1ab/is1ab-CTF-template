@@ -136,11 +136,13 @@ make viewer          # 生成 Viewer 資料
 使用 Template 建立私有 repo 後，完成以下設定：
 
 - [ ] `make setup` — 安裝 Git Hooks + 驗證環境
-- [ ] 編輯 `config.yml` — 設定 flag_prefix、平台 URL
-- [ ] 編輯 `.github/CODEOWNERS` — 替換 `@admin`/`@senior-dev` 為實際用戶名
+- [ ] 啟動 `cd web-interface && uv run python app.py`，進入 `http://localhost:8004/setup` 走完 **5 步驟初始化精靈**
+  - 步驟 5 會自動產生 `.github/PULL_REQUEST_TEMPLATE.md`、`CODEOWNERS`、`branch-protection.md`
+- [ ] 依 `.github/branch-protection.md` 在 GitHub 設定 main 分支保護
 - [ ] 設定 GitHub Secrets — 參閱 [GitHub Secrets 指南](wiki/GitHub-Secrets-Setup.md)
-- [ ] 設定分支保護 — 參閱 [分支保護指南](wiki/Branch-Protection-Setup.md)
 - [ ] （推薦）設定 GPG 簽名 — 參閱 [Commit 簽名指南](wiki/Commit-Signing-Guide.md)
+
+> 沒有 Web GUI？也可手動編輯 `config.yml`，並執行 `uv run python scripts/cleanup-validation-fields.py --dry-run`（如有舊版題目需清理）。
 
 ---
 

@@ -7,7 +7,35 @@
         <i class="fas fa-plus-circle mr-3"></i>
         創建挑戰
       </h1>
-      <p class="subtitle">創建新的 CTF 挑戰</p>
+      <p class="subtitle">與命令列 <code>scripts/create-challenge.py</code> 二選一，皆需出題人、驗題人、類型與難度等資訊</p>
+    </div>
+  </div>
+</section>
+
+<!-- 建題流程說明 -->
+<section class="section pt-0">
+  <div class="container">
+    <div class="notification is-light">
+      <p class="title is-6">
+        <i class="fas fa-shoe-prints mr-2"></i>建議流程
+      </p>
+      <ol class="ml-4">
+        <li>
+          <strong>先設定團隊</strong>：在專案根目錄 <code>config.yml</code> 填寫
+          <code>team.default_author</code>（預設出題人），並依競賽計畫調整
+          <code>challenge_quota</code>（各類型／難度數量）。
+        </li>
+        <li>
+          <strong>本頁建題</strong>：依序填寫題名、說明、<strong>類別、難度、分數、出題人、驗題人、題目類型</strong>；分數可隨難度自動帶入。
+        </li>
+        <li>
+          <strong>驗題</strong>：到「驗題」分頁對題目執行通過／退回；通過前請在本地實作並跑
+          <code>make validate</code> 等檢查。
+        </li>
+      </ol>
+      <p class="mt-2 is-size-7">
+        完整雙管道說明見專案 <code>docs/authoring-challenges.md</code>。
+      </p>
     </div>
   </div>
 </section>
@@ -136,19 +164,47 @@
 
                 <div class="column">
                   <div class="field">
-                    <label class="label">作者</label>
-                    <div class="control has-icons-left">
+                    <label class="label"
+                      >出題人 <span class="has-text-danger">*</span></label
+                    >
+                    <div class="field has-addons">
+                      <div class="control is-expanded has-icons-left">
                       <input
                         class="input"
                         type="text"
                         id="challengeAuthor"
                         name="author"
-                        placeholder="作者名稱"
+                        value="{{ config.default_author | e }}"
+                        list="author-suggestions"
+                        placeholder="出題人識別名稱 / Git 名稱"
+                        required
                       />
+                      <datalist id="author-suggestions">
+                        {% for a in config.authors %}
+                        <option value="{{ a }}"></option>
+                        {% endfor %}
+                      </datalist>
                       <span class="icon is-small is-left">
                         <i class="fas fa-user"></i>
                       </span>
                     </div>
+                      <div class="control">
+                        <button
+                          class="button is-light"
+                          type="button"
+                          id="fillGitAuthorBtn"
+                          title="使用 git config user.name 填入"
+                        >
+                          <span class="icon">
+                            <i class="fas fa-code-branch"></i>
+                          </span>
+                          <span>使用 Git</span>
+                        </button>
+                      </div>
+                    </div>
+                    <p class="help">
+                      建議在 <code>config.yml</code> 的 <code>team.authors</code> 維護出題人清單，建題時可直接選取；若未填，會依序嘗試 <code>team.default_author</code> 與 <code>git user.name</code>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -397,6 +453,29 @@
     if (difficultySelect.value && pointsConfig[difficultySelect.value]) {
       pointsInput.value = pointsConfig[difficultySelect.value];
     }
+
+    // 一鍵填入 git user.name
+    const fillGitBtn = document.getElementById("fillGitAuthorBtn");
+    const authorInput = document.getElementById("challengeAuthor");
+    fillGitBtn?.addEventListener("click", function () {
+      fillGitBtn.disabled = true;
+      fetch("/api/git-user")
+        .then((r) => r.json())
+        .then((j) => {
+          const name = j?.data?.user_name || "";
+          if (!name) {
+            alert("未取得 git user.name，請先設定：git config user.name \"YourName\"");
+            return;
+          }
+          authorInput.value = name;
+          authorInput.classList.add("is-success");
+          setTimeout(() => authorInput.classList.remove("is-success"), 1500);
+        })
+        .catch(() => alert("取得 git user.name 失敗"))
+        .finally(() => {
+          fillGitBtn.disabled = false;
+        });
+    });
   });
 
   // 提示管理功能 - 創建表單專用

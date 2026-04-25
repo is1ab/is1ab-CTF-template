@@ -1,0 +1,78 @@
+{% extends "setup/_layout.html" %}
+{% set title = "初始化 - 配額目標" %}
+{% block step_body %}
+<div class="card">
+  <header class="card-header">
+    <p class="card-header-title"><i class="fas fa-bullseye mr-2"></i> 題目配額</p>
+  </header>
+  <div class="card-content">
+    <p class="content has-text-grey">設定每個分類與難度的目標題數。儀表板會用此數字顯示「目前 / 目標」。</p>
+
+    <h4 class="title is-5">按分類</h4>
+    <div class="columns is-multiline" id="cat-fields">
+      {% for cat in ["web", "pwn", "crypto", "reverse", "forensic", "misc", "general"] %}
+      <div class="column is-3">
+        <div class="field">
+          <label class="label">{{ cat }}</label>
+          <input class="input cat-input" type="number" min="0" data-key="{{ cat }}"
+                 value="{{ (config.challenge_quota.by_category or {}).get(cat, 0) }}">
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <h4 class="title is-5">按難度</h4>
+    <div class="columns" id="diff-fields">
+      {% for d in ["baby", "easy", "middle", "hard", "impossible"] %}
+      <div class="column">
+        <div class="field">
+          <label class="label">{{ d }}</label>
+          <input class="input diff-input" type="number" min="0" data-key="{{ d }}"
+                 value="{{ (config.challenge_quota.by_difficulty or {}).get(d, 0) }}">
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="field">
+      <label class="label">總目標題數</label>
+      <input class="input" type="number" min="0" id="total-target"
+             value="{{ config.challenge_quota.total_target or 0 }}">
+    </div>
+  </div>
+</div>
+
+<div class="field is-grouped mt-4">
+  <p class="control"><button type="button" class="button is-link" id="save-quota-btn">儲存並下一步</button></p>
+  <p class="control"><a class="button is-text" href="{{ url_for('setup_step', step='event') }}">回上一步</a></p>
+</div>
+
+<script>
+document.getElementById('save-quota-btn').addEventListener('click', async () => {
+  const collect = (sel) => {
+    const out = {};
+    document.querySelectorAll(sel).forEach(el => {
+      const v = parseInt(el.value, 10);
+      if (!isNaN(v) && v > 0) out[el.dataset.key] = v;
+    });
+    return out;
+  };
+  const payload = {
+    by_category: collect('.cat-input'),
+    by_difficulty: collect('.diff-input'),
+    total_target: document.getElementById('total-target').value,
+  };
+  const resp = await fetch("{{ url_for('setup_step_save', step='quota') }}", {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  const result = await resp.json();
+  if (result.status === 'success') {
+    window.location.href = "{{ url_for('setup_step', step='finalize') }}";
+  } else {
+    alert(result.message || '儲存失敗');
+  }
+});
+</script>
+{% endblock %}

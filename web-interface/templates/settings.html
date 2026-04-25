@@ -22,6 +22,8 @@
           <p class="menu-label">一般設定</p>
           <ul class="menu-list">
             <li><a class="is-active" href="#general">基本資訊</a></li>
+            <li><a href="#team">團隊設定</a></li>
+            <li><a href="#event">活動時間 / 死線</a></li>
             <li><a href="#categories">挑戰類別</a></li>
             <li><a href="#difficulties">難度等級</a></li>
             <li><a href="#quota">題目配額</a></li>
@@ -84,6 +86,147 @@
                 <i class="fas fa-info-circle mr-2"></i>
                 這些設定來自 config.yml 檔案，請直接編輯該檔案來修改。
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 團隊設定 -->
+        <div id="team" class="settings-section" style="display: none">
+          <div class="card">
+            <header class="card-header">
+              <p class="card-header-title">
+                <i class="fas fa-users mr-2"></i>
+                團隊設定
+              </p>
+            </header>
+            <div class="card-content">
+              <form id="teamForm">
+                <div class="field">
+                  <label class="label">預設出題人</label>
+                  <div class="control">
+                    <input
+                      class="input"
+                      type="text"
+                      name="default_author"
+                      value="{{ config.default_author }}"
+                      placeholder="例如：YourName"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label">驗題人清單（逗號分隔）</label>
+                  <div class="control">
+                    <input
+                      class="input"
+                      type="text"
+                      name="reviewers"
+                      value="{{ (config.reviewers|join(', ')) if config.reviewers else '' }}"
+                      placeholder="alice, bob, charlie"
+                      required
+                    />
+                  </div>
+                  <p class="help">
+                    會用於建題時建議選取，以及驗題責任分配
+                  </p>
+                </div>
+
+                <div class="field">
+                  <label class="label">出題人清單（逗號分隔）</label>
+                  <div class="control">
+                    <input
+                      class="input"
+                      type="text"
+                      name="authors"
+                      value="{{ (config.authors|join(', ')) if config.authors else '' }}"
+                      placeholder="alice, bob, charlie"
+                    />
+                  </div>
+                  <p class="help">
+                    用於建題時快速選取出題人（仍可手動輸入）
+                  </p>
+                </div>
+
+                <div class="field is-grouped is-grouped-right">
+                  <div class="control">
+                    <button class="button is-primary" type="submit">
+                      <span class="icon"><i class="fas fa-floppy-disk"></i></span>
+                      <span>儲存</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- 活動時間 / 死線 -->
+        <div id="event" class="settings-section" style="display: none">
+          <div class="card">
+            <header class="card-header">
+              <p class="card-header-title">
+                <i class="fas fa-calendar-days mr-2"></i>
+                活動時間 / 死線
+              </p>
+            </header>
+            <div class="card-content">
+              <form id="eventForm">
+                <div class="columns">
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">開始時間</label>
+                      <div class="control">
+                        <input class="input" type="text" name="start_date" value="{{ config.event.start_date }}" placeholder="YYYY-MM-DD 或 ISO8601" required />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">結束時間</label>
+                      <div class="control">
+                        <input class="input" type="text" name="end_date" value="{{ config.event.end_date }}" placeholder="YYYY-MM-DD 或 ISO8601" required />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="columns">
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">出題截止</label>
+                      <div class="control">
+                        <input class="input" type="text" name="authoring_deadline" value="{{ config.event.authoring_deadline }}" placeholder="YYYY-MM-DD" required />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">驗題截止</label>
+                      <div class="control">
+                        <input class="input" type="text" name="review_deadline" value="{{ config.event.review_deadline }}" placeholder="YYYY-MM-DD" required />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">凍結截止</label>
+                      <div class="control">
+                        <input class="input" type="text" name="freeze_deadline" value="{{ config.event.freeze_deadline }}" placeholder="YYYY-MM-DD" required />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="field is-grouped is-grouped-right">
+                  <div class="control">
+                    <button class="button is-primary" type="submit">
+                      <span class="icon"><i class="fas fa-floppy-disk"></i></span>
+                      <span>儲存</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -292,9 +435,46 @@
             </header>
             <div class="card-content">
               <div class="notification is-info is-light">
-                <i class="fas fa-info-circle mr-2"></i>
-                計分系統設定功能開發中...
+                <i class="fas fa-circle-info mr-2"></i>
+                分數設定會影響：
+                <strong>建題表單的自動帶入分數</strong>、以及預設 `points` 值。
               </div>
+
+              <form id="pointsForm">
+                <div id="pointsRows">
+                  {% for k, v in config.points.items() %}
+                  <div class="field is-grouped points-row">
+                    <div class="control is-expanded">
+                      <input class="input" type="text" name="difficulty" value="{{ k }}" placeholder="難度 key，例如 easy" />
+                    </div>
+                    <div class="control" style="width: 180px">
+                      <input class="input" type="number" name="points" value="{{ v }}" min="1" />
+                    </div>
+                    <div class="control">
+                      <button type="button" class="button is-light" onclick="removePointsRow(this)">
+                        <span class="icon"><i class="fas fa-trash"></i></span>
+                      </button>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+
+                <div class="buttons">
+                  <button type="button" class="button is-link is-light" onclick="addPointsRow()">
+                    <span class="icon"><i class="fas fa-plus"></i></span>
+                    <span>新增難度</span>
+                  </button>
+                </div>
+
+                <div class="field is-grouped is-grouped-right">
+                  <div class="control">
+                    <button class="button is-primary" type="submit">
+                      <span class="icon"><i class="fas fa-floppy-disk"></i></span>
+                      <span>儲存分數設定</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -309,10 +489,112 @@
               </p>
             </header>
             <div class="card-content">
-              <div class="notification is-info is-light">
-                <i class="fas fa-info-circle mr-2"></i>
-                部署設定功能開發中...
+              <div class="notification is-warning is-light">
+                <i class="fas fa-hourglass-half mr-2"></i>
+                部署設定介面仍在開發中；目前先提供讀寫 <code>config.yml</code> 的基礎欄位，後續會整合一鍵建置/部署與健康檢查。
               </div>
+
+              <div class="box mb-4">
+                <p class="has-text-weight-semibold mb-2">
+                  <i class="fas fa-hammer mr-2"></i>
+                  公開發布流程（A：建置 + 同步，無遠端推送）
+                </p>
+                <div class="buttons are-small">
+                  <button class="button is-primary" type="button" id="buildAllBtn">
+                    <span class="icon"><i class="fas fa-gears"></i></span>
+                    <span>建置全部 public-release</span>
+                  </button>
+                  <button class="button is-link" type="button" id="syncPublicBtn">
+                    <span class="icon"><i class="fas fa-right-left"></i></span>
+                    <span>同步 ready_for_release 題目</span>
+                  </button>
+                </div>
+                <div id="publicOpsOutput" style="display: none">
+                  <div class="box">
+                    <pre class="is-size-7" style="white-space: pre-wrap" id="publicOpsOutputPre"></pre>
+                  </div>
+                </div>
+                <p class="help">
+                  - 「建置全部」會執行 <code>scripts/build.sh --force</code> 產生/更新 <code>public-release/</code>。<br />
+                  - 「同步」會執行 <code>scripts/sync-to-public.py</code>，只同步 <code>public.yml</code> 中 <code>ready_for_release: true</code> 的題目到 <code>public-release/</code>，並在該目錄內初始化 Git（但不推送遠端）。<br />
+                </p>
+              </div>
+
+              <form id="deploymentForm">
+                <div class="columns">
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">部署主機（host）</label>
+                      <div class="control">
+                        <input class="input" type="text" name="host" value="{{ config.deployment.host if config.deployment is defined else '' }}" />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">port_range</label>
+                      <div class="control">
+                        <input class="input" type="text" name="port_range" value="{{ config.deployment.port_range if config.deployment is defined else '' }}" placeholder="8000-9000" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="columns">
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">docker_registry</label>
+                      <div class="control">
+                        <input class="input" type="text" name="docker_registry" value="{{ config.deployment.docker_registry if config.deployment is defined else '' }}" />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">ssh_user</label>
+                      <div class="control">
+                        <input class="input" type="text" name="ssh_user" value="{{ config.deployment.ssh_user if config.deployment is defined else '' }}" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="columns">
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">GZCTF URL</label>
+                      <div class="control">
+                        <input class="input" type="text" name="gzctf_url" value="{{ config.platform.gzctf_url if config.platform is defined else '' }}" />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">CTFd URL</label>
+                      <div class="control">
+                        <input class="input" type="text" name="ctfd_url" value="{{ config.platform.ctfd_url if config.platform is defined else '' }}" />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="column">
+                    <div class="field">
+                      <label class="label">Zipline URL</label>
+                      <div class="control">
+                        <input class="input" type="text" name="zipline_url" value="{{ config.platform.zipline_url if config.platform is defined else '' }}" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="field is-grouped is-grouped-right">
+                  <div class="control">
+                    <button class="button is-primary" type="submit">
+                      <span class="icon"><i class="fas fa-floppy-disk"></i></span>
+                      <span>儲存（基礎部署欄位）</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -376,6 +658,169 @@
         document.getElementById(targetId).style.display = "block";
       });
     });
+  });
+
+  function postSettings(payload) {
+    return fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then((r) => r.json().then((j) => ({ ok: r.ok, j })));
+  }
+
+  function addPointsRow() {
+    const container = document.getElementById("pointsRows");
+    const html = `
+      <div class="field is-grouped points-row">
+        <div class="control is-expanded">
+          <input class="input" type="text" name="difficulty" placeholder="難度 key，例如 easy" />
+        </div>
+        <div class="control" style="width: 180px">
+          <input class="input" type="number" name="points" value="100" min="1" />
+        </div>
+        <div class="control">
+          <button type="button" class="button is-light" onclick="removePointsRow(this)">
+            <span class="icon"><i class="fas fa-trash"></i></span>
+          </button>
+        </div>
+      </div>
+    `;
+    container.insertAdjacentHTML("beforeend", html);
+  }
+
+  function removePointsRow(btn) {
+    const row = btn.closest(".points-row");
+    if (!row) return;
+    row.remove();
+  }
+
+  document.getElementById("teamForm")?.addEventListener("submit", function (e) {
+    e.preventDefault();
+    const fd = new FormData(this);
+    const payload = {
+      team: {
+        default_author: fd.get("default_author"),
+        reviewers: fd.get("reviewers"),
+        authors: fd.get("authors"),
+      },
+    };
+    postSettings(payload).then(({ ok, j }) => {
+      if (ok && j.status === "success") return window.location.reload();
+      alert((j && j.message) || "儲存失敗");
+    });
+  });
+
+  document.getElementById("eventForm")?.addEventListener("submit", function (e) {
+    e.preventDefault();
+    const fd = new FormData(this);
+    const payload = {
+      event: {
+        start_date: fd.get("start_date"),
+        end_date: fd.get("end_date"),
+        authoring_deadline: fd.get("authoring_deadline"),
+        review_deadline: fd.get("review_deadline"),
+        freeze_deadline: fd.get("freeze_deadline"),
+      },
+    };
+    postSettings(payload).then(({ ok, j }) => {
+      if (ok && j.status === "success") return window.location.reload();
+      alert((j && j.message) || "儲存失敗");
+    });
+  });
+
+  document.getElementById("pointsForm")?.addEventListener("submit", function (e) {
+    e.preventDefault();
+    const rows = document.querySelectorAll("#pointsRows .points-row");
+    const points = {};
+    rows.forEach((row) => {
+      const d = row.querySelector('input[name="difficulty"]')?.value?.trim();
+      const p = row.querySelector('input[name="points"]')?.value;
+      if (!d) return;
+      points[d] = p;
+    });
+    postSettings({ points }).then(({ ok, j }) => {
+      if (ok && j.status === "success") return window.location.reload();
+      alert((j && j.message) || "儲存失敗");
+    });
+  });
+
+  document.getElementById("deploymentForm")?.addEventListener("submit", function (e) {
+    e.preventDefault();
+    const fd = new FormData(this);
+    const payload = {
+      deployment: {
+        host: fd.get("host"),
+        port_range: fd.get("port_range"),
+        docker_registry: fd.get("docker_registry"),
+        ssh_user: fd.get("ssh_user"),
+      },
+      platform: {
+        gzctf_url: fd.get("gzctf_url"),
+        ctfd_url: fd.get("ctfd_url"),
+        zipline_url: fd.get("zipline_url"),
+      },
+    };
+    postSettings(payload).then(({ ok, j }) => {
+      if (ok && j.status === "success") return window.location.reload();
+      alert((j && j.message) || "儲存失敗");
+    });
+  });
+
+  function showPublicOps(text) {
+    const box = document.getElementById("publicOpsOutput");
+    const pre = document.getElementById("publicOpsOutputPre");
+    pre.textContent = text || "";
+    box.style.display = "block";
+  }
+
+  function setLoading(btn, loading) {
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.classList.toggle("is-loading", loading);
+  }
+
+  document.getElementById("buildAllBtn")?.addEventListener("click", function () {
+    const yes = window.confirm("將執行 scripts/build.sh（建置全部題目）。確定要繼續嗎？");
+    if (!yes) return;
+    setLoading(this, true);
+    showPublicOps("建置中...\n");
+    fetch("/api/public-release/build", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    })
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => {
+        if (ok && j.status === "success") {
+          showPublicOps(j.data.output || "建置完成（無輸出）");
+        } else {
+          showPublicOps((j && j.data && j.data.output) || (j && j.message) || "建置失敗");
+        }
+      })
+      .catch(() => showPublicOps("建置請求失敗"))
+      .finally(() => setLoading(this, false));
+  });
+
+  document.getElementById("syncPublicBtn")?.addEventListener("click", function () {
+    const yes = window.confirm("將執行 scripts/sync-to-public.py（會覆蓋 public-release/）。確定要繼續嗎？");
+    if (!yes) return;
+    setLoading(this, true);
+    showPublicOps("同步中...\n");
+    fetch("/api/public-release/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    })
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => {
+        if (ok && j.status === "success") {
+          showPublicOps(j.data.output || "同步完成（無輸出）");
+        } else {
+          showPublicOps((j && j.data && j.data.output) || (j && j.message) || "同步失敗");
+        }
+      })
+      .catch(() => showPublicOps("同步請求失敗"))
+      .finally(() => setLoading(this, false));
   });
 </script>
 {% endblock %}

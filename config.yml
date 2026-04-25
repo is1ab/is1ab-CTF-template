@@ -6,6 +6,16 @@ project:
   flag_prefix: "is1abCTF"
   description: "IS1AB CTF Competition"
 
+event:
+  # 舉辦時間（可用 YYYY-MM-DD 或 ISO8601）
+  start_date: ""
+  end_date: ""
+
+  # 專案節點 / 死線（建議）
+  authoring_deadline: "" # 出題截止
+  review_deadline: "" # 驗題截止
+  freeze_deadline: "" # 凍結截止（停止新增題目/大改）
+
 platform:
   gzctf_url: ""  # 替換為你的 GZCTF URL，例如 "http://your-server:8080/"
   ctfd_url: ""  # 替換為你的 CTFd URL，例如 "http://your-server/"
@@ -65,6 +75,8 @@ team:
   default_author: ""  # 替換為預設題目作者名稱
   reviewers:  # 替換為實際 reviewer 的 GitHub 用戶名
     - ""
+    - ""
+  authors: # 可選：出題人清單（Web 建題可直接選取）
     - ""
 
 # 通知設定
@@ -148,6 +160,10 @@ security:
     - "secret_key"
     - "verified_solutions"
     - "exploits"
+    # 防呆：舊版驗題流程的三欄位（新流程已移除，但若舊題目殘留則不公開）
+    - "reviewer"
+    - "validation_status"
+    - "internal_validation_notes"
 
   # 敏感內容模式（正規表達式）
   sensitive_patterns:

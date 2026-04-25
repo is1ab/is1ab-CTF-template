@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% set title = title or "初始化精靈" %}
+
+{% set step_labels = {
+  "project": "專案資訊",
+  "team": "團隊成員",
+  "event": "比賽時程",
+  "quota": "配額目標",
+  "finalize": "產生與清理"
+} %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <h1 class="title">
+      <i class="fas fa-wand-magic-sparkles mr-2"></i>
+      初始化精靈
+    </h1>
+    <p class="subtitle">完成 5 個步驟即可開始建立題目；任一欄位都可隨時回來調整。</p>
+
+    <div class="columns">
+      <aside class="column is-one-quarter">
+        <aside class="menu">
+          <p class="menu-label">步驟</p>
+          <ul class="menu-list">
+            {% for s in steps %}
+            <li>
+              <a href="{{ url_for('setup_step', step=s) }}"
+                 class="{{ 'is-active' if s == step else '' }}">
+                {% if statuses[s] == 'done' %}
+                  <i class="fas fa-circle-check has-text-success mr-2"></i>
+                {% else %}
+                  <i class="far fa-circle has-text-grey mr-2"></i>
+                {% endif %}
+                {{ loop.index }}. {{ step_labels[s] }}
+              </a>
+            </li>
+            {% endfor %}
+          </ul>
+        </aside>
+      </aside>
+
+      <main class="column">
+        {% block step_body %}{% endblock %}
+      </main>
+    </div>
+  </div>
+</section>
+{% endblock %}
