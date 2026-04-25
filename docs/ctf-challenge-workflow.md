@@ -23,7 +23,7 @@ graph TB
     A[Template Repository] -->|Use Template| B[Private Dev Repository]
     B -->|Feature Branch| C[開發者 A: challenge/web/xxx]
     B -->|Feature Branch| D[開發者 B: challenge/pwn/yyy]
-    C -->|Pull Request| E[Code Review]
+    C -->|Pull Request| E[驗題 PR Review]
     D -->|Pull Request| E
     E -->|Merge to main| F[Private main branch]
     F -->|Auto Update| G[README.md 統計更新]
@@ -44,7 +44,7 @@ graph TB
 - ✅ **安全保護機制** - 多層 Flag 洩漏檢測
 - ✅ **自動移除敏感資料** - build.sh 自動清理
 - ✅ **GitHub Pages 部署** - 自動生成題目展示網站
-- ✅ **團隊協作** - Branch + PR + Code Review 流程
+- ✅ **團隊協作** - Branch + PR + 驗題（PR Review）流程
 
 ---
 
@@ -387,25 +387,24 @@ PR 創建後，GitHub Actions 會自動執行：
 
 等待所有檢查通過（綠色勾勾 ✅）。
 
-### 2.3 Code Review
+### 2.3 驗題
 
-#### Reviewer 檢查項目
+任一團隊成員（不固定指派）擔任驗題人：
 
-審查者需要檢查：
+#### 驗題人檢查項目
 
-- [ ] 題目質量和難度適當
-- [ ] Docker 環境可以正常運行
-- [ ] Flag 格式正確且無洩漏
-- [ ] Writeup 完整且正確
-- [ ] 沒有敏感資料洩露
-- [ ] 文檔清晰完整
+- [ ] 已將 PR branch checkout 到本地
+- [ ] 起 Docker（或建置）成功
+- [ ] 實際解出 flag，與 `private.yml` 一致
+- [ ] 難度標示與實際解題感受一致
+- [ ] 提示（hints）合理、不直接洩答
+- [ ] Writeup 完整可讀
+- [ ] 沒有 flag 洩漏到 `public.yml` / 公開檔案中
 
-#### 批准和合併
+#### Approve 與 Merge
 
-```bash
-# Reviewer 批准後，可以合併
-# 建議使用 "Squash and merge" 保持歷史整潔
-```
+驗題人在 GitHub PR 上 approve；CI 通過 + 1 個 approval 即可 merge。
+若有問題可在 PR 留言請出題人修正後再次 push。
 
 ### 2.4 合併後自動化
 
@@ -782,7 +781,7 @@ git commit -m "feat(web): add SQL Injection challenge"
 git push origin challenge/web/sql_injection
 
 # 7. 在 GitHub 創建 PR
-# 等待 Code Review 和 CI/CD 檢查
+# 等待驗題（PR Review）和 CI/CD 檢查
 # 合併 PR
 
 # === 自動化執行 ===
@@ -857,7 +856,7 @@ git push
 ### ✅ 做什麼
 
 1. **使用 Feature Branch** - 每個題目一個分支
-2. **使用 PR 流程** - 強制 Code Review
+2. **使用 PR 流程** - 強制驗題（PR Review）
 3. **本地測試充分** - Docker 環境和解題流程
 4. **遵循 Git Hooks** - 防止敏感資料洩漏
 5. **更新題目狀態** - `status` 和 `ready_for_release`
