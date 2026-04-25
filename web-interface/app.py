@@ -737,24 +737,6 @@ class CTFManager:
 
         return stats
 
-    def _append_internal_log(
-        self,
-        category: str,
-        name: str,
-        line: str,
-    ) -> None:
-        challenge_path = CHALLENGES_DIR / category / name
-        private_yml_path = challenge_path / "private.yml"
-        if not private_yml_path.exists():
-            raise FileNotFoundError("題目不存在或缺少 private.yml")
-        with open(private_yml_path, "r", encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or {}
-        prev = cfg.get("internal_validation_notes") or ""
-        cfg["internal_validation_notes"] = ((prev + "\n" if prev else "") + line).strip()
-        cfg["updated_at"] = datetime.now().isoformat()
-        with open(private_yml_path, "w", encoding="utf-8") as f:
-            yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
-
     def run_scan_secrets(self, category: str, name: str) -> Dict[str, Any]:
         """對單一題目執行敏感資料掃描（scan-secrets.py）。"""
         challenge_path = CHALLENGES_DIR / category / name
@@ -778,8 +760,6 @@ class CTFManager:
         elapsed_ms = int((time.time() - started) * 1000)
         output = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
         status = "success" if proc.returncode == 0 else "error"
-        line = f"[{datetime.now().isoformat()}] scan-secrets exit={proc.returncode} elapsed_ms={elapsed_ms}"
-        self._append_internal_log(category, name, line)
         return {
             "status": status,
             "message": "掃描完成" if status == "success" else "掃描失敗",
@@ -814,8 +794,6 @@ class CTFManager:
         elapsed_ms = int((time.time() - started) * 1000)
         output = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
         status = "success" if proc.returncode == 0 else "error"
-        line = f"[{datetime.now().isoformat()}] build.sh exit={proc.returncode} elapsed_ms={elapsed_ms}"
-        self._append_internal_log(category, name, line)
         return {
             "status": status,
             "message": "建置完成" if status == "success" else "建置失敗",
