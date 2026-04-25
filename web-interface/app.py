@@ -392,6 +392,94 @@ class CTFManager:
             }
         return {"status": "success", "message": "初始化設定完成"}
 
+    VALID_SETUP_STEPS = {"project", "team", "event", "quota"}
+
+    def save_setup_step(self, step: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """寫入單一 wizard 步驟的欄位至 config.yml。"""
+        if step not in self.VALID_SETUP_STEPS:
+            return {
+                "status": "error",
+                "message": f"無效步驟: {step}（合法: {sorted(self.VALID_SETUP_STEPS)}）",
+            }
+
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                raw = yaml.safe_load(f) or {}
+        except FileNotFoundError:
+            raw = {}
+        if not isinstance(raw, dict):
+            raw = {}
+
+        raw.setdefault("project", {})
+        raw.setdefault("team", {})
+        raw.setdefault("event", {})
+        raw.setdefault("challenge_quota", {})
+
+        if step == "project":
+            project = raw["project"]
+            project["name"] = (data.get("project_name") or project.get("name") or "").strip()
+            project["organization"] = (data.get("organization") or project.get("organization") or "").strip()
+            project["description"] = (data.get("description") or project.get("description") or "").strip()
+            project["flag_prefix"] = (data.get("flag_prefix") or project.get("flag_prefix") or "").strip()
+            year = (data.get("year") or "").strip()
+            if year:
+                project["year"] = int(year) if year.isdigit() else year
+            raw.setdefault("platform", {})
+            raw.setdefault("deployment", {})
+            for k in ("gzctf_url", "ctfd_url", "zipline_url"):
+                if k in data:
+                    raw["platform"][k] = (data.get(k) or "").strip()
+            for k in ("host", "docker_registry"):
+                if k in data:
+                    raw["deployment"][k] = (data.get(k) or "").strip()
+
+        elif step == "team":
+            team = raw["team"]
+            team["default_author"] = (data.get("default_author") or "").strip()
+            members_raw = data.get("members") or []
+            cleaned: List[Dict[str, str]] = []
+            seen: set = set()
+            for entry in members_raw:
+                if not isinstance(entry, dict):
+                    continue
+                username = str(entry.get("github_username") or "").strip()
+                if not username or username in seen:
+                    continue
+                seen.add(username)
+                cleaned.append({
+                    "github_username": username,
+                    "display_name": str(entry.get("display_name") or username).strip(),
+                    "specialty": str(entry.get("specialty") or "").strip(),
+                })
+            team["members"] = cleaned
+
+        elif step == "event":
+            event = raw["event"]
+            for k in ("start_date", "end_date", "authoring_deadline", "review_deadline", "freeze_deadline"):
+                event[k] = (data.get(k) or "").strip()
+
+        elif step == "quota":
+            quota = raw["challenge_quota"]
+            quota["by_category"] = {
+                str(k).strip(): int(v)
+                for k, v in (data.get("by_category") or {}).items()
+                if str(k).strip() and str(v).isdigit()
+            }
+            quota["by_difficulty"] = {
+                str(k).strip(): int(v)
+                for k, v in (data.get("by_difficulty") or {}).items()
+                if str(k).strip() and str(v).isdigit()
+            }
+            tt = (data.get("total_target") or "").strip()
+            if tt and tt.isdigit():
+                quota["total_target"] = int(tt)
+
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            yaml.dump(raw, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+        self.config = self.load_config()
+        return {"status": "success", "message": f"已儲存 {step} 設定"}
+
     def update_config(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         """以白名單方式更新 config.yml 指定區塊。"""
         try:
