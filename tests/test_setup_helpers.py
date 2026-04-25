@@ -44,3 +44,36 @@ def test_generate_codeowners_is_empty_placeholder():
         if stripped == "":
             continue
         assert stripped.startswith("#"), f"非註解行不該預設指派: {line!r}"
+
+
+def test_generate_branch_protection_doc_has_gh_cli_steps():
+    from setup_helpers import generate_branch_protection_doc
+
+    config = {"project": {"organization": "is1ab", "name": "2026-CTF"}}
+    text = generate_branch_protection_doc(config)
+
+    # 必含 gh CLI 指令
+    assert "gh api" in text or "gh repo edit" in text
+    # 必含 main 分支保護要點
+    assert "main" in text
+    assert "approval" in text.lower() or "approving_review" in text
+    # 必含 require status check
+    assert "status check" in text.lower() or "required_status_checks" in text
+
+
+def test_generate_branch_protection_doc_substitutes_organization():
+    from setup_helpers import generate_branch_protection_doc
+
+    text = generate_branch_protection_doc({
+        "project": {"organization": "is1ab", "name": "2026-CTF"},
+    })
+    assert 'ORG="is1ab"' in text
+    assert 'REPO="2026-CTF"' in text
+
+
+def test_generate_branch_protection_doc_handles_missing_org():
+    from setup_helpers import generate_branch_protection_doc
+
+    text = generate_branch_protection_doc({})
+    assert "your-org" in text
+    assert "your-repo" in text
