@@ -311,3 +311,39 @@ def test_validation_route_returns_404(client):
 def test_api_review_route_returns_404(client):
     resp = client.post("/api/challenges/web/foo/review", json={"action": "approve", "actor": "x"})
     assert resp.status_code == 404
+
+
+def test_web_create_challenge_does_not_write_legacy_keys(temp_config, tmp_path):
+    """POST /api/challenges should produce a private.yml without the 3 legacy keys."""
+    temp_config.write_text(yaml.safe_dump({
+        "project": {"name": "t", "flag_prefix": "tCTF"},
+        "team": {"members": [{"github_username": "alice", "display_name": "Alice"}]},
+        "points": {"easy": 100},
+    }))
+    import importlib, app as app_module
+    importlib.reload(app_module)
+    monkey_attrs = {
+        "CONFIG_FILE": temp_config,
+        "BASE_DIR": tmp_path,
+        "CHALLENGES_DIR": tmp_path / "challenges",
+    }
+    for attr, value in monkey_attrs.items():
+        setattr(app_module, attr, value)
+    app_module.ctf_manager = app_module.CTFManager()
+    app_module.app.config["TESTING"] = True
+    client = app_module.app.test_client()
+
+    resp = client.post("/api/challenges", json={
+        "category": "web",
+        "name": "test_no_legacy",
+        "difficulty": "easy",
+        "author": "alice",
+    })
+    # 不論回 200 還是 201，只要建立成功就 OK
+    assert resp.status_code in (200, 201), resp.get_data(as_text=True)
+    private_yml = tmp_path / "challenges/web/test_no_legacy/private.yml"
+    assert private_yml.exists()
+    data = yaml.safe_load(private_yml.read_text())
+    assert "reviewer" not in data
+    assert "validation_status" not in data
+    assert "internal_validation_notes" not in data

@@ -867,7 +867,6 @@ class CTFManager:
             category = challenge_data.get("category", "").strip()
             difficulty = challenge_data.get("difficulty", "easy").strip()
             author = (challenge_data.get("author") or "").strip()
-            reviewer = (challenge_data.get("reviewer") or "").strip()
             description = challenge_data.get("description", "").strip()
             challenge_type = challenge_data.get(
                 "challenge_type", "static_container"
@@ -895,12 +894,6 @@ class CTFManager:
                 return {
                     "status": "error",
                     "message": "請填寫出題人，或在專案根目錄 config.yml 設定 team.default_author / team.authors，或先設定 git user.name",
-                }
-
-            if not reviewer:
-                return {
-                    "status": "error",
-                    "message": "請填寫驗題人（或從建議名單選取）；亦可在 config.yml 的 team.reviewers 建立建議驗題人清單",
                 }
 
             # 驗證名稱格式
@@ -945,9 +938,6 @@ class CTFManager:
             private_config = {
                 "title": challenge_data.get("title", name),
                 "author": author,
-                "reviewer": reviewer,
-                "validation_status": "pending",
-                "internal_validation_notes": "",
                 "difficulty": difficulty,
                 "category": category,
                 "description": description,
@@ -1197,9 +1187,6 @@ tail -f /dev/null
             updatable_fields = [
                 "title",
                 "author",
-                "reviewer",
-                "validation_status",
-                "internal_validation_notes",
                 "difficulty",
                 "description",
                 "challenge_type",

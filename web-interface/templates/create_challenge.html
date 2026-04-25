@@ -22,7 +22,7 @@
       <ol class="ml-4">
         <li>
           <strong>先設定團隊</strong>：在專案根目錄 <code>config.yml</code> 填寫
-          <code>team.default_author</code>（預設出題人）、<code>team.reviewers</code>（建議驗題人，Web 表單可從此清單挑選），並依競賽計畫調整
+          <code>team.default_author</code>（預設出題人），並依競賽計畫調整
           <code>challenge_quota</code>（各類型／難度數量）。
         </li>
         <li>
@@ -207,36 +207,6 @@
                     </p>
                   </div>
                 </div>
-              </div>
-
-              <div class="field">
-                <label class="label"
-                  >驗題人 <span class="has-text-danger">*</span></label
-                >
-                <div class="control has-icons-left">
-                  <input
-                    class="input"
-                    type="text"
-                    id="challengeReviewer"
-                    name="reviewer"
-                    list="reviewer-suggestions"
-                    placeholder="負責審核與試解的成員"
-                    required
-                    autocomplete="off"
-                  />
-                  <datalist id="reviewer-suggestions">
-                    {% for r in config.reviewers %}
-                    <option value="{{ r }}"></option>
-                    {% endfor %}
-                  </datalist>
-                  <span class="icon is-small is-left">
-                    <i class="fas fa-user-check"></i>
-                  </span>
-                </div>
-                <p class="help">
-                  在 <code>config.yml</code> 的
-                  <code>team.reviewers</code> 設定建議名單後，可由此輸入框快速選取；亦可手動輸入
-                </p>
               </div>
 
               <!-- 題目類型 -->
