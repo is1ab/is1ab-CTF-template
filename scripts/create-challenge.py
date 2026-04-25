@@ -61,14 +61,12 @@ class ChallengeCreator:
         
         return True
     
-    def create_challenge(self, category, name, difficulty, author='', challenge_type=None, reviewer=''):
+    def create_challenge(self, category, name, difficulty, author='', challenge_type=None):
         """創建新題目"""
         try:
-            # 如果 author 為空，從 config.yml 讀取
+            # author 解析順序：--author > git config user.name > team.default_author
             if not author:
-                author = self.config.get('team', {}).get('default_author', '') if isinstance(self.config, dict) else ''
-            if not author:
-                # 再嘗試 git config user.name
+                # 1. 試 git user.name
                 try:
                     proc = subprocess.run(
                         ["git", "config", "--get", "user.name"],
@@ -81,17 +79,16 @@ class ChallengeCreator:
                 except Exception:
                     author = ""
             if not author:
-                print("❌ 請以 --author 指定出題人，或在 config.yml 的 team.default_author / team.authors 設定，或先設定 git user.name")
+                # 2. 退回 config.yml 的 team.default_author
+                if isinstance(self.config, dict):
+                    author = self.config.get('team', {}).get('default_author', '') or ''
+                    author = author.strip() if isinstance(author, str) else ''
+            if not author:
+                print("❌ 無法決定出題人。請以下列任一方式指定：")
+                print("   • 命令列: --author \"YourName\"")
+                print("   • git: git config user.name \"YourName\"")
+                print("   • config.yml: team.default_author")
                 return False
-
-            if not (reviewer or '').strip():
-                team_reviewers = (self.config.get('team') or {}).get('reviewers') or []
-                if team_reviewers and isinstance(team_reviewers, list):
-                    reviewer = str(team_reviewers[0]).strip()
-                if not reviewer:
-                    print("❌ 請以 --reviewer 指定驗題人，或在 config.yml 的 team.reviewers 填寫至少一位")
-                    return False
-                print(f"💡 未指定 --reviewer，使用 team.reviewers 第一位: {reviewer}")
 
             # 輸入驗證
             if not self.validate_inputs(category, name, difficulty):
@@ -113,7 +110,7 @@ class ChallengeCreator:
             
             # 建立配置檔案 (創建 private.yml，後續由它生成 public.yml)
             private_config = self.create_private_config(
-                name, category, difficulty, author, challenge_type, reviewer.strip()
+                name, category, difficulty, author, challenge_type
             )
             self.save_private_config(challenge_path, private_config)
             
@@ -188,15 +185,12 @@ class ChallengeCreator:
             print(f"❌ Error creating directory structure: {e}")
             raise
             
-    def create_private_config(self, name, category, difficulty, author, challenge_type, reviewer=''):
+    def create_private_config(self, name, category, difficulty, author, challenge_type):
         """建立 private.yml 配置（包含敏感資訊如 flag）"""
         flag_prefix = self.config['project']['flag_prefix']
         config = {
             'title': name.replace('_', ' ').replace('-', ' ').title(),
             'author': author,
-            'reviewer': reviewer,
-            'validation_status': 'pending',
-            'internal_validation_notes': '',
             'difficulty': difficulty,
             'category': category,
             'description': 'TODO: Add challenge description here',
@@ -272,7 +266,6 @@ class ChallengeCreator:
         # 移除敏感資訊
         sensitive_fields = [
             'flag', 'flag_description', 'solution_steps', 'internal_notes',
-            'internal_validation_notes',
         ]
         for field in sensitive_fields:
             public_config.pop(field, None)
@@ -811,8 +804,8 @@ def main():
         parser.add_argument('difficulty', 
                            choices=['baby', 'easy', 'middle', 'hard', 'impossible'],
                            help='Challenge difficulty')
-        parser.add_argument('--author', default='', help='出題人（未填則使用 config team.default_author，該欄也必須有值）')
-        parser.add_argument('--reviewer', default='', help='驗題人（未填則使用 team.reviewers 第一位，該清單須非空）')
+        parser.add_argument('--author', default='',
+                           help='出題人（未填則使用 git user.name，再退回 config.yml team.default_author）')
         parser.add_argument('--type', choices=['static_attachment', 'static_container', 'dynamic_attachment', 'dynamic_container', 'nc_challenge'],
                            help='Challenge type (auto-detect if not specified)')
         parser.add_argument('--config', default='config.yml', help='Config file path')
@@ -825,7 +818,7 @@ def main():
         
         creator = ChallengeCreator(args.config)
         success = creator.create_challenge(
-            args.category, args.name, args.difficulty, args.author, args.type, args.reviewer
+            args.category, args.name, args.difficulty, args.author, args.type
         )
         
         if success:
