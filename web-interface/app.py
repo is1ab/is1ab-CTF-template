@@ -1459,14 +1459,86 @@ def validation_queue():
     )
 
 
+SETUP_STEPS = ["project", "team", "event", "quota", "finalize"]
+
+
 @app.route("/setup")
-def setup():
-    """全新專案初始化設定頁"""
+def setup_root():
+    from flask import redirect, url_for
+    return redirect(url_for("setup_step", step="project"))
+
+
+@app.route("/setup/<step>", methods=["GET"])
+def setup_step(step: str):
+    from flask import abort
+    if step not in SETUP_STEPS:
+        abort(404)
+    statuses = ctf_manager.compute_step_status()
     return render_template(
-        "setup.html",
+        f"setup/{step}.html",
+        step=step,
+        steps=SETUP_STEPS,
+        statuses=statuses,
         config=ctf_manager.config,
-        missing=ctf_manager.get_setup_missing_items(),
     )
+
+
+@app.route("/setup/<step>", methods=["POST"])
+def setup_step_save(step: str):
+    from flask import abort, jsonify
+    if step not in SETUP_STEPS:
+        abort(404)
+    data = request.get_json(silent=True) or request.form.to_dict(flat=False)
+    if step == "finalize":
+        return jsonify(_handle_setup_finalize(data))
+    if isinstance(data, dict):
+        flat = {}
+        for k, v in data.items():
+            flat[k] = v[0] if isinstance(v, list) and len(v) == 1 else v
+        data = flat
+    result = ctf_manager.save_setup_step(step, data or {})
+    return jsonify(result)
+
+
+def _handle_setup_finalize(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Step 5: 產生 .github/ 模板 + 清理冗餘欄位（依 data 中的 flag）。"""
+    from setup_helpers import (
+        cleanup_legacy_validation_fields,
+        generate_branch_protection_doc,
+        generate_codeowners,
+        generate_pr_template,
+    )
+
+    config = ctf_manager.config
+    raw_for_doc = {"project": {
+        "organization": config.get("organization", ""),
+        "name": config.get("competition_name", ""),
+    }}
+    actions: List[str] = []
+
+    if data.get("generate_pr_template"):
+        path = BASE_DIR / ".github" / "PULL_REQUEST_TEMPLATE.md"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(generate_pr_template(config), encoding="utf-8")
+        actions.append(f"產生 {path.relative_to(BASE_DIR)}")
+
+    if data.get("generate_codeowners"):
+        path = BASE_DIR / ".github" / "CODEOWNERS"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(generate_codeowners(config), encoding="utf-8")
+        actions.append(f"產生 {path.relative_to(BASE_DIR)}")
+
+    if data.get("generate_branch_protection_doc"):
+        path = BASE_DIR / ".github" / "branch-protection.md"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(generate_branch_protection_doc(raw_for_doc), encoding="utf-8")
+        actions.append(f"產生 {path.relative_to(BASE_DIR)}")
+
+    if data.get("cleanup_legacy"):
+        report = cleanup_legacy_validation_fields(CHALLENGES_DIR, dry_run=False)
+        actions.append(f"清理 {len(report.files_changed)} 個含冗餘欄位的檔案")
+
+    return {"status": "success", "actions": actions}
 
 
 @app.route("/challenges/<category>/<name>")

@@ -173,3 +173,35 @@ def test_save_step_invalid_step_returns_error(temp_config):
     mgr = _app_module.CTFManager()
     result = mgr.save_setup_step("not_a_step", {})
     assert result["status"] == "error"
+
+
+@pytest.fixture
+def client(temp_config):
+    temp_config.write_text(yaml.safe_dump({
+        "project": {"name": "t", "flag_prefix": "tCTF"},
+        "team": {"members": []},
+        "event": {},
+        "challenge_quota": {},
+        "points": {"easy": 100},
+    }))
+    import importlib, app as app_module
+    importlib.reload(app_module)
+    app_module.app.config["TESTING"] = True
+    return app_module.app.test_client()
+
+
+def test_get_setup_root_redirects_to_project(client):
+    resp = client.get("/setup")
+    assert resp.status_code in (301, 302)
+    assert "/setup/project" in resp.location
+
+
+def test_get_setup_step_returns_200(client):
+    for step in ("project", "team", "event", "quota", "finalize"):
+        resp = client.get(f"/setup/{step}")
+        assert resp.status_code == 200, f"{step} returned {resp.status_code}"
+
+
+def test_get_setup_unknown_step_returns_404(client):
+    resp = client.get("/setup/bogus")
+    assert resp.status_code == 404
