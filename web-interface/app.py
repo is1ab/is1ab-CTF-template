@@ -297,101 +297,6 @@ class CTFManager:
 
         return statuses
 
-    def save_setup(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """更新 config.yml 的初始化欄位（僅限必要區塊）。"""
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as config_file:
-                raw_config = yaml.safe_load(config_file) or {}
-        except FileNotFoundError:
-            raw_config = {}
-
-        if not isinstance(raw_config, dict):
-            raw_config = {}
-
-        raw_config.setdefault("project", {})
-        raw_config.setdefault("team", {})
-        raw_config.setdefault("challenge_quota", {})
-        raw_config.setdefault("event", {})
-
-        project = raw_config.get("project") or {}
-        team = raw_config.get("team") or {}
-        quota = raw_config.get("challenge_quota") or {}
-        event = raw_config.get("event") or {}
-
-        project["name"] = (data.get("project_name") or project.get("name") or "").strip()
-        project["organization"] = (data.get("organization") or project.get("organization") or "").strip()
-        project["description"] = (data.get("description") or project.get("description") or "").strip()
-        year = (data.get("year") or project.get("year") or "").strip()
-        if year:
-            project["year"] = int(year) if str(year).isdigit() else year
-
-        team["default_author"] = (data.get("default_author") or "").strip()
-        reviewers_raw = data.get("reviewers") or ""
-        reviewers = [r.strip() for r in str(reviewers_raw).split(",") if r.strip()]
-        team["reviewers"] = reviewers
-
-        authors_raw = data.get("authors") or ""
-        authors = [a.strip() for a in str(authors_raw).split(",") if a.strip()]
-        team["authors"] = authors
-
-        def _parse_quota_map(text: str) -> Dict[str, int]:
-            result: Dict[str, int] = {}
-            for pair in [p.strip() for p in str(text or "").split(",") if p.strip()]:
-                if ":" not in pair:
-                    continue
-                k, v = pair.split(":", 1)
-                k = k.strip()
-                v = v.strip()
-                if not k:
-                    continue
-                try:
-                    result[k] = int(v)
-                except ValueError:
-                    continue
-            return result
-
-        by_category_text = data.get("by_category") or ""
-        by_difficulty_text = data.get("by_difficulty") or ""
-        if by_category_text:
-            quota["by_category"] = _parse_quota_map(by_category_text)
-        if by_difficulty_text:
-            quota["by_difficulty"] = _parse_quota_map(by_difficulty_text)
-        total_target = (data.get("total_target") or "").strip()
-        if total_target:
-            try:
-                quota["total_target"] = int(total_target)
-            except ValueError:
-                pass
-
-        event["start_date"] = (data.get("start_date") or "").strip()
-        event["end_date"] = (data.get("end_date") or "").strip()
-        event["authoring_deadline"] = (data.get("authoring_deadline") or "").strip()
-        event["review_deadline"] = (data.get("review_deadline") or "").strip()
-        event["freeze_deadline"] = (data.get("freeze_deadline") or "").strip()
-
-        raw_config["project"] = project
-        raw_config["team"] = team
-        raw_config["challenge_quota"] = quota
-        raw_config["event"] = event
-
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            yaml.dump(
-                raw_config,
-                f,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
-
-        self.config = self.load_config()
-        remaining = self.get_setup_missing_items()
-        if remaining:
-            return {
-                "status": "error",
-                "message": "初始化設定尚未完整，仍缺少: " + "、".join(remaining),
-            }
-        return {"status": "success", "message": "初始化設定完成"}
-
     VALID_SETUP_STEPS = {"project", "team", "event", "quota"}
 
     def save_setup_step(self, step: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -1705,19 +1610,6 @@ def api_validate_challenge(challenge_path: str):
 def api_config():
     """獲取配置 API"""
     return jsonify({"status": "success", "data": ctf_manager.config})
-
-
-@app.route("/api/setup", methods=["POST"])
-def api_setup():
-    """寫入初始化設定到 config.yml"""
-    try:
-        body = request.get_json() or {}
-        result = ctf_manager.save_setup(body)
-        if result["status"] == "success":
-            return jsonify(result)
-        return jsonify(result), 400
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route("/api/git-user")
