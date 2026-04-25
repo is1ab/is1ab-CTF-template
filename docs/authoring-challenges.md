@@ -1,6 +1,6 @@
 # 出題與驗題：CLI 與 Web GUI 雙管道
 
-本專案支援**兩種方式**建立題目目錄與雛形：**命令列**（`scripts/create-challenge.py`）與 **Web 管理介面**（`web-interface/`）。兩者都會產生 `private.yml` + `public.yml`，並寫入出題人、驗題人、驗題狀態等欄位（見 `docs/challenge-metadata-standard.md`）。
+本專案支援**兩種方式**建立題目目錄與雛形：**命令列**（`scripts/create-challenge.py`）與 **Web 管理介面**（`web-interface/`）。兩者都會產生 `private.yml` + `public.yml`（欄位說明見 `docs/challenge-metadata-standard.md`）；驗題透過 GitHub PR review 進行（見第 4 章）。
 
 ## 1. 事前設定（團隊與配額）
 
@@ -10,7 +10,7 @@
 | 區塊                    | 用途                                                                    |
 | --------------------- | --------------------------------------------------------------------- |
 | `team.default_author` | 預設**出題人**；Web 表單會帶入此值；CLI 未帶 `--author` 時使用                           |
-| `team.reviewers`      | 建議**驗題人**名單（GitHub 帳號或慣用暱稱）；Web 表單以 datalist 建議、可手改                   |
+| `team.members`        | 團隊成員清單（github_username + display_name + specialty）；wizard 第 2 步維護              |
 | `challenge_quota`     | 各**類型**（`by_category`）與各**難度**（`by_difficulty`）的**題目數量**計畫，供儀表板與建題時對照 |
 | `event`               | **舉辦時間與死線**：開始/結束、出題截止、驗題截止、凍結截止；新專案建議先填，Web 也會提示 |
 
@@ -33,10 +33,9 @@ uv run python app.py
 
 1. 開啟導航列 **「創建挑戰」**（`/create`）。
 2. 依表單填寫：**名稱、說明、類別、難度、分數、出題人、驗題人、題目類型** 等。
-  - 出題人可仰賴 `team.default_author` 預填。  
-  - 驗題人為**必填**；可從 `team.reviewers` 建議名單選取或自填。
-3. 送出後會在 `challenges/<category>/<name>/` 建立目錄，並寫入 `validation_status: pending`。
-4. 在本機實作題面、測試後，到 **「驗題」**（`/validation`）對該題執行 **通過** / **退回** / **改回待驗**（需輸入執行人與可選備註）。
+  - 出題人可仰賴 `team.default_author` 預填。
+3. 送出後會在 `challenges/<category>/<name>/` 建立目錄與雛形。
+4. 在本機實作題面、測試後，提 PR 由團隊成員 review（見第 4 章）。
 
 > Web GUI 僅作開發團隊內部使用；正式環境請加認證與 HTTPS（見 `wiki/Web-GUI-Integration.md`）。
 
@@ -46,27 +45,33 @@ uv run python app.py
 
 ```bash
 uv run python scripts/create-challenge.py <category> <name> <difficulty> \
-  --author "出題人" \
-  --reviewer "驗題人"
+  --author "出題人"
 ```
 
-- `--author` 可省，則使用 `config.yml` 的 `team.default_author`（兩者皆空則**失敗**）。  
-- `--reviewer` 可省，則使用 `team.reviewers` 的**第一位**（清單為空則**失敗**）。  
+- `--author` 可省，則依序使用 `config.yml` 的 `team.default_author`，或 `git config user.name`（兩者皆空則**失敗**）。
 - `--type` 可指定題目類型，否則依分類推斷（與舊行為相同）。
 
-產生結構與 Web 建題一致，含 `validation_status: pending` 與 `reviewer` 欄位。
+產生結構與 Web 建題一致。
 
-## 4. 驗題與欄位說明
+## 4. 驗題流程
 
-- `**author`**：出題人。  
-- `**reviewer**`：指派之驗題負責人（團隊約定，非參賽者介面用語）。  
-- `**validation_status**`：可為 `pending`、`approved`、`rejected` 等，同步於 `public.yml`（`internal_validation_notes` 僅在 `private.yml`）。  
-- 舊題目若沒有 `validation_status`，不會出現在 Web「驗題」清單；若要把舊題納入流程，可手動在 `public.yml` 加上 `validation_status: pending` 與 `reviewer` 欄位。
+驗題透過 **GitHub Pull Request review** 進行：
+
+1. 出題人推 branch 並開 PR
+2. 任一其他團隊成員自願擔任驗題人，將 branch checkout 到本地
+3. 跑起 Docker / 解題、確認 flag 與 `private.yml` 一致
+4. 在 PR 上 approve（或留言請出題人修正）
+5. CI 通過 + 至少 1 approval → 可 merge
+
+PR template 提供雙 checklist（出題人填一份、驗題人填一份），由 `/setup` 精靈產生於 `.github/PULL_REQUEST_TEMPLATE.md`。
+
+驗題人**不固定指派**：CODEOWNERS 留空、不強制特定路徑由特定人審。
 
 ## 5. 相關文件
 
-- `web-interface/USAGE.md` — 介面啟動與目錄說明  
-- `wiki/Web-GUI-Integration.md` — 與安全流程、權限建議  
-- `docs/ctf-challenge-workflow.md` — 整體 CTF 工作流程  
-- `docs/challenge-metadata-standard.md` — YAML 欄位規範（請同步維護）
+- `web-interface/USAGE.md` — 介面啟動與 `/setup` 精靈說明
+- `wiki/Web-GUI-Integration.md` — Web 與安全流程的關係
+- `docs/ctf-challenge-workflow.md` — 整體 CTF 工作流程
+- `docs/challenge-metadata-standard.md` — YAML 欄位規範
+- `.github/branch-protection.md` — branch protection 設定指引（由 `/setup` 產生）
 
