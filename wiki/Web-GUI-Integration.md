@@ -6,7 +6,21 @@
 
 Web GUI (`web-interface/`) 是一個基於 Flask 的 Web 管理介面，提供視覺化的題目管理功能。本文檔說明它與新安全流程的整合情況。
 
-**操作與建立方式（含 CLI 對照、出題人／驗題人、配額）**：見專案內 [docs/authoring-challenges.md](../docs/authoring-challenges.md)；啟動步驟見 [web-interface/USAGE.md](../web-interface/USAGE.md)。
+**操作與建立方式（含 CLI 對照、出題人、配額）**：見專案內 [docs/authoring-challenges.md](../docs/authoring-challenges.md)；啟動步驟與 `/setup` 精靈說明見 [web-interface/USAGE.md](../web-interface/USAGE.md)。
+
+### 初始化精靈（5 步驟）
+
+第一次使用時請先完成 `/setup` 精靈：
+
+| Step | 路徑 | 內容 |
+|------|------|------|
+| 1 | `/setup/project` | 競賽名稱、flag prefix、平台 URL |
+| 2 | `/setup/team` | 團隊成員（github_username / 顯示名 / 專長） |
+| 3 | `/setup/event` | 比賽時程與死線 |
+| 4 | `/setup/quota` | 各類別 / 難度的目標題數 |
+| 5 | `/setup/finalize` | 產生 `.github/` 模板（PR template / CODEOWNERS / branch-protection 指引），可選清理舊版驗題欄位 |
+
+驗題透過 **GitHub Pull Request review** 進行（不在 Web GUI 中操作）；PR template 由 `/setup/finalize` 自動產生。
 
 ## ✅ 兼容性分析
 
@@ -95,10 +109,11 @@ public_config = {
 
 **使用流程**：
 ```
-1. Web GUI 創建題目（自動生成 private.yml + public.yml）
-2. 本地編輯 private.yml（設定真實 flag）
-3. 本地執行 build.sh 建置
-4. CI/CD 自動掃描和部署
+1. /setup 精靈完成初始化（5 步驟，含產生 PR template）
+2. Web GUI 或 CLI 創建題目（自動生成 private.yml + public.yml）
+3. 本地編輯 private.yml（設定真實 flag）、本地測試
+4. 推 branch 開 PR，團隊成員 review 驗題（PR review = 驗題）
+5. CI 通過 + 1 approval → merge；CI/CD 自動掃描和部署
 ```
 
 ### 方案 B：增強整合（進階）
