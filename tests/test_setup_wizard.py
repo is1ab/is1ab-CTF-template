@@ -176,7 +176,7 @@ def test_save_step_invalid_step_returns_error(temp_config):
 
 
 @pytest.fixture
-def client(temp_config):
+def client(temp_config, monkeypatch):
     temp_config.write_text(yaml.safe_dump({
         "project": {"name": "t", "flag_prefix": "tCTF"},
         "team": {"members": []},
@@ -186,6 +186,12 @@ def client(temp_config):
     }))
     import importlib, app as app_module
     importlib.reload(app_module)
+    # Re-apply path patches after reload (reload resets module-level constants).
+    monkeypatch.setattr(app_module, "CONFIG_FILE", temp_config)
+    monkeypatch.setattr(app_module, "BASE_DIR", temp_config.parent)
+    monkeypatch.setattr(app_module, "CHALLENGES_DIR", temp_config.parent / "challenges")
+    # Re-create ctf_manager so it reads from the patched CONFIG_FILE.
+    app_module.ctf_manager = app_module.CTFManager()
     app_module.app.config["TESTING"] = True
     return app_module.app.test_client()
 
@@ -205,3 +211,22 @@ def test_get_setup_step_returns_200(client):
 def test_get_setup_unknown_step_returns_404(client):
     resp = client.get("/setup/bogus")
     assert resp.status_code == 404
+
+
+def test_post_setup_project_writes_config(client, temp_config):
+    resp = client.post("/setup/project", data={
+        "project_name": "is1ab-CTF-2026",
+        "organization": "is1ab",
+        "flag_prefix": "is1abCTF",
+        "year": "2026",
+        "description": "annual CTF",
+        "gzctf_url": "http://gzctf.example",
+        "host": "10.0.0.1",
+    })
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "success"
+    raw = yaml.safe_load(temp_config.read_text())
+    assert raw["project"]["name"] == "is1ab-CTF-2026"
+    assert raw["project"]["flag_prefix"] == "is1abCTF"
+    assert raw["platform"]["gzctf_url"] == "http://gzctf.example"
+    assert raw["deployment"]["host"] == "10.0.0.1"
