@@ -5,7 +5,9 @@
 ## 新手路線圖
 
 ```
-QUICKSTART.md（30 分鐘，從 clone 到 PR）
+USER-FLOW.md（端到端總覽：admin 設置 / 出題 / 驗題 / 發布）
+    ↓
+QUICKSTART.md（30 分鐘，從 clone 到 PR — 最小教學）
     ↓
 docs/challenge-types-guide.md（選對題目類型）
     ↓
@@ -18,11 +20,12 @@ docs/quick-reference.md（常用指令速查）
 
 | 文件 | 用途 |
 |------|------|
+| [USER-FLOW.md](USER-FLOW.md) | **端到端流程總覽**（一次性設置 / 出題人日常 / 驗題 / 發布） |
 | [challenge-types-guide.md](challenge-types-guide.md) | 選擇題目類型的決策樹 |
 | [public-private-explained.md](public-private-explained.md) | 為什麼分 public.yml / private.yml |
 | [ctf-challenge-workflow.md](ctf-challenge-workflow.md) | 完整開發流程（三階段） |
 | [challenge-metadata-standard.md](challenge-metadata-standard.md) | public.yml / private.yml 欄位規格 |
-| [authoring-challenges.md](authoring-challenges.md) | **CLI 與 Web 建題、出題人／驗題人、配額與驗題流程** |
+| [authoring-challenges.md](authoring-challenges.md) | CLI 與 Web 建題、配額與驗題流程 |
 | [quick-reference.md](quick-reference.md) | 常用命令速查表 |
 | [git-workflow-cheatsheet.md](git-workflow-cheatsheet.md) | Git 操作速查表 |
 | [security-checklist.md](security-checklist.md) | 安全配置檢查清單 |
