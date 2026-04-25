@@ -247,3 +247,18 @@ def test_post_setup_team_replaces_members(client, temp_config):
     assert raw["team"]["default_author"] == "alice"
     assert len(raw["team"]["members"]) == 2
     assert raw["team"]["members"][1]["github_username"] == "bob"
+
+
+def test_post_setup_event_writes_dates(client, temp_config):
+    resp = client.post("/setup/event", data={
+        "start_date": "2026-05-01",
+        "end_date": "2026-05-30",
+        "authoring_deadline": "2026-04-15",
+        "review_deadline": "2026-04-25",
+        "freeze_deadline": "2026-04-28",
+    })
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "success"
+    raw = yaml.safe_load(temp_config.read_text())
+    assert raw["event"]["start_date"] == "2026-05-01"
+    assert raw["event"]["freeze_deadline"] == "2026-04-28"
