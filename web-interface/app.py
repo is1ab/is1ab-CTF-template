@@ -12,6 +12,12 @@ import yaml
 import subprocess
 import time
 
+# 讓 scripts/setup_helpers.py 可被 import
+import sys as _sys
+_SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
+if str(_SCRIPTS_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_SCRIPTS_DIR))
+
 # Flask 相關套件
 from flask import (
     Flask,
@@ -242,6 +248,54 @@ class CTFManager:
 
     def is_setup_complete(self) -> bool:
         return len(self.get_setup_missing_items()) == 0
+
+    def compute_step_status(self) -> Dict[str, str]:
+        """為 wizard 5 步驟計算進度條狀態。
+
+        回傳 dict： step_name → "pending" | "done"
+        """
+        statuses: Dict[str, str] = {}
+
+        # Step 1: project
+        project_name = (self.config.get("competition_name") or "").strip()
+        flag_prefix = (self.config.get("project_flag_prefix") or "").strip()
+        statuses["project"] = "done" if (project_name and flag_prefix) else "pending"
+
+        # Step 2: team
+        members = self.config.get("members") or []
+        statuses["team"] = "done" if any(
+            (m.get("github_username") or "").strip() for m in members
+        ) else "pending"
+
+        # Step 3: event
+        event = self.config.get("event") or {}
+        statuses["event"] = "done" if (
+            event.get("start_date", "").strip() and event.get("end_date", "").strip()
+        ) else "pending"
+
+        # Step 4: quota
+        quota = self.config.get("challenge_quota") or {}
+        by_category = quota.get("by_category") or {}
+        total_target = quota.get("total_target") or 0
+        statuses["quota"] = "done" if (
+            total_target and any(v > 0 for v in by_category.values())
+        ) else "pending"
+
+        # Step 5: finalize（.github 兩檔案存在 + 偵測到的冗餘欄位 = 0）
+        gh_dir = BASE_DIR / ".github"
+        pr_tmpl = gh_dir / "PULL_REQUEST_TEMPLATE.md"
+        codeowners = gh_dir / "CODEOWNERS"
+        if pr_tmpl.exists() and codeowners.exists():
+            try:
+                from setup_helpers import detect_legacy_validation_fields
+                legacy_count = len(detect_legacy_validation_fields(CHALLENGES_DIR))
+            except Exception:
+                legacy_count = 0
+            statuses["finalize"] = "done" if legacy_count == 0 else "pending"
+        else:
+            statuses["finalize"] = "pending"
+
+        return statuses
 
     def save_setup(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """更新 config.yml 的初始化欄位（僅限必要區塊）。"""
