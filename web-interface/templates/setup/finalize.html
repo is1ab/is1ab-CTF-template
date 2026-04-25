@@ -1,14 +1,95 @@
 {% extends "setup/_layout.html" %}
-{% set title = "初始化 - 產生與清理" %}
+{% set title = "初始化 - 完成" %}
 {% block step_body %}
 <div class="card">
   <header class="card-header">
-    <p class="card-header-title">
-      <i class="fas fa-cog mr-2"></i> Step: 產生與清理
-    </p>
+    <p class="card-header-title"><i class="fas fa-flag-checkered mr-2"></i> 完成設定</p>
   </header>
   <div class="card-content">
-    <p>Placeholder, will be filled in tasks 18-22.</p>
+    <h4 class="title is-5">將要產生的檔案</h4>
+    <p class="content has-text-grey">這些檔案會寫入專案的 <code>.github/</code> 目錄。可重複執行（會覆蓋）。</p>
+
+    <div class="field">
+      <label class="checkbox">
+        <input type="checkbox" id="opt-pr" checked>
+        <code>.github/PULL_REQUEST_TEMPLATE.md</code> — 雙 checklist（出題人 + 驗題人）
+      </label>
+    </div>
+    <div class="field">
+      <label class="checkbox">
+        <input type="checkbox" id="opt-co" checked>
+        <code>.github/CODEOWNERS</code> — 留空 placeholder
+      </label>
+    </div>
+    <div class="field">
+      <label class="checkbox">
+        <input type="checkbox" id="opt-bp" checked>
+        <code>.github/branch-protection.md</code> — 設定指引（含 gh CLI 指令）
+      </label>
+    </div>
+
+    <hr>
+    <h4 class="title is-5 has-text-danger">清理冗餘驗題欄位（不可逆）</h4>
+    <div class="notification is-warning is-light">
+      <p id="legacy-status">偵測中…</p>
+    </div>
+    <div class="field">
+      <label class="checkbox" id="cleanup-label" style="display:none">
+        <input type="checkbox" id="opt-cleanup">
+        執行清理（將從 challenges/ 下的 private.yml/public.yml 移除
+        <code>reviewer</code>、<code>validation_status</code>、<code>internal_validation_notes</code> 三個 key）
+      </label>
+    </div>
   </div>
 </div>
+
+<div class="field is-grouped mt-4">
+  <p class="control">
+    <button type="button" class="button is-danger" id="run-finalize">執行</button>
+  </p>
+  <p class="control"><a class="button is-text" href="{{ url_for('setup_step', step='quota') }}">回上一步</a></p>
+</div>
+
+<div id="finalize-result" class="mt-4"></div>
+
+<script>
+async function loadLegacy() {
+  const resp = await fetch("{{ url_for('api_setup_legacy_count') }}");
+  const body = await resp.json();
+  const status = document.getElementById('legacy-status');
+  const label = document.getElementById('cleanup-label');
+  if (body.count > 0) {
+    status.innerHTML = `偵測到 <strong>${body.count}</strong> 個檔案含舊驗題欄位：<ul>` +
+      body.files.map(f => `<li><code>${f}</code></li>`).join('') + '</ul>';
+    label.style.display = 'block';
+  } else {
+    status.textContent = '未偵測到含舊欄位的檔案 — 此步可跳過。';
+    label.style.display = 'none';
+  }
+}
+
+document.getElementById('run-finalize').addEventListener('click', async () => {
+  const payload = {
+    generate_pr_template: document.getElementById('opt-pr').checked,
+    generate_codeowners: document.getElementById('opt-co').checked,
+    generate_branch_protection_doc: document.getElementById('opt-bp').checked,
+    cleanup_legacy: document.getElementById('opt-cleanup')?.checked ?? false,
+  };
+  if (payload.cleanup_legacy && !confirm('確定要執行清理？這會從現有 YAML 中移除三個 key，不可逆。')) {
+    return;
+  }
+  const resp = await fetch("{{ url_for('setup_step_save', step='finalize') }}", {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  const result = await resp.json();
+  const out = document.getElementById('finalize-result');
+  out.innerHTML = `<div class="notification is-success"><strong>完成。</strong><ul>` +
+    (result.actions || []).map(a => `<li>${a}</li>`).join('') + '</ul></div>';
+  loadLegacy();
+});
+
+loadLegacy();
+</script>
 {% endblock %}

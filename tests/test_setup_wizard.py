@@ -275,3 +275,29 @@ def test_post_setup_quota_writes_dict(client, temp_config):
     raw = yaml.safe_load(temp_config.read_text())
     assert raw["challenge_quota"]["by_category"] == {"web": 6, "pwn": 4, "crypto": 3}
     assert raw["challenge_quota"]["total_target"] == 13
+
+
+def test_finalize_generates_github_files(client, temp_config, tmp_path):
+    resp = client.post("/setup/finalize", json={
+        "generate_pr_template": True,
+        "generate_codeowners": True,
+        "generate_branch_protection_doc": True,
+        "cleanup_legacy": False,
+    })
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["status"] == "success"
+    pr_tmpl = tmp_path / ".github" / "PULL_REQUEST_TEMPLATE.md"
+    codeowners = tmp_path / ".github" / "CODEOWNERS"
+    bp_doc = tmp_path / ".github" / "branch-protection.md"
+    assert pr_tmpl.exists()
+    assert codeowners.exists()
+    assert bp_doc.exists()
+    assert "出題人 Checklist" in pr_tmpl.read_text()
+
+
+def test_legacy_count_endpoint_returns_zero_for_clean_repo(client):
+    resp = client.get("/api/setup/legacy-count")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["count"] == 0

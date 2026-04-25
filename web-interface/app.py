@@ -1906,6 +1906,17 @@ def api_update_settings():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route("/api/setup/legacy-count", methods=["GET"])
+def api_setup_legacy_count():
+    """回傳含舊驗題欄位的檔案數與路徑清單。"""
+    from setup_helpers import detect_legacy_validation_fields
+    paths = detect_legacy_validation_fields(CHALLENGES_DIR)
+    return jsonify({
+        "count": len(paths),
+        "files": [str(p.relative_to(BASE_DIR)) for p in paths],
+    })
+
+
 # ===== 靜態檔案服務 =====
 
 
