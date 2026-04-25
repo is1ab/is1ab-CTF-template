@@ -153,3 +153,57 @@ def detect_legacy_validation_fields(challenges_root: Path) -> List[Path]:
         if any(key in data for key in LEGACY_KEYS):
             found.append(yml_path)
     return found
+
+
+@dataclass
+class ChangeReport:
+    """cleanup_legacy_validation_fields 的回傳結果。"""
+    dry_run: bool
+    files_changed: List[Path] = field(default_factory=list)
+    keys_removed: Dict[Path, List[str]] = field(default_factory=dict)
+
+
+def cleanup_legacy_validation_fields(
+    challenges_root: Path,
+    dry_run: bool = True,
+) -> ChangeReport:
+    """從 challenges_root 下的 private.yml / public.yml 移除冗餘 key。
+
+    dry_run=True：只回報、不寫檔。
+    dry_run=False：實際寫檔。
+    """
+    challenges_root = Path(challenges_root)
+    report = ChangeReport(dry_run=dry_run)
+
+    for yml_path in detect_legacy_validation_fields(challenges_root):
+        try:
+            with yml_path.open("r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        except (OSError, yaml.YAMLError):
+            continue
+        if not isinstance(data, dict):
+            continue
+
+        removed_keys: List[str] = []
+        for key in LEGACY_KEYS:
+            if key in data:
+                removed_keys.append(key)
+                data.pop(key, None)
+
+        if not removed_keys:
+            continue
+
+        report.files_changed.append(yml_path)
+        report.keys_removed[yml_path] = removed_keys
+
+        if not dry_run:
+            with yml_path.open("w", encoding="utf-8") as f:
+                yaml.dump(
+                    data,
+                    f,
+                    default_flow_style=False,
+                    allow_unicode=True,
+                    sort_keys=False,
+                )
+
+    return report

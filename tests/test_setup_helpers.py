@@ -112,3 +112,29 @@ def test_detect_legacy_handles_missing_root(tmp_path):
 
     paths = detect_legacy_validation_fields(tmp_path / "does_not_exist")
     assert paths == []
+
+
+def test_cleanup_dry_run_does_not_modify_files(tmp_path):
+    from setup_helpers import cleanup_legacy_validation_fields
+
+    challenges = tmp_path / "challenges" / "web" / "legacy"
+    challenges.mkdir(parents=True)
+    private_yml = challenges / "private.yml"
+    public_yml = challenges / "public.yml"
+    private_yml.write_text(LEGACY_PRIVATE_YML)
+    public_yml.write_text(LEGACY_PUBLIC_YML)
+
+    private_before = private_yml.read_text()
+    public_before = public_yml.read_text()
+
+    report = cleanup_legacy_validation_fields(tmp_path / "challenges", dry_run=True)
+
+    # 檔案內容未動
+    assert private_yml.read_text() == private_before
+    assert public_yml.read_text() == public_before
+
+    # 報告內容
+    assert report.dry_run is True
+    assert len(report.files_changed) == 2
+    assert any("reviewer" in keys for keys in report.keys_removed.values())
+    assert any("validation_status" in keys for keys in report.keys_removed.values())
