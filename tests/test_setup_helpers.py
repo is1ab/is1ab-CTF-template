@@ -138,3 +138,54 @@ def test_cleanup_dry_run_does_not_modify_files(tmp_path):
     assert len(report.files_changed) == 2
     assert any("reviewer" in keys for keys in report.keys_removed.values())
     assert any("validation_status" in keys for keys in report.keys_removed.values())
+
+
+def test_cleanup_apply_removes_keys(tmp_path):
+    import yaml as _yaml
+    from setup_helpers import cleanup_legacy_validation_fields
+
+    challenges = tmp_path / "challenges" / "web" / "legacy"
+    challenges.mkdir(parents=True)
+    private_yml = challenges / "private.yml"
+    public_yml = challenges / "public.yml"
+    private_yml.write_text(LEGACY_PRIVATE_YML)
+    public_yml.write_text(LEGACY_PUBLIC_YML)
+
+    report = cleanup_legacy_validation_fields(tmp_path / "challenges", dry_run=False)
+
+    assert report.dry_run is False
+    assert len(report.files_changed) == 2
+
+    private_after = _yaml.safe_load(private_yml.read_text())
+    public_after = _yaml.safe_load(public_yml.read_text())
+
+    # 三個 key 都應該被移除
+    for key in ("reviewer", "validation_status", "internal_validation_notes"):
+        assert key not in private_after
+        assert key not in public_after
+
+    # 其他 key 應保留
+    assert private_after["title"] == "Legacy Web"
+    assert private_after["author"] == "alice"
+    assert private_after["flag"] == "is1abCTF{legacy_test_flag}"
+
+
+def test_cleanup_apply_idempotent_on_clean_files(tmp_path):
+    from setup_helpers import cleanup_legacy_validation_fields
+
+    challenges = tmp_path / "challenges" / "web" / "clean"
+    challenges.mkdir(parents=True)
+    private_yml = challenges / "private.yml"
+    public_yml = challenges / "public.yml"
+    private_yml.write_text(CLEAN_PRIVATE_YML)
+    public_yml.write_text(CLEAN_PUBLIC_YML)
+
+    private_before = private_yml.read_text()
+    public_before = public_yml.read_text()
+
+    report = cleanup_legacy_validation_fields(tmp_path / "challenges", dry_run=False)
+
+    # 沒有冗餘欄位 → 不應該變動
+    assert report.files_changed == []
+    assert private_yml.read_text() == private_before
+    assert public_yml.read_text() == public_before
