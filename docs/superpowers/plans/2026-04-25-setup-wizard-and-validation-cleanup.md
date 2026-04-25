@@ -10,6 +10,8 @@
 
 **Spec:** [`docs/superpowers/specs/2026-04-25-setup-wizard-and-validation-cleanup-design.md`](../specs/2026-04-25-setup-wizard-and-validation-cleanup-design.md)
 
+> **Plan amendment (2026-04-25, after Task 1)**: repo 的 pre-commit hook 阻擋任何 `private.yml` 檔進 git。Fixture 改用 `tests/fixtures/yaml_strings.py` 內嵌四個 Python 字串常數（`LEGACY_PRIVATE_YML` / `LEGACY_PUBLIC_YML` / `CLEAN_PRIVATE_YML` / `CLEAN_PUBLIC_YML`）。Tasks 5-8 的測試範例若引用 `(FIXTURES / "legacy_challenge" / "private.yml").read_text()` 一律改為直接使用對應字串常數，並用 `(tmp_path / "private.yml").write_text(LEGACY_PRIVATE_YML)` 寫入 tmp_path。
+
 ---
 
 ## File Structure
