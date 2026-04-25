@@ -30,7 +30,9 @@
 title: "題目標題"                    # 必填：顯示給參賽者的題目名稱
 category: "web"                      # 必填：web | pwn | reverse | crypto | forensic | misc
 difficulty: "easy"                   # 必填：baby | easy | middle | hard | impossible
-author: "AuthorName"                 # 必填：題目作者
+author: "AuthorName"                 # 必填：題目作者（出題人）
+reviewer: "ReviewerName"            # 建議：驗題負責人（團隊內約定，與出題人可分離）
+validation_status: "pending"         # 建議：pending | approved | rejected（納入驗題流程的題目）
 points: 100                          # 必填：題目分數
 description: |                       # 必填：題目描述（多行文字）
   這是題目的詳細描述。
@@ -101,6 +103,10 @@ description: |
 # Flag 資訊（敏感）
 flag: "is1abCTF{actual_flag_here}"  # 必填：實際的 flag
 flag_type: "static"                 # 必填：static | dynamic | regex
+
+# 驗題內部紀錄（不進 public）
+internal_validation_notes: |       # 可選：驗題通過/退回的時間序備註（Web 驗題分頁會 append）
+  [2026-01-01T00:00:00] reviewer: approve — 敘述
 ```
 
 ### 可選欄位

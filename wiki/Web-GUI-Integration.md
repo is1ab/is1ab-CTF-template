@@ -6,6 +6,8 @@
 
 Web GUI (`web-interface/`) 是一個基於 Flask 的 Web 管理介面，提供視覺化的題目管理功能。本文檔說明它與新安全流程的整合情況。
 
+**操作與建立方式（含 CLI 對照、出題人／驗題人、配額）**：見專案內 [docs/authoring-challenges.md](../docs/authoring-challenges.md)；啟動步驟見 [web-interface/USAGE.md](../web-interface/USAGE.md)。
+
 ## ✅ 兼容性分析
 
 ### 已兼容的功能

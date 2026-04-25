@@ -22,6 +22,15 @@ python app.py
 
 打開瀏覽器訪問：<http://localhost:8004>
 
+## 📝 建題與驗題（與 CLI 雙管道）
+
+- **與命令列等價**：專案根目錄的 `uv run python scripts/create-challenge.py ...` 與本介面的「**創建挑戰**」**擇一即可**，都會建立 `challenges/<類別>/<名稱>/` 及 `public.yml` / `private.yml`。
+- **事前設定**：在專案根目錄 `config.yml` 填寫 `team.default_author`（出題人預設值）、`team.reviewers`（驗題人建議清單），並依比賽計畫設定 `challenge_quota`（各類型／難度題目**數量**）。
+- **新專案起手式**：建議先到導航列「**初始化**」頁（`/setup`）一次填完：題目配額、出題人/驗題人、舉辦時間與死線，再開始建題。
+- **建題頁**（「創建挑戰」）：需填**出題人**、**驗題人**、類別、難度、題目類型等；分數可隨難度自動帶入。
+- **驗題頁**（導航列「**驗題**」）：對 `validation_status` 非 `approved` 的題目執行通過／退回；紀錄寫入 `private.yml` 的 `internal_validation_notes`。
+- **完整說明**（雙方式對照、欄位意義）見專案 `docs/authoring-challenges.md`。
+
 ## 📁 目錄結構
 
 ```

@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import yaml
+import subprocess
+import time
 
 # Flask 相關套件
 from flask import (
@@ -72,20 +74,43 @@ class CTFManager:
                 raw_config = yaml.safe_load(config_file)
 
             # 適配配置結構
+            project = raw_config.get("project", {}) or {}
+            team = raw_config.get("team", {}) or {}
+            reviewers = team.get("reviewers") or []
+            if isinstance(reviewers, list):
+                reviewers = [r for r in reviewers if r and str(r).strip()]
+            else:
+                reviewers = []
+
+            authors = team.get("authors") or []
+            if isinstance(authors, list):
+                authors = [a for a in authors if a and str(a).strip()]
+            else:
+                authors = []
+
+            event = raw_config.get("event", {}) or {}
+
             config = {
-                "competition_name": raw_config.get("project", {}).get(
-                    "name", "IS1AB CTF"
-                ),
-                "organization": raw_config.get("project", {}).get(
-                    "organization", "IS1AB"
-                ),
-                "description": raw_config.get("project", {}).get(
-                    "description", "IS1AB CTF Competition"
-                ),
+                "competition_name": project.get("name", "IS1AB CTF"),
+                "organization": project.get("organization", "IS1AB"),
+                "description": project.get("description", "IS1AB CTF Competition"),
+                "year": project.get("year", ""),
+                "event": {
+                    "start_date": (event.get("start_date") or "").strip(),
+                    "end_date": (event.get("end_date") or "").strip(),
+                    "authoring_deadline": (event.get("authoring_deadline") or "").strip(),
+                    "review_deadline": (event.get("review_deadline") or "").strip(),
+                    "freeze_deadline": (event.get("freeze_deadline") or "").strip(),
+                },
+                "deployment": raw_config.get("deployment", {}) or {},
+                "platform": raw_config.get("platform", {}) or {},
                 "categories": ["web", "pwn", "crypto", "misc", "reverse", "forensic"],
                 "difficulties": ["baby", "easy", "middle", "hard", "impossible"],
                 "challenge_quota": raw_config.get("challenge_quota", {}),
                 "points": raw_config.get("points", {}),
+                "default_author": (team.get("default_author") or "").strip(),
+                "reviewers": reviewers,
+                "authors": authors,
             }
 
             # 從 challenge_quota 提取類別
@@ -110,7 +135,310 @@ class CTFManager:
                 "description": "IS1AB CTF Competition",
                 "categories": ["web", "pwn", "crypto", "misc", "reverse"],
                 "difficulties": ["baby", "easy", "middle", "hard"],
+                "default_author": "",
+                "reviewers": [],
+                "authors": [],
+                "year": "",
+                "event": {
+                    "start_date": "",
+                    "end_date": "",
+                    "authoring_deadline": "",
+                    "review_deadline": "",
+                    "freeze_deadline": "",
+                },
+                "deployment": {},
+                "platform": {},
             }
+
+    def guess_git_author(self) -> str:
+        """從 git config 推測作者名稱（user.name），失敗則回傳空字串。"""
+        try:
+            proc = subprocess.run(
+                ["git", "config", "--get", "user.name"],
+                cwd=str(BASE_DIR),
+                capture_output=True,
+                text=True,
+            )
+            if proc.returncode == 0:
+                return (proc.stdout or "").strip()
+        except Exception:
+            return ""
+        return ""
+
+    def get_setup_missing_items(self) -> List[str]:
+        """檢查全新專案初始化是否已完成。回傳缺少的項目描述清單。"""
+        missing: List[str] = []
+
+        quota = self.config.get("challenge_quota") or {}
+        by_category = (quota.get("by_category") or {}) if isinstance(quota, dict) else {}
+        by_difficulty = (quota.get("by_difficulty") or {}) if isinstance(quota, dict) else {}
+        total_target = quota.get("total_target") if isinstance(quota, dict) else None
+
+        if not isinstance(by_category, dict) or not by_category:
+            missing.append("題目類型 / 分類配額（challenge_quota.by_category）")
+        if not isinstance(by_difficulty, dict) or not by_difficulty:
+            missing.append("難度配額（challenge_quota.by_difficulty）")
+        if not total_target:
+            missing.append("總題目數目標（challenge_quota.total_target）")
+
+        if not (self.config.get("default_author") or "").strip():
+            missing.append("預設出題人（team.default_author）")
+        reviewers = self.config.get("reviewers") or []
+        if not isinstance(reviewers, list) or len(reviewers) == 0:
+            missing.append("驗題人清單（team.reviewers）")
+
+        event = self.config.get("event") or {}
+        if not (event.get("start_date") or "").strip():
+            missing.append("舉辦開始時間（event.start_date）")
+        if not (event.get("end_date") or "").strip():
+            missing.append("舉辦結束時間（event.end_date）")
+        if not (event.get("authoring_deadline") or "").strip():
+            missing.append("出題截止（event.authoring_deadline）")
+        if not (event.get("review_deadline") or "").strip():
+            missing.append("驗題截止（event.review_deadline）")
+        if not (event.get("freeze_deadline") or "").strip():
+            missing.append("凍結截止（event.freeze_deadline）")
+
+        return missing
+
+    def is_setup_complete(self) -> bool:
+        return len(self.get_setup_missing_items()) == 0
+
+    def save_setup(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """更新 config.yml 的初始化欄位（僅限必要區塊）。"""
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as config_file:
+                raw_config = yaml.safe_load(config_file) or {}
+        except FileNotFoundError:
+            raw_config = {}
+
+        if not isinstance(raw_config, dict):
+            raw_config = {}
+
+        raw_config.setdefault("project", {})
+        raw_config.setdefault("team", {})
+        raw_config.setdefault("challenge_quota", {})
+        raw_config.setdefault("event", {})
+
+        project = raw_config.get("project") or {}
+        team = raw_config.get("team") or {}
+        quota = raw_config.get("challenge_quota") or {}
+        event = raw_config.get("event") or {}
+
+        project["name"] = (data.get("project_name") or project.get("name") or "").strip()
+        project["organization"] = (data.get("organization") or project.get("organization") or "").strip()
+        project["description"] = (data.get("description") or project.get("description") or "").strip()
+        year = (data.get("year") or project.get("year") or "").strip()
+        if year:
+            project["year"] = int(year) if str(year).isdigit() else year
+
+        team["default_author"] = (data.get("default_author") or "").strip()
+        reviewers_raw = data.get("reviewers") or ""
+        reviewers = [r.strip() for r in str(reviewers_raw).split(",") if r.strip()]
+        team["reviewers"] = reviewers
+
+        authors_raw = data.get("authors") or ""
+        authors = [a.strip() for a in str(authors_raw).split(",") if a.strip()]
+        team["authors"] = authors
+
+        def _parse_quota_map(text: str) -> Dict[str, int]:
+            result: Dict[str, int] = {}
+            for pair in [p.strip() for p in str(text or "").split(",") if p.strip()]:
+                if ":" not in pair:
+                    continue
+                k, v = pair.split(":", 1)
+                k = k.strip()
+                v = v.strip()
+                if not k:
+                    continue
+                try:
+                    result[k] = int(v)
+                except ValueError:
+                    continue
+            return result
+
+        by_category_text = data.get("by_category") or ""
+        by_difficulty_text = data.get("by_difficulty") or ""
+        if by_category_text:
+            quota["by_category"] = _parse_quota_map(by_category_text)
+        if by_difficulty_text:
+            quota["by_difficulty"] = _parse_quota_map(by_difficulty_text)
+        total_target = (data.get("total_target") or "").strip()
+        if total_target:
+            try:
+                quota["total_target"] = int(total_target)
+            except ValueError:
+                pass
+
+        event["start_date"] = (data.get("start_date") or "").strip()
+        event["end_date"] = (data.get("end_date") or "").strip()
+        event["authoring_deadline"] = (data.get("authoring_deadline") or "").strip()
+        event["review_deadline"] = (data.get("review_deadline") or "").strip()
+        event["freeze_deadline"] = (data.get("freeze_deadline") or "").strip()
+
+        raw_config["project"] = project
+        raw_config["team"] = team
+        raw_config["challenge_quota"] = quota
+        raw_config["event"] = event
+
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            yaml.dump(
+                raw_config,
+                f,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=False,
+            )
+
+        self.config = self.load_config()
+        remaining = self.get_setup_missing_items()
+        if remaining:
+            return {
+                "status": "error",
+                "message": "初始化設定尚未完整，仍缺少: " + "、".join(remaining),
+            }
+        return {"status": "success", "message": "初始化設定完成"}
+
+    def update_config(self, patch: Dict[str, Any]) -> Dict[str, Any]:
+        """以白名單方式更新 config.yml 指定區塊。"""
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as config_file:
+                raw_config = yaml.safe_load(config_file) or {}
+        except FileNotFoundError:
+            raw_config = {}
+
+        if not isinstance(raw_config, dict):
+            raw_config = {}
+
+        raw_config.setdefault("team", {})
+        raw_config.setdefault("event", {})
+        raw_config.setdefault("points", {})
+        raw_config.setdefault("challenge_quota", {})
+        raw_config.setdefault("deployment", {})
+        raw_config.setdefault("platform", {})
+
+        team = raw_config.get("team") or {}
+        event = raw_config.get("event") or {}
+        points = raw_config.get("points") or {}
+        quota = raw_config.get("challenge_quota") or {}
+        deployment = raw_config.get("deployment") or {}
+        platform = raw_config.get("platform") or {}
+
+        if "team" in patch:
+            team_patch = patch.get("team") or {}
+            if "default_author" in team_patch:
+                team["default_author"] = (team_patch.get("default_author") or "").strip()
+            if "reviewers" in team_patch:
+                reviewers = team_patch.get("reviewers") or []
+                if isinstance(reviewers, str):
+                    reviewers = [r.strip() for r in reviewers.split(",") if r.strip()]
+                if isinstance(reviewers, list):
+                    team["reviewers"] = [str(r).strip() for r in reviewers if str(r).strip()]
+            if "authors" in team_patch:
+                authors = team_patch.get("authors") or []
+                if isinstance(authors, str):
+                    authors = [a.strip() for a in authors.split(",") if a.strip()]
+                if isinstance(authors, list):
+                    team["authors"] = [str(a).strip() for a in authors if str(a).strip()]
+
+        if "event" in patch:
+            event_patch = patch.get("event") or {}
+            for k in [
+                "start_date",
+                "end_date",
+                "authoring_deadline",
+                "review_deadline",
+                "freeze_deadline",
+            ]:
+                if k in event_patch:
+                    event[k] = (event_patch.get(k) or "").strip()
+
+        if "points" in patch:
+            pts_patch = patch.get("points") or {}
+            new_points: Dict[str, int] = {}
+            for k, v in pts_patch.items():
+                key = str(k).strip()
+                if not key:
+                    continue
+                try:
+                    new_points[key] = int(v)
+                except (ValueError, TypeError):
+                    continue
+            if not new_points:
+                return {"status": "error", "message": "分數設定不可為空，請至少提供一個難度分數"}
+            raw_config["points"] = new_points
+
+        if "challenge_quota" in patch:
+            quota_patch = patch.get("challenge_quota") or {}
+            quota.setdefault("by_category", {})
+            quota.setdefault("by_difficulty", {})
+            for map_key in ["by_category", "by_difficulty"]:
+                if map_key in quota_patch:
+                    incoming = quota_patch.get(map_key) or {}
+                    if isinstance(incoming, str):
+                        # 支援 "web:6, pwn:6" 格式
+                        parsed: Dict[str, int] = {}
+                        for pair in [p.strip() for p in incoming.split(",") if p.strip()]:
+                            if ":" not in pair:
+                                continue
+                            kk, vv = pair.split(":", 1)
+                            kk = kk.strip()
+                            vv = vv.strip()
+                            if not kk:
+                                continue
+                            try:
+                                parsed[kk] = int(vv)
+                            except ValueError:
+                                continue
+                        incoming = parsed
+                    if isinstance(incoming, dict):
+                        cleaned: Dict[str, int] = {}
+                        for kk, vv in incoming.items():
+                            kks = str(kk).strip()
+                            if not kks:
+                                continue
+                            try:
+                                cleaned[kks] = int(vv)
+                            except (ValueError, TypeError):
+                                continue
+                        quota[map_key] = cleaned
+            if "total_target" in quota_patch:
+                try:
+                    quota["total_target"] = int(quota_patch.get("total_target"))
+                except (ValueError, TypeError):
+                    pass
+
+        if "deployment" in patch:
+            dep_patch = patch.get("deployment") or {}
+            for k in ["host", "port_range", "docker_registry", "ssh_user"]:
+                if k in dep_patch:
+                    deployment[k] = (dep_patch.get(k) or "").strip()
+
+        if "platform" in patch:
+            plat_patch = patch.get("platform") or {}
+            for k in ["gzctf_url", "ctfd_url", "zipline_url"]:
+                if k in plat_patch:
+                    platform[k] = (plat_patch.get(k) or "").strip()
+
+        raw_config["team"] = team
+        raw_config["event"] = event
+        raw_config["challenge_quota"] = quota
+        raw_config["deployment"] = deployment
+        raw_config["platform"] = platform
+        if "points" not in raw_config:
+            raw_config["points"] = points
+
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            yaml.dump(
+                raw_config,
+                f,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=False,
+            )
+
+        self.config = self.load_config()
+        return {"status": "success", "message": "設定已更新"}
 
     def get_challenges_with_quota(self) -> Dict[str, Any]:
         """獲取挑戰列表並包含配額信息"""
@@ -228,6 +556,242 @@ class CTFManager:
 
         return stats
 
+    def get_validation_queue(self) -> List[Dict[str, Any]]:
+        """待驗題清單：僅包含已標記 validation_status 且非 approved 的題目（新流程）。"""
+        pending: List[Dict[str, Any]] = []
+        for challenge in self.get_challenges():
+            status = challenge.get("validation_status")
+            if status is None:
+                continue
+            if status != "approved":
+                pending.append(challenge)
+        pending.sort(
+            key=lambda c: (c.get("category", ""), c.get("name", "")),
+        )
+        return pending
+
+    def review_challenge(
+        self,
+        category: str,
+        name: str,
+        action: str,
+        actor: str,
+        notes: str = "",
+    ) -> Dict[str, Any]:
+        """更新驗題狀態（寫入 private.yml 並同步 public.yml）。"""
+        valid_actions = {"approve", "reject", "pending"}
+        if action not in valid_actions:
+            return {
+                "status": "error",
+                "message": f"無效動作，請使用: {', '.join(sorted(valid_actions))}",
+            }
+        if not actor.strip():
+            return {"status": "error", "message": "請提供驗題人識別（actor）"}
+
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml_path = challenge_path / "private.yml"
+        if not private_yml_path.exists():
+            return {"status": "error", "message": "題目不存在或缺少 private.yml"}
+
+        with open(private_yml_path, "r", encoding="utf-8") as file:
+            updated_config = yaml.safe_load(file) or {}
+
+        status_map = {
+            "approve": "approved",
+            "reject": "rejected",
+            "pending": "pending",
+        }
+        updated_config["validation_status"] = status_map[action]
+        prev_notes = updated_config.get("internal_validation_notes") or ""
+        timestamp = datetime.now().isoformat()
+        line = f"[{timestamp}] {actor.strip()}: {action} — {notes.strip()}"
+        updated_config["internal_validation_notes"] = (
+            (prev_notes + "\n" if prev_notes else "") + line
+        ).strip()
+        updated_config["updated_at"] = timestamp
+
+        with open(private_yml_path, "w", encoding="utf-8") as file:
+            yaml.dump(
+                updated_config,
+                file,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=False,
+            )
+
+        public_config = {
+            k: v
+            for k, v in updated_config.items()
+            if not k.startswith(("flag", "solution_", "internal_", "testing"))
+        }
+        if "hints" in public_config:
+            public_config["hints"] = [
+                {"level": h["level"], "cost": h["cost"]}
+                for h in public_config.get("hints", [])
+                if isinstance(h, dict)
+            ]
+        public_yml_path = challenge_path / "public.yml"
+        with open(public_yml_path, "w", encoding="utf-8") as file:
+            yaml.dump(
+                public_config,
+                file,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=False,
+            )
+
+        return {
+            "status": "success",
+            "message": f"驗題狀態已更新為 {updated_config['validation_status']}",
+            "data": {
+                "validation_status": updated_config["validation_status"],
+            },
+        }
+
+    def _append_internal_log(
+        self,
+        category: str,
+        name: str,
+        line: str,
+    ) -> None:
+        challenge_path = CHALLENGES_DIR / category / name
+        private_yml_path = challenge_path / "private.yml"
+        if not private_yml_path.exists():
+            raise FileNotFoundError("題目不存在或缺少 private.yml")
+        with open(private_yml_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        prev = cfg.get("internal_validation_notes") or ""
+        cfg["internal_validation_notes"] = ((prev + "\n" if prev else "") + line).strip()
+        cfg["updated_at"] = datetime.now().isoformat()
+        with open(private_yml_path, "w", encoding="utf-8") as f:
+            yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+    def run_scan_secrets(self, category: str, name: str) -> Dict[str, Any]:
+        """對單一題目執行敏感資料掃描（scan-secrets.py）。"""
+        challenge_path = CHALLENGES_DIR / category / name
+        if not challenge_path.exists():
+            return {"status": "error", "message": "題目不存在"}
+
+        cmd = [
+            "python",
+            str(BASE_DIR / "scripts" / "scan-secrets.py"),
+            "--path",
+            str(challenge_path),
+            "--verbose",
+        ]
+        started = time.time()
+        proc = subprocess.run(
+            cmd,
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+        )
+        elapsed_ms = int((time.time() - started) * 1000)
+        output = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
+        status = "success" if proc.returncode == 0 else "error"
+        line = f"[{datetime.now().isoformat()}] scan-secrets exit={proc.returncode} elapsed_ms={elapsed_ms}"
+        self._append_internal_log(category, name, line)
+        return {
+            "status": status,
+            "message": "掃描完成" if status == "success" else "掃描失敗",
+            "data": {
+                "exit_code": proc.returncode,
+                "elapsed_ms": elapsed_ms,
+                "output": output.strip(),
+            },
+        }
+
+    def run_build_public(self, category: str, name: str, force: bool = True) -> Dict[str, Any]:
+        """對單一題目執行 public-release 建置（build.sh）。"""
+        challenge_path = CHALLENGES_DIR / category / name
+        if not challenge_path.exists():
+            return {"status": "error", "message": "題目不存在"}
+
+        cmd = [
+            str(BASE_DIR / "scripts" / "build.sh"),
+            "--challenge",
+            str(challenge_path),
+        ]
+        if force:
+            cmd.append("--force")
+
+        started = time.time()
+        proc = subprocess.run(
+            cmd,
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+        )
+        elapsed_ms = int((time.time() - started) * 1000)
+        output = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
+        status = "success" if proc.returncode == 0 else "error"
+        line = f"[{datetime.now().isoformat()}] build.sh exit={proc.returncode} elapsed_ms={elapsed_ms}"
+        self._append_internal_log(category, name, line)
+        return {
+            "status": status,
+            "message": "建置完成" if status == "success" else "建置失敗",
+            "data": {
+                "exit_code": proc.returncode,
+                "elapsed_ms": elapsed_ms,
+                "output": output.strip(),
+            },
+        }
+
+    def run_build_all_public(self, force: bool = True) -> Dict[str, Any]:
+        """建置所有題目到 public-release（build.sh）。"""
+        cmd = [str(BASE_DIR / "scripts" / "build.sh")]
+        if force:
+            cmd.append("--force")
+
+        started = time.time()
+        proc = subprocess.run(
+            cmd,
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+        )
+        elapsed_ms = int((time.time() - started) * 1000)
+        output = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
+
+        status = "success" if proc.returncode == 0 else "error"
+        return {
+            "status": status,
+            "message": "建置完成" if status == "success" else "建置失敗",
+            "data": {
+                "exit_code": proc.returncode,
+                "elapsed_ms": elapsed_ms,
+                "output": output.strip(),
+            },
+        }
+
+    def run_sync_to_public(self) -> Dict[str, Any]:
+        """同步 ready_for_release 題目到 public-release（sync-to-public.py）。"""
+        cmd = [
+            "python",
+            str(BASE_DIR / "scripts" / "sync-to-public.py"),
+            "--config",
+            str(BASE_DIR / "config.yml"),
+        ]
+        started = time.time()
+        proc = subprocess.run(
+            cmd,
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+        )
+        elapsed_ms = int((time.time() - started) * 1000)
+        output = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
+        status = "success" if proc.returncode == 0 else "error"
+        return {
+            "status": status,
+            "message": "同步完成" if status == "success" else "同步失敗",
+            "data": {
+                "exit_code": proc.returncode,
+                "elapsed_ms": elapsed_ms,
+                "output": output.strip(),
+            },
+        }
+
     def create_challenge(self, challenge_data: Dict[str, Any]) -> Dict[str, Any]:
         """創建新挑戰"""
         try:
@@ -235,15 +799,42 @@ class CTFManager:
             name = challenge_data.get("name", "").strip()
             category = challenge_data.get("category", "").strip()
             difficulty = challenge_data.get("difficulty", "easy").strip()
-            author = challenge_data.get("author", "IS1AB").strip()
+            author = (challenge_data.get("author") or "").strip()
+            reviewer = (challenge_data.get("reviewer") or "").strip()
             description = challenge_data.get("description", "").strip()
             challenge_type = challenge_data.get(
                 "challenge_type", "static_container"
             ).strip()
 
+            valid_categories = list(self.config.get("categories", [])) or [
+                "web",
+                "pwn",
+                "reverse",
+                "crypto",
+                "forensic",
+                "misc",
+            ]
+
             # 基本驗證
             if not name or not category:
                 return {"status": "error", "message": "題目名稱和分類不能為空"}
+
+            # 出題人：可填寫；若空白則使用 config 的 team.default_author，再不行就抓 git user.name
+            if not author:
+                author = (self.config.get("default_author") or "").strip()
+            if not author:
+                author = self.guess_git_author()
+            if not author:
+                return {
+                    "status": "error",
+                    "message": "請填寫出題人，或在專案根目錄 config.yml 設定 team.default_author / team.authors，或先設定 git user.name",
+                }
+
+            if not reviewer:
+                return {
+                    "status": "error",
+                    "message": "請填寫驗題人（或從建議名單選取）；亦可在 config.yml 的 team.reviewers 建立建議驗題人清單",
+                }
 
             # 驗證名稱格式
             if not name.replace("_", "").replace("-", "").isalnum():
@@ -253,7 +844,6 @@ class CTFManager:
                 }
 
             # 驗證分類
-            valid_categories = ["web", "pwn", "reverse", "crypto", "forensic", "misc"]
             if category not in valid_categories:
                 return {
                     "status": "error",
@@ -288,6 +878,9 @@ class CTFManager:
             private_config = {
                 "title": challenge_data.get("title", name),
                 "author": author,
+                "reviewer": reviewer,
+                "validation_status": "pending",
+                "internal_validation_notes": "",
                 "difficulty": difficulty,
                 "category": category,
                 "description": description,
@@ -537,6 +1130,9 @@ tail -f /dev/null
             updatable_fields = [
                 "title",
                 "author",
+                "reviewer",
+                "validation_status",
+                "internal_validation_notes",
                 "difficulty",
                 "description",
                 "challenge_type",
@@ -656,7 +1252,40 @@ def challenges_list():
 @app.route("/create")
 def create_challenge_form():
     """創建挑戰表單頁面"""
+    if not ctf_manager.is_setup_complete():
+        return render_template(
+            "setup.html",
+            config=ctf_manager.config,
+            missing=ctf_manager.get_setup_missing_items(),
+        )
     return render_template("create_challenge.html", config=ctf_manager.config)
+
+
+@app.route("/validation")
+def validation_queue():
+    """驗題佇列：待驗題 / 已拒絕之題目"""
+    if not ctf_manager.is_setup_complete():
+        return render_template(
+            "setup.html",
+            config=ctf_manager.config,
+            missing=ctf_manager.get_setup_missing_items(),
+        )
+    queue = ctf_manager.get_validation_queue()
+    return render_template(
+        "validation.html",
+        config=ctf_manager.config,
+        queue=queue,
+    )
+
+
+@app.route("/setup")
+def setup():
+    """全新專案初始化設定頁"""
+    return render_template(
+        "setup.html",
+        config=ctf_manager.config,
+        missing=ctf_manager.get_setup_missing_items(),
+    )
 
 
 @app.route("/challenges/<category>/<name>")
@@ -759,6 +1388,77 @@ def api_challenges():
         return jsonify({"status": "success", "data": challenges})
     except Exception as challenges_error:
         return jsonify({"status": "error", "message": str(challenges_error)}), 500
+
+
+@app.route(
+    "/api/challenges/<string:category>/<string:name>/review",
+    methods=["POST"],
+)
+def api_review_challenge(category: str, name: str):
+    """更新驗題狀態（通過 / 退回 / 標示待驗）"""
+    try:
+        body = request.get_json() or {}
+        action = (body.get("action") or "").strip().lower()
+        actor = (body.get("actor") or body.get("reviewer") or "").strip()
+        notes = (body.get("notes") or "").strip()
+        result = ctf_manager.review_challenge(category, name, action, actor, notes)
+        if result["status"] == "success":
+            return jsonify(result)
+        return jsonify(result), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/challenges/<string:category>/<string:name>/scan", methods=["POST"])
+def api_scan_challenge(category: str, name: str):
+    """對單一題目執行敏感資料掃描。"""
+    try:
+        result = ctf_manager.run_scan_secrets(category, name)
+        if result["status"] == "success":
+            return jsonify(result)
+        return jsonify(result), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/challenges/<string:category>/<string:name>/build", methods=["POST"])
+def api_build_challenge(category: str, name: str):
+    """對單一題目執行 public-release 建置。"""
+    try:
+        body = request.get_json() or {}
+        force = bool(body.get("force", True))
+        result = ctf_manager.run_build_public(category, name, force=force)
+        if result["status"] == "success":
+            return jsonify(result)
+        return jsonify(result), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/public-release/build", methods=["POST"])
+def api_build_public_release():
+    """建置所有題目到 public-release。"""
+    try:
+        body = request.get_json() or {}
+        force = bool(body.get("force", True))
+        result = ctf_manager.run_build_all_public(force=force)
+        if result["status"] == "success":
+            return jsonify(result)
+        return jsonify(result), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/public-release/sync", methods=["POST"])
+def api_sync_public_release():
+    """同步 ready_for_release 題目到 public-release（不推送遠端）。"""
+    try:
+        result = ctf_manager.run_sync_to_public()
+        if result["status"] == "success":
+            return jsonify(result)
+        return jsonify(result), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route("/api/challenges", methods=["POST"])
@@ -915,6 +1615,42 @@ def api_validate_challenge(challenge_path: str):
 def api_config():
     """獲取配置 API"""
     return jsonify({"status": "success", "data": ctf_manager.config})
+
+
+@app.route("/api/setup", methods=["POST"])
+def api_setup():
+    """寫入初始化設定到 config.yml"""
+    try:
+        body = request.get_json() or {}
+        result = ctf_manager.save_setup(body)
+        if result["status"] == "success":
+            return jsonify(result)
+        return jsonify(result), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/git-user")
+def api_git_user():
+    """取得本機 git user.name（用於建題時快速填入出題人）。"""
+    try:
+        name = ctf_manager.guess_git_author()
+        return jsonify({"status": "success", "data": {"user_name": name}})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/settings", methods=["POST"])
+def api_update_settings():
+    """更新 config.yml（分數/配額/團隊/時間等）。"""
+    try:
+        body = request.get_json() or {}
+        result = ctf_manager.update_config(body)
+        if result["status"] == "success":
+            return jsonify(result)
+        return jsonify(result), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # ===== 靜態檔案服務 =====

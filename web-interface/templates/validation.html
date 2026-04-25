@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% set title = "驗題佇列" %}
+{% block content %}
+<section class="hero is-link is-small">
+  <div class="hero-body">
+    <div class="container">
+      <h1 class="title">
+        <i class="fas fa-user-check mr-2"></i>
+        驗題佇列
+      </h1>
+      <p class="subtitle">
+        顯示已進入驗題流程且尚未通過的題目（<code>validation_status</code> ≠
+        <code>approved</code>）
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="notification is-info is-light mb-4">
+      <p>
+        在「創建挑戰」建立的新題目會帶有 <code>validation_status: pending</code>。驗題人可在下方標記
+        <strong>通過</strong> 或 <strong>退回</strong>；通過/退回紀錄會寫入各題
+        <code>private.yml</code> 的
+        <code>internal_validation_notes</code>（不會出現在
+        <code>public.yml</code>）。
+      </p>
+    </div>
+
+    {% if not queue or queue|length == 0 %}
+    <div class="box has-text-centered">
+      <p class="is-size-5">目前沒有待驗題目。</p>
+      <p class="mt-2">
+        若舊題目沒有 <code>validation_status</code> 欄位，將不會出現在此清單；請手動在
+        <code>public.yml</code> 加上
+        <code>validation_status: pending</code> 以納入流程。
+      </p>
+      <a class="button is-primary mt-3" href="{{ url_for('create_challenge_form') }}">
+        建立新題目
+      </a>
+    </div>
+    {% else %}
+    <div class="table-container">
+      <table class="table is-fullwidth is-striped is-hoverable">
+        <thead>
+          <tr>
+            <th>題目</th>
+            <th>路徑</th>
+            <th>出題人</th>
+            <th>驗題人</th>
+            <th>狀態</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in queue %}
+          <tr>
+            <td>{{ c.get('title', c.name) }}</td>
+            <td>
+              <code>{{ c.category }}/{{ c.name }}</code>
+            </td>
+            <td>{{ c.get('author', '—') }}</td>
+            <td>{{ c.get('reviewer', '—') }}</td>
+            <td>
+              <span
+                class="tag {% if c.get('validation_status') == 'rejected' %}is-danger{% else %}is-warning{% endif %}"
+              >
+                {{ c.get('validation_status', 'pending') }}
+              </span>
+            </td>
+            <td>
+              <div class="buttons are-small">
+                <button
+                  type="button"
+                  class="button is-success"
+                  data-cat="{{ c.category }}"
+                  data-name="{{ c.name }}"
+                  data-action="approve"
+                >
+                  通過
+                </button>
+                <button
+                  type="button"
+                  class="button is-danger"
+                  data-cat="{{ c.category }}"
+                  data-name="{{ c.name }}"
+                  data-action="reject"
+                >
+                  退回
+                </button>
+                <button
+                  type="button"
+                  class="button is-light"
+                  data-cat="{{ c.category }}"
+                  data-name="{{ c.name }}"
+                  data-action="pending"
+                >
+                  改回待驗
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll("button[data-action]").forEach((btn) => {
+    btn.addEventListener("click", function () {
+      const category = this.getAttribute("data-cat");
+      const name = this.getAttribute("data-name");
+      const action = this.getAttribute("data-action");
+      const actor = window.prompt("驗題人 / 執行人識別（必填）", "");
+      if (!actor || !actor.trim()) {
+        return;
+      }
+      const notes = window.prompt("備註（可留空）", "") || "";
+      this.disabled = true;
+      fetch(`/api/challenges/${encodeURIComponent(category)}/${encodeURIComponent(name)}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, actor: actor.trim(), notes }),
+      })
+        .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+        .then(({ ok, j }) => {
+          if (ok && j.status === "success") {
+            window.location.reload();
+          } else {
+            alert((j && j.message) || "操作失敗");
+            this.disabled = false;
+          }
+        })
+        .catch(() => {
+          alert("請求失敗");
+          this.disabled = false;
+        });
+    });
+  });
+</script>
+{% endblock %}

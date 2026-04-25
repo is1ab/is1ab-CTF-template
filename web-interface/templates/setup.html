@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% set title = "初始化設定" %}
+{% block content %}
+<section class="hero is-warning is-small">
+  <div class="hero-body">
+    <div class="container">
+      <h1 class="title">
+        <i class="fas fa-wand-magic-sparkles mr-2"></i>
+        初始化設定（新專案）
+      </h1>
+      <p class="subtitle">
+        第一次使用請先完成專案與配額設定，才能開始建立題目與驗題流程
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    {% if missing and missing|length > 0 %}
+    <div class="notification is-danger is-light">
+      <p class="title is-6 mb-2">
+        <i class="fas fa-triangle-exclamation mr-2"></i>
+        目前仍缺少以下必要設定
+      </p>
+      <ul>
+        {% for item in missing %}
+        <li><strong>{{ item }}</strong></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+    <div class="notification is-success is-light">
+      <strong>初始化設定已完成。</strong> 你可以前往「創建挑戰」開始建立題目。
+      <a class="button is-small is-success ml-2" href="{{ url_for('create_challenge_form') }}">前往建題</a>
+    </div>
+    {% endif %}
+
+    <div class="columns is-centered">
+      <div class="column is-three-quarters">
+        <div class="card">
+          <header class="card-header">
+            <p class="card-header-title">
+              <i class="fas fa-list-check mr-2"></i>
+              初始化資訊（會寫入專案根目錄的 <code>config.yml</code>）
+            </p>
+          </header>
+          <div class="card-content">
+            <form id="setupForm">
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label">競賽名稱</label>
+                    <div class="control">
+                      <input class="input" type="text" name="project_name" value="{{ config.competition_name }}" />
+                    </div>
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="field">
+                    <label class="label">組織 / 團隊</label>
+                    <div class="control">
+                      <input class="input" type="text" name="organization" value="{{ config.organization }}" />
+                    </div>
+                  </div>
+                </div>
+                <div class="column is-one-quarter">
+                  <div class="field">
+                    <label class="label">年份</label>
+                    <div class="control">
+                      <input class="input" type="text" name="year" value="{{ config.year }}" placeholder="2026" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="label">描述</label>
+                <div class="control">
+                  <textarea class="textarea" name="description" rows="2">{{ config.description }}</textarea>
+                </div>
+              </div>
+
+              <hr />
+
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label">預設出題人（必填）</label>
+                    <div class="control">
+                      <input class="input" type="text" name="default_author" value="{{ config.default_author }}" placeholder="例如：YourName" required />
+                    </div>
+                    <p class="help">建題時若未填出題人，將使用此預設值。</p>
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="field">
+                    <label class="label">驗題人清單（必填）</label>
+                    <div class="control">
+                      <input class="input" type="text" name="reviewers" value="{{ (config.reviewers|join(', ')) if config.reviewers else '' }}" placeholder="以逗號分隔，例如：alice, bob" required />
+                    </div>
+                    <p class="help">驗題分配用；Web 建題可從此清單快速選取。</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="label">出題人清單（可選，逗號分隔）</label>
+                <div class="control">
+                  <input
+                    class="input"
+                    type="text"
+                    name="authors"
+                    value="{{ (config.authors|join(', ')) if config.authors else '' }}"
+                    placeholder="alice, bob, charlie"
+                  />
+                </div>
+                <p class="help">
+                  用於建題時快速選取出題人；若沒填，也可依序使用 <code>team.default_author</code> 與 <code>git user.name</code>
+                </p>
+              </div>
+
+              <hr />
+
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label">舉辦開始時間（必填）</label>
+                    <div class="control">
+                      <input class="input" type="text" name="start_date" value="{{ config.event.start_date }}" placeholder="YYYY-MM-DD 或 ISO8601" required />
+                    </div>
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="field">
+                    <label class="label">舉辦結束時間（必填）</label>
+                    <div class="control">
+                      <input class="input" type="text" name="end_date" value="{{ config.event.end_date }}" placeholder="YYYY-MM-DD 或 ISO8601" required />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label">出題截止（必填）</label>
+                    <div class="control">
+                      <input class="input" type="text" name="authoring_deadline" value="{{ config.event.authoring_deadline }}" placeholder="YYYY-MM-DD" required />
+                    </div>
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="field">
+                    <label class="label">驗題截止（必填）</label>
+                    <div class="control">
+                      <input class="input" type="text" name="review_deadline" value="{{ config.event.review_deadline }}" placeholder="YYYY-MM-DD" required />
+                    </div>
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="field">
+                    <label class="label">凍結截止（必填）</label>
+                    <div class="control">
+                      <input class="input" type="text" name="freeze_deadline" value="{{ config.event.freeze_deadline }}" placeholder="YYYY-MM-DD" required />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <hr />
+
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label">題目類型/分類配額（必填）</label>
+                    <div class="control">
+                      <input class="input" type="text" name="by_category" placeholder="格式：web:6, pwn:6, crypto:4" />
+                    </div>
+                    <p class="help">用逗號分隔，每項為 <code>key:value</code>。留空則不覆寫現有設定。</p>
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="field">
+                    <label class="label">難度配額（必填）</label>
+                    <div class="control">
+                      <input class="input" type="text" name="by_difficulty" placeholder="格式：baby:8, easy:10, middle:8" />
+                    </div>
+                    <p class="help">用逗號分隔，每項為 <code>key:value</code>。留空則不覆寫現有設定。</p>
+                  </div>
+                </div>
+                <div class="column is-one-quarter">
+                  <div class="field">
+                    <label class="label">總題目數目標（必填）</label>
+                    <div class="control">
+                      <input class="input" type="number" name="total_target" min="1" placeholder="32" />
+                    </div>
+                    <p class="help">留空則不覆寫現有設定。</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field is-grouped is-grouped-right">
+                <div class="control">
+                  <button class="button is-primary" type="submit" id="setupSubmit">
+                    <span class="icon"><i class="fas fa-floppy-disk"></i></span>
+                    <span>儲存初始化設定</span>
+                  </button>
+                </div>
+              </div>
+
+              <p class="help mt-3">
+                這會直接更新專案根目錄的 <code>config.yml</code>。若你想手動編輯，也可以照
+                <code>docs/authoring-challenges.md</code> 的說明修改。
+              </p>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  document.getElementById("setupForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const submitBtn = document.getElementById("setupSubmit");
+    const original = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML =
+      '<span class="icon"><i class="fas fa-spinner fa-pulse"></i></span><span>儲存中...</span>';
+
+    const data = Object.fromEntries(new FormData(this).entries());
+    fetch("/api/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    })
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => {
+        if (ok && j.status === "success") {
+          window.location.href = "/create";
+        } else {
+          alert((j && j.message) || "儲存失敗");
+        }
+      })
+      .catch(() => alert("請求失敗"))
+      .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = original;
+      });
+  });
+</script>
+{% endblock %}
+
