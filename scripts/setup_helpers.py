@@ -43,3 +43,21 @@ def generate_pr_template(config: Dict[str, Any]) -> str:
     `config` 目前未使用，保留以利未來依專案個性化（例如 flag_prefix）。
     """
     return PR_TEMPLATE
+
+
+CODEOWNERS_TEMPLATE = """# CODEOWNERS — 留空 placeholder
+#
+# 本專案不指派固定 reviewer，任一團隊成員 approve PR 即可（驗題流程）。
+# 若需要特定路徑由特定人審，自行加規則，例如：
+#
+# /challenges/web/   @alice
+# /challenges/pwn/   @bob
+"""
+
+
+def generate_codeowners(config: Dict[str, Any]) -> str:
+    """產生 .github/CODEOWNERS 留空 placeholder。
+
+    `config` 目前未使用，保留以利未來依 team.members 自動產生範例規則。
+    """
+    return CODEOWNERS_TEMPLATE
