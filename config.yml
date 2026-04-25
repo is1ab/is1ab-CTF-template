@@ -160,6 +160,10 @@ security:
     - "secret_key"
     - "verified_solutions"
     - "exploits"
+    # 防呆：舊版驗題流程的三欄位（新流程已移除，但若舊題目殘留則不公開）
+    - "reviewer"
+    - "validation_status"
+    - "internal_validation_notes"
 
   # 敏感內容模式（正規表達式）
   sensitive_patterns:
