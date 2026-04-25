@@ -1,0 +1,11 @@
+title: Legacy Web
+author: alice
+reviewer: bob
+validation_status: pending
+difficulty: easy
+category: web
+points: 100
+hints:
+  - level: 1
+    cost: 0
+    content: hint
