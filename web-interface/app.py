@@ -737,98 +737,6 @@ class CTFManager:
 
         return stats
 
-    def get_validation_queue(self) -> List[Dict[str, Any]]:
-        """待驗題清單：僅包含已標記 validation_status 且非 approved 的題目（新流程）。"""
-        pending: List[Dict[str, Any]] = []
-        for challenge in self.get_challenges():
-            status = challenge.get("validation_status")
-            if status is None:
-                continue
-            if status != "approved":
-                pending.append(challenge)
-        pending.sort(
-            key=lambda c: (c.get("category", ""), c.get("name", "")),
-        )
-        return pending
-
-    def review_challenge(
-        self,
-        category: str,
-        name: str,
-        action: str,
-        actor: str,
-        notes: str = "",
-    ) -> Dict[str, Any]:
-        """更新驗題狀態（寫入 private.yml 並同步 public.yml）。"""
-        valid_actions = {"approve", "reject", "pending"}
-        if action not in valid_actions:
-            return {
-                "status": "error",
-                "message": f"無效動作，請使用: {', '.join(sorted(valid_actions))}",
-            }
-        if not actor.strip():
-            return {"status": "error", "message": "請提供驗題人識別（actor）"}
-
-        challenge_path = CHALLENGES_DIR / category / name
-        private_yml_path = challenge_path / "private.yml"
-        if not private_yml_path.exists():
-            return {"status": "error", "message": "題目不存在或缺少 private.yml"}
-
-        with open(private_yml_path, "r", encoding="utf-8") as file:
-            updated_config = yaml.safe_load(file) or {}
-
-        status_map = {
-            "approve": "approved",
-            "reject": "rejected",
-            "pending": "pending",
-        }
-        updated_config["validation_status"] = status_map[action]
-        prev_notes = updated_config.get("internal_validation_notes") or ""
-        timestamp = datetime.now().isoformat()
-        line = f"[{timestamp}] {actor.strip()}: {action} — {notes.strip()}"
-        updated_config["internal_validation_notes"] = (
-            (prev_notes + "\n" if prev_notes else "") + line
-        ).strip()
-        updated_config["updated_at"] = timestamp
-
-        with open(private_yml_path, "w", encoding="utf-8") as file:
-            yaml.dump(
-                updated_config,
-                file,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
-
-        public_config = {
-            k: v
-            for k, v in updated_config.items()
-            if not k.startswith(("flag", "solution_", "internal_", "testing"))
-        }
-        if "hints" in public_config:
-            public_config["hints"] = [
-                {"level": h["level"], "cost": h["cost"]}
-                for h in public_config.get("hints", [])
-                if isinstance(h, dict)
-            ]
-        public_yml_path = challenge_path / "public.yml"
-        with open(public_yml_path, "w", encoding="utf-8") as file:
-            yaml.dump(
-                public_config,
-                file,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
-
-        return {
-            "status": "success",
-            "message": f"驗題狀態已更新為 {updated_config['validation_status']}",
-            "data": {
-                "validation_status": updated_config["validation_status"],
-            },
-        }
-
     def _append_internal_log(
         self,
         category: str,
@@ -1442,23 +1350,6 @@ def create_challenge_form():
     return render_template("create_challenge.html", config=ctf_manager.config)
 
 
-@app.route("/validation")
-def validation_queue():
-    """驗題佇列：待驗題 / 已拒絕之題目"""
-    if not ctf_manager.is_setup_complete():
-        return render_template(
-            "setup.html",
-            config=ctf_manager.config,
-            missing=ctf_manager.get_setup_missing_items(),
-        )
-    queue = ctf_manager.get_validation_queue()
-    return render_template(
-        "validation.html",
-        config=ctf_manager.config,
-        queue=queue,
-    )
-
-
 SETUP_STEPS = ["project", "team", "event", "quota", "finalize"]
 
 
@@ -1641,25 +1532,6 @@ def api_challenges():
         return jsonify({"status": "success", "data": challenges})
     except Exception as challenges_error:
         return jsonify({"status": "error", "message": str(challenges_error)}), 500
-
-
-@app.route(
-    "/api/challenges/<string:category>/<string:name>/review",
-    methods=["POST"],
-)
-def api_review_challenge(category: str, name: str):
-    """更新驗題狀態（通過 / 退回 / 標示待驗）"""
-    try:
-        body = request.get_json() or {}
-        action = (body.get("action") or "").strip().lower()
-        actor = (body.get("actor") or body.get("reviewer") or "").strip()
-        notes = (body.get("notes") or "").strip()
-        result = ctf_manager.review_challenge(category, name, action, actor, notes)
-        if result["status"] == "success":
-            return jsonify(result)
-        return jsonify(result), 400
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route("/api/challenges/<string:category>/<string:name>/scan", methods=["POST"])

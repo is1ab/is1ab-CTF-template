@@ -301,3 +301,13 @@ def test_legacy_count_endpoint_returns_zero_for_clean_repo(client):
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["count"] == 0
+
+
+def test_validation_route_returns_404(client):
+    resp = client.get("/validation")
+    assert resp.status_code == 404
+
+
+def test_api_review_route_returns_404(client):
+    resp = client.post("/api/challenges/web/foo/review", json={"action": "approve", "actor": "x"})
+    assert resp.status_code == 404
