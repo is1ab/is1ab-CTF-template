@@ -94,6 +94,7 @@ def test_reviewer_flag_no_longer_exists(isolated_repo):
 
 
 def test_generated_private_yml_has_no_validation_keys(isolated_repo):
+    """private.yml 模板不應包含驗題三鍵（reviewer / validation_status / internal_validation_notes）"""
     import yaml as _yaml
 
     result = subprocess.run(
