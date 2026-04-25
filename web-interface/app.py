@@ -88,6 +88,41 @@ class CTFManager:
             else:
                 authors = []
 
+            # team.members（新 schema）
+            raw_members = team.get("members") or []
+            members: List[Dict[str, str]] = []
+            seen_usernames: set = set()
+            if isinstance(raw_members, list):
+                for entry in raw_members:
+                    if not isinstance(entry, dict):
+                        continue
+                    username = str(entry.get("github_username") or "").strip()
+                    if not username or username in seen_usernames:
+                        continue
+                    seen_usernames.add(username)
+                    members.append({
+                        "github_username": username,
+                        "display_name": str(entry.get("display_name") or username).strip(),
+                        "specialty": str(entry.get("specialty") or "").strip(),
+                    })
+
+            # Backward compat: 若 members 為空但舊欄位有值，自動遷移
+            if not members:
+                default_author = (team.get("default_author") or "").strip()
+                migrate_pool = list(reviewers) + list(authors)
+                if default_author:
+                    migrate_pool.append(default_author)
+                for username in migrate_pool:
+                    username = str(username).strip()
+                    if not username or username in seen_usernames:
+                        continue
+                    seen_usernames.add(username)
+                    members.append({
+                        "github_username": username,
+                        "display_name": username,
+                        "specialty": "",
+                    })
+
             event = raw_config.get("event", {}) or {}
 
             config = {
@@ -95,6 +130,7 @@ class CTFManager:
                 "organization": project.get("organization", "IS1AB"),
                 "description": project.get("description", "IS1AB CTF Competition"),
                 "year": project.get("year", ""),
+                "project_flag_prefix": (project.get("flag_prefix") or "").strip(),
                 "event": {
                     "start_date": (event.get("start_date") or "").strip(),
                     "end_date": (event.get("end_date") or "").strip(),
@@ -111,6 +147,7 @@ class CTFManager:
                 "default_author": (team.get("default_author") or "").strip(),
                 "reviewers": reviewers,
                 "authors": authors,
+                "members": members,
             }
 
             # 從 challenge_quota 提取類別
@@ -138,6 +175,8 @@ class CTFManager:
                 "default_author": "",
                 "reviewers": [],
                 "authors": [],
+                "members": [],
+                "project_flag_prefix": "",
                 "year": "",
                 "event": {
                     "start_date": "",

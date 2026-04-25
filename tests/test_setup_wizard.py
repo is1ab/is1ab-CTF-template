@@ -1,0 +1,175 @@
+"""Integration tests for /setup wizard and team.members schema."""
+import importlib
+import sys
+from pathlib import Path
+
+import pytest
+import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+WEB_DIR = REPO_ROOT / "web-interface"
+sys.path.insert(0, str(WEB_DIR))
+
+import app as _app_module  # noqa: E402  (imported for monkeypatch string resolution)
+
+
+@pytest.fixture
+def temp_config(tmp_path, monkeypatch):
+    """Provide an isolated temp config.yml and reload app module with patched paths."""
+    cfg = tmp_path / "config.yml"
+    (tmp_path / "challenges").mkdir()
+
+    # Reload app so module-level code re-runs (clears any prior state).
+    importlib.reload(_app_module)
+
+    # After reload the module-level constants are reset — patch them now.
+    monkeypatch.setattr(_app_module, "CONFIG_FILE", cfg)
+    monkeypatch.setattr(_app_module, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(_app_module, "CHALLENGES_DIR", tmp_path / "challenges")
+
+    return cfg
+
+
+def test_load_config_migrates_old_reviewers_authors(temp_config):
+    temp_config.write_text(yaml.safe_dump({
+        "project": {"name": "t", "flag_prefix": "testCTF"},
+        "team": {
+            "default_author": "alice",
+            "reviewers": ["bob", "carol"],
+            "authors": ["alice", "dave"],
+        },
+        "points": {"easy": 100},
+    }))
+
+    mgr = _app_module.CTFManager()
+
+    members = mgr.config.get("members") or []
+    usernames = {m["github_username"] for m in members}
+    # 預期：合併 reviewers + authors + default_author，去重
+    assert usernames == {"alice", "bob", "carol", "dave"}
+    # display_name 預設等於 github_username
+    for m in members:
+        assert m.get("display_name") == m["github_username"]
+        assert m.get("specialty", "") == ""
+
+
+def test_load_config_reads_native_members(temp_config):
+    temp_config.write_text(yaml.safe_dump({
+        "project": {"name": "t", "flag_prefix": "testCTF"},
+        "team": {
+            "members": [
+                {"github_username": "alice", "display_name": "Alice", "specialty": "web"},
+                {"github_username": "bob", "display_name": "Bob", "specialty": "pwn"},
+            ],
+        },
+        "points": {"easy": 100},
+    }))
+
+    mgr = _app_module.CTFManager()
+
+    members = mgr.config.get("members") or []
+    assert len(members) == 2
+    assert members[0]["github_username"] == "alice"
+    assert members[0]["specialty"] == "web"
+
+
+def test_compute_step_status_empty_config(temp_config):
+    temp_config.write_text(yaml.safe_dump({
+        "project": {"name": "", "flag_prefix": ""},
+        "team": {},
+        "event": {},
+        "challenge_quota": {},
+        "points": {"easy": 100},
+    }))
+
+    mgr = _app_module.CTFManager()
+
+    statuses = mgr.compute_step_status()
+    assert statuses == {
+        "project": "pending",
+        "team": "pending",
+        "event": "pending",
+        "quota": "pending",
+        "finalize": "pending",
+    }
+
+
+def test_compute_step_status_all_done(temp_config, tmp_path):
+    # 預先建立 .github 檔案模擬 finalize 已跑過
+    gh_dir = tmp_path / ".github"
+    gh_dir.mkdir()
+    (gh_dir / "PULL_REQUEST_TEMPLATE.md").write_text("dummy")
+    (gh_dir / "CODEOWNERS").write_text("dummy")
+
+    temp_config.write_text(yaml.safe_dump({
+        "project": {"name": "is1ab-CTF", "flag_prefix": "is1abCTF"},
+        "team": {
+            "members": [{"github_username": "alice", "display_name": "Alice"}],
+        },
+        "event": {"start_date": "2026-05-01", "end_date": "2026-05-30"},
+        "challenge_quota": {
+            "by_category": {"web": 6},
+            "by_difficulty": {"easy": 10},
+            "total_target": 16,
+        },
+        "points": {"easy": 100},
+    }))
+
+    mgr = _app_module.CTFManager()
+
+    statuses = mgr.compute_step_status()
+    assert statuses["project"] == "done"
+    assert statuses["team"] == "done"
+    assert statuses["event"] == "done"
+    assert statuses["quota"] == "done"
+    assert statuses["finalize"] == "done"
+
+
+def test_save_step_project_writes_only_project_fields(temp_config):
+    temp_config.write_text(yaml.safe_dump({
+        "project": {"name": "old"},
+        "team": {"default_author": "preserved"},
+    }))
+
+    mgr = _app_module.CTFManager()
+    result = mgr.save_setup_step("project", {
+        "project_name": "new-name",
+        "organization": "is1ab",
+        "flag_prefix": "is1abCTF",
+        "year": "2026",
+        "description": "desc",
+    })
+
+    assert result["status"] == "success"
+    raw = yaml.safe_load(temp_config.read_text())
+    assert raw["project"]["name"] == "new-name"
+    assert raw["project"]["flag_prefix"] == "is1abCTF"
+    # team 區塊不被改動
+    assert raw["team"]["default_author"] == "preserved"
+
+
+def test_save_step_team_replaces_members_list(temp_config):
+    temp_config.write_text(yaml.safe_dump({"team": {}}))
+
+    mgr = _app_module.CTFManager()
+    result = mgr.save_setup_step("team", {
+        "members": [
+            {"github_username": "alice", "display_name": "Alice", "specialty": "web"},
+            {"github_username": "bob", "display_name": "Bob", "specialty": ""},
+        ],
+        "default_author": "",
+    })
+
+    assert result["status"] == "success"
+    raw = yaml.safe_load(temp_config.read_text())
+    assert raw["team"]["members"] == [
+        {"github_username": "alice", "display_name": "Alice", "specialty": "web"},
+        {"github_username": "bob", "display_name": "Bob", "specialty": ""},
+    ]
+
+
+def test_save_step_invalid_step_returns_error(temp_config):
+    temp_config.write_text(yaml.safe_dump({}))
+    mgr = _app_module.CTFManager()
+    result = mgr.save_setup_step("not_a_step", {})
+    assert result["status"] == "error"
