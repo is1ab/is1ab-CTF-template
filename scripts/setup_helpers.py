@@ -125,3 +125,31 @@ def generate_branch_protection_doc(config: Dict[str, Any]) -> str:
         organization=organization,
         repo_name=repo_name,
     )
+
+
+LEGACY_KEYS = ("reviewer", "validation_status", "internal_validation_notes")
+
+
+def detect_legacy_validation_fields(challenges_root: Path) -> List[Path]:
+    """掃 challenges_root 下的 private.yml / public.yml，回傳含有冗餘 key 的檔案路徑。
+
+    冗餘 key：reviewer, validation_status, internal_validation_notes
+    """
+    challenges_root = Path(challenges_root)
+    if not challenges_root.exists():
+        return []
+
+    found: List[Path] = []
+    for yml_path in sorted(challenges_root.rglob("*.yml")):
+        if yml_path.name not in {"private.yml", "public.yml"}:
+            continue
+        try:
+            with yml_path.open("r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        except (OSError, yaml.YAMLError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        if any(key in data for key in LEGACY_KEYS):
+            found.append(yml_path)
+    return found

@@ -77,3 +77,38 @@ def test_generate_branch_protection_doc_handles_missing_org():
     text = generate_branch_protection_doc({})
     assert "your-org" in text
     assert "your-repo" in text
+
+
+def test_detect_legacy_finds_legacy_files(tmp_path):
+    from setup_helpers import detect_legacy_validation_fields
+
+    challenges = tmp_path / "challenges" / "web" / "legacy"
+    challenges.mkdir(parents=True)
+    (challenges / "private.yml").write_text(LEGACY_PRIVATE_YML)
+    (challenges / "public.yml").write_text(LEGACY_PUBLIC_YML)
+
+    paths = detect_legacy_validation_fields(tmp_path / "challenges")
+
+    # 兩個檔都該被偵測（private 含三 key、public 含 validation_status）
+    assert len(paths) == 2
+    names = {p.name for p in paths}
+    assert names == {"private.yml", "public.yml"}
+
+
+def test_detect_legacy_skips_clean_files(tmp_path):
+    from setup_helpers import detect_legacy_validation_fields
+
+    challenges = tmp_path / "challenges" / "web" / "clean"
+    challenges.mkdir(parents=True)
+    (challenges / "private.yml").write_text(CLEAN_PRIVATE_YML)
+    (challenges / "public.yml").write_text(CLEAN_PUBLIC_YML)
+
+    paths = detect_legacy_validation_fields(tmp_path / "challenges")
+    assert paths == []
+
+
+def test_detect_legacy_handles_missing_root(tmp_path):
+    from setup_helpers import detect_legacy_validation_fields
+
+    paths = detect_legacy_validation_fields(tmp_path / "does_not_exist")
+    assert paths == []
