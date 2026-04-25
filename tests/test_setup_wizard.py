@@ -230,3 +230,20 @@ def test_post_setup_project_writes_config(client, temp_config):
     assert raw["project"]["flag_prefix"] == "is1abCTF"
     assert raw["platform"]["gzctf_url"] == "http://gzctf.example"
     assert raw["deployment"]["host"] == "10.0.0.1"
+
+
+def test_post_setup_team_replaces_members(client, temp_config):
+    payload = {
+        "default_author": "alice",
+        "members": [
+            {"github_username": "alice", "display_name": "Alice", "specialty": "web"},
+            {"github_username": "bob", "display_name": "Bob", "specialty": "pwn"},
+        ],
+    }
+    resp = client.post("/setup/team", json=payload)
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "success"
+    raw = yaml.safe_load(temp_config.read_text())
+    assert raw["team"]["default_author"] == "alice"
+    assert len(raw["team"]["members"]) == 2
+    assert raw["team"]["members"][1]["github_username"] == "bob"
