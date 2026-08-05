@@ -112,7 +112,9 @@ class SecretsScanner:
             # Flag 格式
             (rf'{self.flag_prefix}\{{[^}}]+\}}', Severity.CRITICAL, 'Flag 洩漏'),
             # 通用 CTF Flag 格式
-            (r'[A-Za-z0-9_]+CTF\{[^}]+\}', Severity.HIGH, '可能的 Flag 格式'),
+            # 同時涵蓋 xxxCTF{...} 與 FLAG{...}：只比對 CTF{ 會讓 FLAG{...}
+            # 這類常見寫法完全偵測不到（範例題目就是這樣漏掉的）
+            (r'[A-Za-z0-9_]*(?:CTF|FLAG)\{[^}]+\}', Severity.HIGH, '可能的 Flag 格式'),
             # Base64 編碼的 Flag（64+ 字元以減少假陽性）
             (r'[A-Za-z0-9+/]{64,}={0,2}', Severity.MEDIUM, '可能的 Base64 編碼'),
             # 硬編碼密碼
@@ -131,6 +133,12 @@ class SecretsScanner:
             (r'(mysql|postgres|mongodb)://[^:]+:[^@]+@', Severity.HIGH, '資料庫連接字串'),
         ]
         
+        # Flag 樣式（供 Dockerfile / docker-compose 等特殊掃描共用）
+        # 除了本專案設定的 flag_prefix，也涵蓋通用的 xxxCTF{...} 與 FLAG{...}
+        self.flag_like_regex = (
+            rf'(?:{re.escape(self.flag_prefix)}|[A-Za-z0-9_]*(?:CTF|FLAG))\{{[^}}]+\}}'
+        )
+
         # 要跳過的目錄
         self.skip_dirs = {
             '.git', '__pycache__', 'node_modules', '.venv', 'venv',
@@ -221,14 +229,18 @@ class SecretsScanner:
                 lines = content.split('\n')
             
             # 根據檔案類型進行特殊處理
-            if file_path.suffix.lower() in ('.yml', '.yaml'):
+            # 注意：docker-compose.yml 的副檔名就是 .yml，若先比對副檔名會讓
+            # _scan_docker_compose 永遠執行不到，必須先比對檔名；
+            # 而它同時也是一般 YAML，因此兩種掃描都要跑。
+            if file_path.name in ('docker-compose.yml', 'docker-compose.yaml'):
+                self._scan_docker_compose(file_path, content)
+                self._scan_yaml_file(file_path, content)
+            elif file_path.suffix.lower() in ('.yml', '.yaml'):
                 self._scan_yaml_file(file_path, content)
             elif file_path.suffix.lower() == '.json':
                 self._scan_json_file(file_path, content)
             elif file_path.name == 'Dockerfile':
                 self._scan_dockerfile(file_path, content)
-            elif file_path.name == 'docker-compose.yml':
-                self._scan_docker_compose(file_path, content)
             
             # 掃描敏感模式
             self._scan_patterns(file_path, lines)
@@ -324,7 +336,7 @@ class SecretsScanner:
         for line_num, line in enumerate(lines, 1):
             # 檢查 ENV 指令中的敏感資訊
             if line.strip().startswith('ENV'):
-                if re.search(rf'{self.flag_prefix}\{{[^}}]+\}}', line):
+                if re.search(self.flag_like_regex, line, re.IGNORECASE) and not self._is_false_positive(line, line):
                     self.result.findings.append(Finding(
                         file_path=str(file_path),
                         line_number=line_num,
@@ -349,7 +361,7 @@ class SecretsScanner:
                     for env in environment:
                         if isinstance(env, str) and '=' in env:
                             key, value = env.split('=', 1)
-                            if re.search(rf'{self.flag_prefix}\{{[^}}]+\}}', value):
+                            if re.search(self.flag_like_regex, value, re.IGNORECASE) and not self._is_false_positive(value, env):
                                 self.result.findings.append(Finding(
                                     file_path=str(file_path),
                                     line_number=0,
@@ -361,7 +373,7 @@ class SecretsScanner:
                                 ))
                 elif isinstance(environment, dict):
                     for key, value in environment.items():
-                        if value and re.search(rf'{self.flag_prefix}\{{[^}}]+\}}', str(value)):
+                        if value and re.search(self.flag_like_regex, str(value), re.IGNORECASE) and not self._is_false_positive(str(value), f'{key}={value}'):
                             self.result.findings.append(Finding(
                                 file_path=str(file_path),
                                 line_number=0,
