@@ -138,9 +138,9 @@ allowed_files:
   - "docker/**"
   - "attachments/*"
 
-deployment:
-  type: "static"
+deploy_info:
   port: 3000
+  requires_build: false
 
 tags:
   - "beginner"

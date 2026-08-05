@@ -44,7 +44,9 @@ ready_for_release: false            # 必填：是否準備好發布到 Public R
 
 ```yaml
 # 題目類型
-challenge_type: "static_attachment"  # static_attachment | web_challenge | nc_challenge
+# 合法值以 scripts/validate-challenge.py 的 valid_types 為準，共五種：
+challenge_type: "static_attachment"
+# static_attachment | static_container | dynamic_attachment | dynamic_container | nc_challenge
 
 # 標籤和分類
 tags:                                # 可選：題目標籤
@@ -72,10 +74,18 @@ files:                               # 可選：提供給選手的檔案列表
     size: 1024
 
 # 部署資訊
-deployment:                          # 可選：部署配置
-  type: "dynamic"                   # static | dynamic
-  port: 3000
+# 注意：欄位名稱是 deploy_info，不是 deployment。
+# （config.yml 頂層的 deployment: 是專案級部署設定，與題目層級無關，兩者不要混淆）
+deploy_info:                         # 可選：部署配置
+  port: 8080                        # 服務端口
+  url: ""                           # 部署後的 URL（比賽時填入）
+  requires_build: true              # 是否需要 Docker 建構
   nc_port: 9999                     # NC 題目專用
+  timeout: 60                       # NC 題目專用：連線逾時（秒）
+  connection_type: "nc"             # NC 題目專用
+  resources:                        # 資源限制（會轉為部署平台的 limits）
+    memory: "256Mi"
+    cpu: "100m"
 
 # 時間戳記
 created_at: "2024-01-01T00:00:00Z"  # 可選：創建時間
@@ -160,7 +170,7 @@ description: |
   
   提示：試試看萬能密碼吧！
 
-challenge_type: "web_challenge"
+challenge_type: "static_container"
 ready_for_release: true
 
 tags:
@@ -182,9 +192,12 @@ allowed_files:
   - "docker/docker-compose.yml"
   - "files/source.zip"
 
-deployment:
-  type: "dynamic"
+deploy_info:
   port: 3000
+  requires_build: true
+  resources:
+    memory: "256Mi"
+    cpu: "100m"
 
 created_at: "2024-01-15T10:00:00Z"
 ```
