@@ -66,6 +66,7 @@ CONTAINER_TYPES = {"static_container", "dynamic_container", "nc_challenge"}
 DYNAMIC_TYPES = {"dynamic_container", "dynamic_attachment"}
 
 
+
 # --------------------------------------------------------------------------- #
 # 設定載入
 # --------------------------------------------------------------------------- #
@@ -308,6 +309,7 @@ def sync_challenge(
     target: str,
 ) -> str:
     name = public["title"]
+    challenge_type = public.get("challenge_type", "")
     existing = client.find_challenge_by_name(name)
 
     payload = {
@@ -320,10 +322,26 @@ def sync_challenge(
         "state": "visible" if target == "staging" else "hidden",
     }
 
+    # public.yml 的 `ctfd:` 區塊原樣轉發給 CTFd API，本腳本不解讀內容。
+    #
+    # 這是刻意的解耦：不同的 CTFd 插件有不同的欄位（CTFd-Whale 用
+    # docker_image/redirect_port，我們的用 slug/service_port…），
+    # 若在這裡翻譯，template 就得反過來認識每一個插件。原樣轉發之後，
+    # 換插件或換平台都不必動這支腳本，而且不使用 template 的題目
+    # 也能在 CTFd 後台以完全相同的欄位手動建立。
+    extra = public.get("ctfd") or {}
+    if not isinstance(extra, dict):
+        raise ValueError("public.yml 的 ctfd: 必須是一組鍵值")
+    payload.update(extra)
+
     if existing:
         chal_id = existing["id"]
         # 已存在的題目不覆寫 state，避免把管理員手動開啟的題目改回隱藏
         payload.pop("state", None)
+        # 型別與識別碼類欄位不可在既有題目上變更（插件那側也會擋），
+        # 這裡先拿掉避免每次同步都收到無意義的 400
+        for immutable in ("type", "slug"):
+            payload.pop(immutable, None)
         client.patch(f"/challenges/{chal_id}", payload)
         action = "更新"
     else:
@@ -405,6 +423,14 @@ def sync_tags(client: CTFdClient, chal_id: Any, public: dict) -> None:
 # CLI
 # --------------------------------------------------------------------------- #
 
+def _rel(path: Path) -> str:
+    """相對於 repo 顯示；--path 指向 repo 外時退回絕對路徑而非拋例外。"""
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
 def describe(chal_dir: Path, public: dict, private: dict, config: dict) -> str:
     challenge_type = public.get("challenge_type", "—")
     resolved = resolve_flag(private)
@@ -415,9 +441,17 @@ def describe(chal_dir: Path, public: dict, private: dict, config: dict) -> str:
     else:
         flag_note = "無"
 
+    extra = public.get("ctfd") or {}
+    slug_line = ""
+    if extra:
+        shown = ", ".join(f"{k}={v}" for k, v in list(extra.items())[:4])
+        more = "…" if len(extra) > 4 else ""
+        slug_line = f"    ctfd     : {shown}{more}\n"
+
     return (
         f"  {public.get('title', chal_dir.name)}\n"
-        f"    路徑     : {chal_dir.relative_to(REPO_ROOT)}\n"
+        f"    路徑     : {_rel(chal_dir)}\n"
+        f"{slug_line}"
         f"    分類/難度: {public.get('category', '—')} / {public.get('difficulty', '—')}\n"
         f"    類型     : {challenge_type}\n"
         f"    分數     : {resolve_points(public, config)}\n"
