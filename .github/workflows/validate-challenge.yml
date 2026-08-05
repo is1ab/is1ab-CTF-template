@@ -9,120 +9,122 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: 🔍 Checkout Repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-    
+
     - name: 🐍 Setup Python with uv
       uses: astral-sh/setup-uv@v3
       with:
         enable-cache: true
-        cache-dependency-glob: "requirements.txt"
-    
+        cache-dependency-glob: "uv.lock"
+
     - name: 📦 Install Dependencies
-      run: |
-        uv venv
-        uv pip install -r requirements.txt
-    
+      run: uv sync
+
     - name: 🔍 Get Changed Files
       id: changed-files
       uses: tj-actions/changed-files@v40
       with:
         files: challenges/**
-    
+
+    - name: 📁 Collect Changed Challenge Dirs
+      id: chals
+      if: steps.changed-files.outputs.any_changed == 'true'
+      run: |
+        dirs=$(for f in ${{ steps.changed-files.outputs.all_changed_files }}; do
+                 d=$(echo "$f" | cut -d'/' -f1-3)
+                 [ -f "$d/public.yml" ] && echo "$d"
+               done | sort -u)
+        echo "已變更的題目目錄："
+        echo "$dirs"
+        echo "dirs<<EOF" >> $GITHUB_OUTPUT
+        echo "$dirs" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
     - name: 🛡️ Validate Challenge Structure
-      if: steps.changed-files.outputs.any_changed == 'true'
+      id: structure
+      if: steps.chals.outputs.dirs != ''
       run: |
-        echo "🔍 Validating challenge structure..."
-        for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-          echo "Checking: $file"
-          
-          # 檢查是否為題目目錄
-          if [[ "$file" == challenges/*/public.yml ]]; then
-            challenge_dir=$(dirname "$file")
-            echo "🎯 Validating challenge: $challenge_dir"
-            uv run scripts/validate-challenge.py "$challenge_dir"
-          fi
+        for d in ${{ steps.chals.outputs.dirs }}; do
+          echo "🎯 $d"
+          uv run python scripts/validate-challenge.py "$d"
         done
-    
-    - name: 🐳 Test Docker Build (if applicable)
-      if: steps.changed-files.outputs.any_changed == 'true'
+
+    # 安全掃描必須能讓 build 失敗。先前這一步加了 `|| true`，
+    # 因此就算掃到 CRITICAL 等級的 flag 洩漏也照樣通過。
+    - name: 🔒 Security Scan
+      id: security
+      if: steps.chals.outputs.dirs != ''
       run: |
-        echo "🐳 Testing Docker builds..."
-        for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-          if [[ "$file" == challenges/*/docker/Dockerfile ]] || [[ "$file" == challenges/*/Dockerfile ]]; then
-            challenge_dir=$(dirname "$(dirname "$file")")
-            if [[ "$file" == challenges/*/Dockerfile ]]; then
-              challenge_dir=$(dirname "$file")
-            fi
-            
-            echo "🐳 Building Docker for: $challenge_dir"
-            if [ -f "$challenge_dir/docker/Dockerfile" ]; then
-              docker build -t "test-$(basename $challenge_dir)" "$challenge_dir/docker/"
-            elif [ -f "$challenge_dir/Dockerfile" ]; then
-              docker build -t "test-$(basename $challenge_dir)" "$challenge_dir/"
-            fi
-          fi
+        for d in ${{ steps.chals.outputs.dirs }}; do
+          echo "🔒 $d"
+          uv run python scripts/scan-secrets.py --path "$d" --fail-on-critical
         done
-    
-    - name: 🔒 Security Scan (Enhanced)
-      if: steps.changed-files.outputs.any_changed == 'true'
+
+    # 驗題：把題目跑起來、執行官方解、比對取回的 flag 與 private.yml。
+    # 只檢查 exit code 抓不到「腳本成功但 flag 是錯的」，也抓不到 flag drift
+    # （private.yml 與烘進 image 的 flag 不一致）。
+    - name: 🎯 Verify Solution
+      id: solve
+      if: steps.chals.outputs.dirs != ''
+      continue-on-error: true
       run: |
-        echo "🔒 Running enhanced security scan..."
-        
-        # 使用增強的安全掃描腳本
-        for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-          if [[ "$file" == challenges/* ]]; then
-            challenge_dir=$(echo "$file" | cut -d'/' -f1-3)
-            if [ -d "$challenge_dir" ]; then
-              echo "🔒 Scanning challenge: $challenge_dir"
-              uv run python scripts/scan-secrets.py --path "$challenge_dir" --format markdown || true
-            fi
-          fi
+        rc=0
+        for d in ${{ steps.chals.outputs.dirs }}; do
+          uv run python scripts/verify-solution.py "$d" --timeout 120 || rc=$?
         done
-        
-        # 檢查所有變更的檔案
-        echo "🔒 Scanning all changed files..."
-        uv run python scripts/scan-secrets.py --path . --files ${{ join(steps.changed-files.outputs.all_changed_files, ' ') }} || true
-    
+        echo "rc=$rc" >> $GITHUB_OUTPUT
+        # 4 = 解題腳本尚未實作，僅警告；其他非零視為失敗
+        if [ "$rc" = "4" ]; then
+          echo "::warning::部分題目尚未提供解題腳本（exit 4）"
+          exit 0
+        fi
+        exit $rc
+
     - name: 📝 Generate Validation Report
-      if: always()
+      if: always() && steps.chals.outputs.dirs != ''
       run: |
-        echo "📝 Generating validation report..."
-        echo "## 🔍 Challenge Validation Report" > validation_report.md
-        echo "" >> validation_report.md
-        echo "### ✅ Validation Results:" >> validation_report.md
-        echo "- Structure validation: ✅ Passed" >> validation_report.md
-        echo "- Security scan: ✅ Passed" >> validation_report.md
-        echo "- Docker build: ✅ Passed" >> validation_report.md
-        echo "" >> validation_report.md
-        echo "### 📊 Changed Files:" >> validation_report.md
-        for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-          echo "- \`$file\`" >> validation_report.md
-        done
-    
+        icon() { [ "$1" = "success" ] && echo "✅" || { [ "$1" = "skipped" ] && echo "⏭️" || echo "❌"; }; }
+        {
+          echo "### 🔍 驗證結果"
+          echo ""
+          echo "| 項目 | 結果 |"
+          echo "|---|---|"
+          echo "| 結構驗證 | $(icon "${{ steps.structure.outcome }}") ${{ steps.structure.outcome }} |"
+          echo "| 安全掃描 | $(icon "${{ steps.security.outcome }}") ${{ steps.security.outcome }} |"
+          echo "| 驗題（跑官方解 + 比對 flag） | $(icon "${{ steps.solve.outcome }}") ${{ steps.solve.outcome }} |"
+          echo ""
+          echo "### 📊 已變更的題目"
+          echo ""
+          for d in ${{ steps.chals.outputs.dirs }}; do echo "- \`$d\`"; done
+        } > validation_report.md
+        cat validation_report.md >> $GITHUB_STEP_SUMMARY
+
     - name: 💬 Create PR Comment
-      if: always()
+      if: always() && steps.chals.outputs.dirs != ''
       uses: actions/github-script@v7
       with:
         script: |
           const fs = require('fs');
           let report = '🔍 **Challenge Validation Report**\n\n';
-          
-          if (fs.existsSync('validation_report.md')) {
-            report += fs.readFileSync('validation_report.md', 'utf8');
-          } else {
-            report += '✅ All validations passed!\n\n';
-          }
-          
+          report += fs.existsSync('validation_report.md')
+            ? fs.readFileSync('validation_report.md', 'utf8')
+            : '⚠️ 未產生報告。\n';
           report += '\n---\n🤖 Automated validation by GitHub Actions';
-          
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
             body: report
           });
+
+    # 驗題步驟設了 continue-on-error 以便先產出報告，因此這裡要重新讓 job 失敗
+    - name: 🚦 Enforce Result
+      if: always() && steps.chals.outputs.dirs != ''
+      run: |
+        [ "${{ steps.solve.outcome }}" = "failure" ] && { echo "❌ 驗題失敗"; exit 1; }
+        exit 0
