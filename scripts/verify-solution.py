@@ -103,6 +103,42 @@ def wait_for_port(port: int, timeout: int = 60) -> bool:
     return False
 
 
+def wait_for_healthy(compose: list[str], timeout: int = 60) -> bool:
+    """有 healthcheck 的 container，等它 healthy 才算就緒（TCP listen ≠ 應用能服務）。
+
+    沒有任何 healthcheck 的服務直接視為就緒（交給 wait_for_port）。拿不到狀態也不擋。
+    """
+    import json as _json
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        proc = subprocess.run(compose + ["ps", "--format", "json"],
+                              capture_output=True, text=True)
+        if proc.returncode != 0 or not proc.stdout.strip():
+            return True
+        text = proc.stdout.strip()
+        try:  # 可能是一個 array，也可能是每行一個 object（JSONL）
+            parsed = _json.loads(text)
+            records = parsed if isinstance(parsed, list) else [parsed]
+        except ValueError:
+            records = []
+            for line in text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    records.append(_json.loads(line))
+                except ValueError:
+                    pass
+        healths = [r.get("Health", "") for r in records]
+        if not any(healths):          # 沒有 healthcheck → 就緒
+            return True
+        if all(h in ("", "healthy") for h in healths):
+            return True
+        time.sleep(1)
+    return False
+
+
 def compose_cmd(chal_dir: Path) -> Optional[list[str]]:
     compose_file = chal_dir / "docker" / "docker-compose.yml"
     if not compose_file.exists():
@@ -114,13 +150,50 @@ def compose_cmd(chal_dir: Path) -> Optional[list[str]]:
     return ["docker", "compose", "-f", str(compose_file)]
 
 
+def _seed_docker_env(chal_dir: Path, flag: Optional[str]) -> None:
+    """驗題前備好 docker/.env：沿用 .env.example 的變數，並用 private.yml 的 flag 覆蓋 FLAG。
+
+    很多題目的 compose 用 `env_file: .env`，container 從 .env 讀 flag、吃不到 process env。
+    只在題目本來就用 .env（存在 .env 或 .env.example）時動作，不替不吃 .env 的題目憑空生檔。
+    """
+    docker_dir = chal_dir / "docker"
+    env_path = docker_dir / ".env"
+    example = docker_dir / ".env.example"
+    if not env_path.exists() and not example.exists():
+        return
+    values: dict[str, str] = {}
+    src = env_path if env_path.exists() else example
+    for line in src.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, val = stripped.split("=", 1)
+        values[key.strip()] = val
+    if flag is not None:
+        values["FLAG"] = flag
+    env_path.write_text("".join(f"{k}={v}\n" for k, v in values.items()), encoding="utf-8")
+
+
+def _solution_cmd(solution: Path) -> list[str]:
+    """組出執行解題腳本的指令。
+
+    .py 若同目錄有 requirements.txt，用 `uv run --no-project --with-requirements` 在
+    **隔離的臨時環境**裝好相依再跑——不污染專案 venv，也讓 CI／他人機器可重現。
+    沒有 requirements.txt（或機器上沒有 uv）時，退回專案 python 直接跑。
+    """
+    if solution.suffix != ".py":
+        return ["bash", str(solution)]
+    req = solution.parent / "requirements.txt"
+    if req.exists() and shutil.which("uv"):
+        return ["uv", "run", "--no-project", "--with-requirements", str(req),
+                "python", str(solution)]
+    return [sys.executable, str(solution)]
+
+
 def run_solution(
     solution: Path, connection_info: Optional[str], timeout: int
 ) -> tuple[int, str]:
-    if solution.suffix == ".py":
-        cmd = [sys.executable, str(solution)]
-    else:
-        cmd = ["bash", str(solution)]
+    cmd = _solution_cmd(solution)
 
     env = dict(os.environ)
     if connection_info:
@@ -211,8 +284,11 @@ def verify(chal_dir: Path, timeout: int, keep: bool) -> int:
 
         # 由 private.yml 注入 flag。若 image 無視 ${FLAG} 自己寫死一份，
         # 後續比對就會失敗——這正是 flag drift 的偵測點。
-        if private.get("flag"):
-            env["FLAG"] = str(private["flag"])
+        flag_value = str(private["flag"]) if private.get("flag") else None
+        if flag_value:
+            env["FLAG"] = flag_value          # 供 compose ${FLAG} 內插
+        # compose 若用 env_file: .env，container 讀 .env 而非 process env → 把真 flag 種進 .env
+        _seed_docker_env(chal_dir, flag_value)
 
         log(f"🐳 啟動容器…（port {port}）")
         up = subprocess.run(compose + ["up", "-d", "--build"],
@@ -229,6 +305,9 @@ def verify(chal_dir: Path, timeout: int, keep: bool) -> int:
                                       capture_output=True, text=True)
                 log(logs.stdout[-2000:])
                 return EXIT_FAIL
+
+            if not wait_for_healthy(compose):
+                log("⚠️  容器未在時限內回報 healthy，仍嘗試執行解題腳本")
 
             connection_info = f"nc 127.0.0.1 {port}"
             log(f"✅ 服務就緒，執行解題腳本：{solution.relative_to(chal_dir)}")

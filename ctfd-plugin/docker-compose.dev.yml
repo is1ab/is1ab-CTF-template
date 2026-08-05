@@ -1,0 +1,60 @@
+# =============================================================================
+# dev CTFd + is1ab_authoring 外掛 — 本機開發環境
+# =============================================================================
+# 用途：起一台「開發用」CTFd，掛上 is1ab_authoring 外掛，供出題者建題/匯出/測試。
+# 這**不是**正式比賽站（見 docs/dev-ctfd-authoring-spec.md §11）。
+#
+# 用法：
+#   cd ctfd-plugin
+#   docker compose -f docker-compose.dev.yml up -d
+#   開 http://localhost:8000 （首次會進 CTFd 安裝精靈）
+#
+# 換 CTFd 版本：只改下面 CTFD_VERSION 這一處。
+# =============================================================================
+
+services:
+  ctfd:
+    image: ctfd/ctfd:3.7.5   # ← 對齊 spec §10-A 的 pin；要換版本改這裡
+    # 啟動時補裝 plugin 需要、但 CTFd 映像沒有的套件（PyYAML 供富欄位 YAML 驗證）
+    entrypoint: ["/bin/sh", "-c", "pip install --no-cache-dir pyyaml >/dev/null 2>&1; exec /opt/CTFd/docker-entrypoint.sh"]
+    restart: unless-stopped
+    ports:
+      - "8010:8000"   # 對外 8010（8000 常被占用）；改這裡即可換埠
+    environment:
+      - UPLOAD_FOLDER=/var/uploads
+      - DATABASE_URL=mysql+pymysql://ctfd:ctfd@db/ctfd
+      - REDIS_URL=redis://cache:6379
+      - WORKERS=1
+      - LOG_FOLDER=/var/log/CTFd
+      - ACCESS_LOG=-
+      - ERROR_LOG=-
+    volumes:
+      - ctfd_uploads:/var/uploads
+      # 掛入本外掛（CTFd 會掃 CTFd/plugins/*/ 的 load(app)）
+      - ./is1ab_authoring:/opt/CTFd/CTFd/plugins/is1ab_authoring:ro
+      # 掛入整個 repo，供之後的 git 整合（Phase 4）在容器內操作題目樹
+      - ../:/repo
+    depends_on:
+      - db
+      - cache
+
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=ctfd
+      - MARIADB_USER=ctfd
+      - MARIADB_PASSWORD=ctfd
+      - MARIADB_DATABASE=ctfd
+    volumes:
+      - ctfd_db:/var/lib/mysql
+    command:
+      [mysqld, --character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci, --wait_timeout=28800]
+
+  cache:
+    image: redis:4
+    restart: unless-stopped
+
+volumes:
+  ctfd_uploads:
+  ctfd_db:

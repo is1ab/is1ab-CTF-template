@@ -154,6 +154,7 @@ class ChallengeCreator:
         try:
             base_dirs = [
                 'src',
+                'solution',
                 'writeup',
                 'files',
                 'writeup/screenshots'
@@ -303,10 +304,74 @@ class ChallengeCreator:
         writeup_content = self.generate_writeup_template(config)
         with open(challenge_path / 'writeup/solution.md', 'w', encoding='utf-8') as f:
             f.write(writeup_content)
-        
+
+        # 官方解 stub + 相依宣告（verify-solution 讀 solution/exploit.py）
+        self.create_solution_template(challenge_path)
+
         # 題目特定檔案
         if challenge_type == 'nc_challenge':
             self.create_nc_challenge_files(challenge_path, config)
+
+    def create_solution_template(self, challenge_path):
+        """建立 solution/exploit.py 契約 stub 與 requirements.txt 範本。
+
+        exploit.py 契約見 scripts/verify-solution.py；相依寫在 requirements.txt，
+        verify-solution 會用 uv 在隔離環境安裝，不污染專案 venv。
+        """
+        exploit_stub = '''#!/usr/bin/env python3
+"""官方解 / exploit。
+
+契約（見 scripts/verify-solution.py）：
+- 接 --connection-info "nc <host> <port>"，也吃 HOST / PORT 環境變數
+- 解出後把 flag **印在 stdout 最後一行**，交給 verify-solution 比對（不要自己比）
+- 尚未實作時 exit 4（NOT_IMPLEMENTED），讓報表區分「沒寫」與「壞了」
+
+第三方相依請寫在同目錄的 requirements.txt。
+"""
+import argparse
+import os
+import sys
+
+
+def target() -> str:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--connection-info")
+    args, _ = parser.parse_known_args()
+    if args.connection_info:
+        return args.connection_info
+    return f"{os.getenv('HOST', 'localhost')}:{os.getenv('PORT', '8080')}"
+
+
+def main() -> int:
+    conn = target()
+    # TODO: 在這裡實作解題，取得 flag
+    # flag = ...
+    # print(flag)   # flag 必須是 stdout 最後一行
+    # return 0
+    print(f"[!] exploit 尚未實作（target={conn}）", file=sys.stderr)
+    return 4  # NOT_IMPLEMENTED
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+'''
+        exploit_path = challenge_path / 'solution' / 'exploit.py'
+        with open(exploit_path, 'w', encoding='utf-8') as f:
+            f.write(exploit_stub)
+        try:
+            exploit_path.chmod(0o755)
+        except OSError:
+            pass
+
+        requirements_stub = (
+            "# 解題腳本的第三方相依（一行一個）。\n"
+            "# verify-solution 會用 uv 在隔離環境安裝，不會污染專案 venv。\n"
+            "# 範例：\n"
+            "# requests\n"
+            "# pwntools\n"
+        )
+        with open(challenge_path / 'solution' / 'requirements.txt', 'w', encoding='utf-8') as f:
+            f.write(requirements_stub)
             
     def create_nc_docker_files(self, challenge_path, config):
         """建立 nc 題目的 Docker 檔案"""
