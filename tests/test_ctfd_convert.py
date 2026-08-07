@@ -88,38 +88,42 @@ def test_static_flag_to_private(cc):
         {"name": "x"}, flags=[{"content": "is1abCTF{real}", "type": "static"}]
     )
     assert private["flag"] == "is1abCTF{real}"
-    assert private["flag_type"] == "static"
+    assert private["flag_match"] == "exact"
+    # CTFd 靜態 flag → canonical 預設 內建/統一
+    assert private["flag_load"] == "static"
+    assert private["flag_scope"] == "shared"
 
 
-def test_regex_flag_type_preserved(cc):
+def test_regex_flag_maps_to_flag_match(cc):
     _, private = cc.ctfd_to_challenge(
         {"name": "x"}, flags=[{"content": "is1abCTF{.*}", "type": "regex"}]
     )
-    assert private["flag_type"] == "regex"
+    assert private["flag_match"] == "regex"
 
 
-def test_unknown_flag_type_falls_back_to_static(cc):
+def test_unknown_flag_type_falls_back_to_exact(cc):
     _, private = cc.ctfd_to_challenge(
         {"name": "x"}, flags=[{"content": "f", "type": "weird"}]
     )
-    assert private["flag_type"] == "static"
+    assert private["flag_match"] == "exact"
 
 
 def test_no_flag_leaves_private_without_flag(cc):
     _, private = cc.ctfd_to_challenge({"name": "x"}, flags=[])
     assert "flag" not in private
-    assert "flag_type" not in private
+    assert "flag_match" not in private
 
 
-def test_ctfd_flag_overrides_blob_flag_type(cc):
-    # blob 帶了 dynamic，但 CTFd 有實際 static flag → 以 CTFd 為準
+def test_ctfd_flag_overrides_blob(cc):
+    # blob 帶了舊 flag_type=dynamic，但 CTFd 有實際 static flag → 以 CTFd 為準
     _, private = cc.ctfd_to_challenge(
         {"name": "x"},
         flags=[{"content": "f", "type": "static"}],
         metadata={"flag_type": "dynamic"},
     )
     assert private["flag"] == "f"
-    assert private["flag_type"] == "static"
+    assert private["flag_match"] == "exact"
+    assert "flag_type" not in private  # 舊欄位由 flag_match 取代
 
 
 # --------------------------------------------------------------------------- #
@@ -207,8 +211,9 @@ def test_roundtrip_repo_to_ctfd_and_back(cc):
     public0 = {"id": "uid00001", "title": "RT", "category": "crypto", "points": 300,
                "tags": ["crypto"], "hints": [{"level": 1, "cost": 10, "content": "hint"}],
                "author": "Bob", "difficulty": "middle", "learning_objectives": ["o1"]}
-    private0 = {"flag": "is1abCTF{rt}", "flag_type": "static",
-                "internal_notes": "notes", "solution_steps": [{"step": 1, "title": "t"}]}
+    private0 = {"flag": "is1abCTF{rt}", "flag_match": "exact",
+                "flag_load": "static", "flag_scope": "shared",
+                "internal_notes": "notes", "testing": {"tested_by": "Bob"}}
 
     c = cc.challenge_to_ctfd(public0, private0)
     challenge = {"name": c["name"], "category": c["category"],
@@ -221,6 +226,8 @@ def test_roundtrip_repo_to_ctfd_and_back(cc):
     assert public1["points"] == 300 and public1["tags"] == ["crypto"]
     assert public1["author"] == "Bob" and public1["difficulty"] == "middle"
     assert public1["learning_objectives"] == ["o1"]
-    assert private1["flag"] == "is1abCTF{rt}" and private1["flag_type"] == "static"
+    assert private1["flag"] == "is1abCTF{rt}" and private1["flag_match"] == "exact"
+    # flag_load/flag_scope 經 blob round-trip 還原
+    assert private1["flag_load"] == "static" and private1["flag_scope"] == "shared"
     assert private1["internal_notes"] == "notes"
-    assert private1["solution_steps"] == [{"step": 1, "title": "t"}]
+    assert private1["testing"] == {"tested_by": "Bob"}

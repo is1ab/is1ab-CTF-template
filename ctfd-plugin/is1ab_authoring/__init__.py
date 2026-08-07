@@ -47,27 +47,29 @@ DIFFICULTIES = ["baby", "easy", "middle", "hard", "impossible"]
 ASSIGN_STATUSES = ["unassigned", "assigned", "in_progress", "in_review", "done"]
 # 題目「開發進度」的單一真相（Ⓑ）。與工單 status / CTFd state / ready_for_release 是不同概念。
 DEV_STATUSES = ["planning", "developing", "testing", "completed", "deployed"]
-CHALLENGE_TYPES = ["", "static_attachment", "static_container",
-                   "dynamic_attachment", "dynamic_container", "nc_challenge"]
+# canonical（見 docs/challenge-schema.md）：交付方式 + 連線方式 + flag 三軸
+DEPLOY_TYPES = ["", "attachment", "container", "none"]
+CONNECTION_TYPES = ["", "nc", "http", "https"]
+FLAG_LOADS = ["static", "dynamic"]
+FLAG_SCOPES = ["shared", "per_team"]
+FLAG_MATCHES = ["exact", "regex"]
 
 # 富欄位改用結構化表單（不再手刻 YAML）。底層仍存成 blob YAML。
-_META_TEXT = ["author", "tested_by", "test_result"]  # 單行（assignee 砍：與 author 重複，改由 owner_id 做 ACL）
-_META_TEXTAREA = ["flag_description", "internal_notes"]                                    # 多行字串
-_META_LINES = ["files", "learning_objectives", "required_skills",                          # 一行一項→list
-               "recommended_tools", "solution_steps"]  # owners 砍：與 author 重複
+_META_TEXT = ["author"]                          # 單行（owners/assignee 砍：author 為單一來源）
+_META_TEXTAREA = ["internal_notes"]              # 多行字串（flag_description/solution_steps 砍→writeup/）
+_META_LINES = ["files"]                           # 一行一項→list（learning_*/references 砍→writeup/）
 _META_BOOL = ["ready_for_release", "source_code_provided"]
-# difficulty/challenge_type=select；references(title|url)、test_credentials(user:pass)、
-# deploy_info{}、metadata{}、dynamic_flag{}、deploy_secrets{} 特殊處理；其餘鍵→隱藏 passthrough
+# difficulty/deploy_type/flag_load/flag_scope=select；deploy_info{}、dynamic_flag{}、testing{}
+# 特殊處理；其餘未知鍵→隱藏 passthrough 保留（含匯入舊題的 deploy_secrets/solution_steps 等）
 _META_KNOWN = set(_META_TEXT + _META_TEXTAREA + _META_LINES + _META_BOOL + [
-    "difficulty", "challenge_type", "references", "test_credentials",
-    "deploy_info", "metadata", "dynamic_flag",
+    "difficulty", "deploy_type", "flag_load", "flag_scope",
+    "deploy_info", "dynamic_flag", "testing",
 ])
 # 表單上的額外字串欄位（巢狀攤平的子欄位 + passthrough）
 # deploy_secrets 不在此：密鑰不進表單/DB，屬 .env（若匯入題目有它，會落到 passthrough 保留）
-_META_STR_EXTRA = ["references", "test_credentials", "deploy_port", "deploy_url",
+_META_STR_EXTRA = ["deploy_connection", "deploy_port", "deploy_url",
                    "deploy_nc_port", "deploy_timeout", "deploy_memory", "deploy_cpu",
-                   "meta_est", "meta_fb", "meta_max", "dyn_template", "dyn_salt",
-                   "passthrough"]
+                   "dyn_template", "dyn_salt", "test_by", "test_status", "passthrough"]
 _META_BOOL_ALL = _META_BOOL + ["deploy_requires_build"]
 _META_STR_ALL = _META_TEXT + _META_TEXTAREA + _META_LINES + _META_STR_EXTRA
 
@@ -191,10 +193,12 @@ def _can_manage_acl(meta):
     return bool(user and meta and meta.owner_id == user.id)
 
 
-def _sync_flag(challenge_id, content, flag_type):
+def _sync_flag(challenge_id, content, flag_match):
+    """建 CTFd flag。flag_match（exact/regex）或直接的 CTFd type 皆可：只有 regex→regex，其餘→static。"""
+    ctfd_type = "regex" if str(flag_match).lower() == "regex" else "static"
     Flags.query.filter_by(challenge_id=challenge_id).delete()
     if content:
-        db.session.add(Flags(challenge_id=challenge_id, type=flag_type or "static", content=content))
+        db.session.add(Flags(challenge_id=challenge_id, type=ctfd_type, content=content))
     db.session.commit()
 
 
@@ -231,7 +235,8 @@ def _read_native(challenge_id):
     hints = Hints.query.filter_by(challenge_id=challenge_id).order_by(Hints.cost).all()
     return {
         "flag": flag.content if flag else "",
-        "flag_type": flag.type if flag else "static",
+        # canonical flag_match：CTFd regex flag → regex，否則 exact
+        "flag_match": "regex" if (flag and flag.type == "regex") else "exact",
         "tags": ", ".join(t.value for t in tags),
         "hints": "\n".join(f"{h.cost}|{h.content}" for h in hints),
     }
@@ -256,43 +261,38 @@ def _blob_to_fields(blob_str):
     for k in _META_TEXT + _META_TEXTAREA:
         mf[k] = "" if d.get(k) is None else str(d.get(k))
     mf["difficulty"] = str(d.get("difficulty", "") or "")
-    mf["challenge_type"] = str(d.get("challenge_type", "") or "")
+    # deploy_type：新欄位優先，相容舊 challenge_type
+    dt = str(d.get("deploy_type", "") or "")
+    if not dt and d.get("challenge_type"):
+        ct = str(d.get("challenge_type"))
+        dt = "container" if ("container" in ct or ct == "nc_challenge") else "attachment"
+    mf["deploy_type"] = dt
+    # flag 三軸（load/scope 存 blob；match 由 CTFd flag 決定，見 _read_native）
+    mf["flag_load"] = str(d.get("flag_load", "") or "static")
+    mf["flag_scope"] = str(d.get("flag_scope", "") or "shared")
     for k in _META_BOOL:
         mf[k] = bool(d.get(k))
     for k in _META_LINES:
         v = d.get(k) or []
         if isinstance(v, list):
             mf[k] = "\n".join(
-                str(x.get("title") or x.get("description") or x) if isinstance(x, dict) else str(x)
+                str(x.get("description") or x) if isinstance(x, dict) else str(x)
                 for x in v)
         else:
             mf[k] = str(v)
-    # references [{title,url}] → "title | url"
-    mf["references"] = "\n".join(
-        f"{r.get('title','')} | {r.get('url','')}" if isinstance(r, dict) else str(r)
-        for r in (d.get("references") or []))
-    # test_credentials {user:{username,password}} 或 {user:pass} → "user : pass"
-    tc, tclines = d.get("test_credentials") or {}, []
-    if isinstance(tc, dict):
-        for user, val in tc.items():
-            if isinstance(val, dict):
-                tclines.append(f"{val.get('username', user)} : {val.get('password', '')}")
-            else:
-                tclines.append(f"{user} : {val}")
-    mf["test_credentials"] = "\n".join(tclines)
-    # deploy_info（攤平）
+    # deploy_info（攤平；connection_type = nc/http/https）
     di = d.get("deploy_info") if isinstance(d.get("deploy_info"), dict) else {}
     res = di.get("resources") if isinstance(di.get("resources"), dict) else {}
+    mf["deploy_connection"] = str(di.get("connection_type", "") or "")
     for fk, dk, src in [("deploy_port", "port", di), ("deploy_url", "url", di),
                         ("deploy_nc_port", "nc_port", di), ("deploy_timeout", "timeout", di),
                         ("deploy_memory", "memory", res), ("deploy_cpu", "cpu", res)]:
         mf[fk] = str(src.get(dk, "") or "")
     mf["deploy_requires_build"] = bool(di.get("requires_build"))
-    # metadata（攤平）
-    md = d.get("metadata") if isinstance(d.get("metadata"), dict) else {}
-    mf["meta_est"] = str(md.get("estimated_solve_time", "") or "")
-    mf["meta_fb"] = str(md.get("first_blood_bonus", "") or "")
-    mf["meta_max"] = str(md.get("max_attempts", "") or "")
+    # testing（攤平）
+    tst = d.get("testing") if isinstance(d.get("testing"), dict) else {}
+    mf["test_by"] = str(tst.get("tested_by", "") or "")
+    mf["test_status"] = str(tst.get("test_status", "") or "")
     # dynamic_flag（攤平）
     dyn = d.get("dynamic_flag") if isinstance(d.get("dynamic_flag"), dict) else {}
     mf["dyn_template"] = str(dyn.get("template", "") or "")
@@ -311,33 +311,22 @@ def _fields_to_blob(mf):
             d[k] = mf[k]
     if mf.get("difficulty"):
         d["difficulty"] = mf["difficulty"]
-    if mf.get("challenge_type"):
-        d["challenge_type"] = mf["challenge_type"]
+    if mf.get("deploy_type"):
+        d["deploy_type"] = mf["deploy_type"]
+    # flag 三軸的 load/scope 存 blob（match 走 CTFd flag type）
+    if mf.get("flag_load"):
+        d["flag_load"] = mf["flag_load"]
+    if mf.get("flag_scope"):
+        d["flag_scope"] = mf["flag_scope"]
     for k in _META_BOOL:
         d[k] = bool(mf.get(k))
     for k in _META_LINES:
         items = [x.strip() for x in (mf.get(k) or "").splitlines() if x.strip()]
         if items:
             d[k] = items
-    refs = []
-    for line in (mf.get("references") or "").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        t, _, u = line.partition("|")
-        refs.append({"title": t.strip(), "url": u.strip()})
-    if refs:
-        d["references"] = refs
-    tc = {}
-    for line in (mf.get("test_credentials") or "").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        u, _, p = line.partition(":")
-        tc[u.strip()] = p.strip()
-    if tc:
-        d["test_credentials"] = tc
     di = {}
+    if mf.get("deploy_connection"):
+        di["connection_type"] = mf["deploy_connection"]
     if mf.get("deploy_port"):
         di["port"] = _int_or(mf["deploy_port"])
     if mf.get("deploy_url"):
@@ -357,15 +346,13 @@ def _fields_to_blob(mf):
         di["resources"] = res
     if di:
         d["deploy_info"] = di
-    md = {}
-    if mf.get("meta_est"):
-        md["estimated_solve_time"] = mf["meta_est"]
-    if mf.get("meta_fb"):
-        md["first_blood_bonus"] = _int_or(mf["meta_fb"])
-    if mf.get("meta_max"):
-        md["max_attempts"] = _int_or(mf["meta_max"])
-    if md:
-        d["metadata"] = md
+    tst = {}
+    if mf.get("test_by"):
+        tst["tested_by"] = mf["test_by"]
+    if mf.get("test_status"):
+        tst["test_status"] = mf["test_status"]
+    if tst:
+        d["testing"] = tst
     if mf.get("dyn_template") or mf.get("dyn_salt"):
         d["dynamic_flag"] = {"template": mf.get("dyn_template", ""), "salt": mf.get("dyn_salt", "")}
     try:
@@ -620,14 +607,19 @@ _FORM_TMPL = """
     <div class="form-group"><label>描述</label>
       <textarea class="form-control" name="description" rows="3">{{ f.description }}</textarea></div>
     <div class="form-row">
-      <div class="form-group col-md-8"><label>Flag</label>
+      <div class="form-group col-md-6"><label>Flag</label>
         <input class="form-control" name="flag" value="{{ f.flag }}"></div>
-      <div class="form-group col-md-4"><label>Flag 類型</label>
-        <select class="form-control" name="flag_type">
-          <option value="static" {{ 'selected' if f.flag_type=='static' else '' }}>static</option>
-          <option value="regex"  {{ 'selected' if f.flag_type=='regex' else '' }}>regex</option>
-        </select></div>
+      <div class="form-group col-md-2"><label>載入 <small class="text-muted">load</small></label>
+        <select class="form-control" name="flag_load">
+          {% for s in flag_loads %}<option value="{{ s }}" {{ 'selected' if f.flag_load==s else '' }}>{{ s }}</option>{% endfor %}</select></div>
+      <div class="form-group col-md-2"><label>範圍 <small class="text-muted">scope</small></label>
+        <select class="form-control" name="flag_scope">
+          {% for s in flag_scopes %}<option value="{{ s }}" {{ 'selected' if f.flag_scope==s else '' }}>{{ s }}</option>{% endfor %}</select></div>
+      <div class="form-group col-md-2"><label>比對 <small class="text-muted">match</small></label>
+        <select class="form-control" name="flag_match">
+          {% for s in flag_matches %}<option value="{{ s }}" {{ 'selected' if f.flag_match==s else '' }}>{{ s }}</option>{% endfor %}</select></div>
     </div>
+    <small class="form-text text-muted mb-2">static/shared=經典內建統一 · dynamic=部署注入 · per_team=每隊唯一（隱含 dynamic） · regex=樣式比對</small>
     <div class="form-group"><label>Hints（每行 <code>cost|內容</code>）</label>
       <textarea class="form-control" name="hints" rows="3" style="font-family:monospace">{{ f.hints }}</textarea></div>
 
@@ -636,10 +628,13 @@ _FORM_TMPL = """
       <div class="form-group col-md-3"><label>難度</label>
         <select class="form-control" name="difficulty"><option value="">—</option>
           {% for s in difficulties %}<option value="{{ s }}" {{ 'selected' if f.difficulty==s else '' }}>{{ s }}</option>{% endfor %}</select></div>
-      <div class="form-group col-md-4"><label>題目類型</label>
-        <select class="form-control" name="challenge_type">
-          {% for t in challenge_types %}<option value="{{ t }}" {{ 'selected' if f.challenge_type==t else '' }}>{{ t or '—' }}</option>{% endfor %}</select></div>
-      <div class="form-group col-md-5"><label>出題者</label>
+      <div class="form-group col-md-3"><label>交付方式</label>
+        <select class="form-control" name="deploy_type">
+          {% for t in deploy_types %}<option value="{{ t }}" {{ 'selected' if f.deploy_type==t else '' }}>{{ t or '—' }}</option>{% endfor %}</select></div>
+      <div class="form-group col-md-2"><label>連線 <small class="text-muted">container</small></label>
+        <select class="form-control" name="deploy_connection">
+          {% for t in connection_types %}<option value="{{ t }}" {{ 'selected' if f.deploy_connection==t else '' }}>{{ t or '—' }}</option>{% endfor %}</select></div>
+      <div class="form-group col-md-4"><label>出題者</label>
         <input class="form-control" name="author" value="{{ f.author }}"></div>
     </div>
     <details class="mb-3">
@@ -648,16 +643,8 @@ _FORM_TMPL = """
         <span class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="ready_for_release" id="rfr" {{ 'checked' if f.ready_for_release else '' }}><label class="form-check-label" for="rfr">可發布</label></span>
         <span class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="source_code_provided" id="scp" {{ 'checked' if f.source_code_provided else '' }}><label class="form-check-label" for="scp">提供原始碼</label></span>
       </div>
-      <div class="form-row">
-        <div class="form-group col-md-4"><label>學習目標（一行一項）</label><textarea class="form-control" name="learning_objectives" rows="2">{{ f.learning_objectives }}</textarea></div>
-        <div class="form-group col-md-4"><label>所需技能（一行一項）</label><textarea class="form-control" name="required_skills" rows="2">{{ f.required_skills }}</textarea></div>
-        <div class="form-group col-md-4"><label>推薦工具（一行一項）</label><textarea class="form-control" name="recommended_tools" rows="2">{{ f.recommended_tools }}</textarea></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group col-md-6"><label>附件 files（一行一個）</label><textarea class="form-control" name="files" rows="2">{{ f.files }}</textarea></div>
-        <div class="form-group col-md-6"><label>參考資料（每行 <code>標題 | 網址</code>）</label><textarea class="form-control" name="references" rows="2">{{ f.references }}</textarea></div>
-      </div>
-      <h6 class="text-muted">部署資訊 deploy_info（port/nc_port 供 verify-solution 使用）</h6>
+      <div class="form-group"><label>附件 files（一行一個）</label><textarea class="form-control" name="files" rows="2">{{ f.files }}</textarea></div>
+      <h6 class="text-muted">部署資訊 deploy_info（container 題；port/nc_port 供 verify-solution 使用）</h6>
       <div class="form-row">
         <div class="form-group col-md-2"><label>port</label><input class="form-control" name="deploy_port" value="{{ f.deploy_port }}"></div>
         <div class="form-group col-md-4"><label>url</label><input class="form-control" name="deploy_url" value="{{ f.deploy_url }}"></div>
@@ -666,27 +653,19 @@ _FORM_TMPL = """
         <div class="form-group col-md-2"><label>cpu</label><input class="form-control" name="deploy_cpu" value="{{ f.deploy_cpu }}"></div>
       </div>
       <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="deploy_requires_build" id="drb" {{ 'checked' if f.deploy_requires_build else '' }}><label class="form-check-label" for="drb">requires_build</label></div>
-      <h6 class="text-muted">metadata</h6>
-      <div class="form-row">
-        <div class="form-group col-md-4"><label>預估解題時間</label><input class="form-control" name="meta_est" value="{{ f.meta_est }}"></div>
-        <div class="form-group col-md-4"><label>first blood 加分</label><input class="form-control" name="meta_fb" value="{{ f.meta_fb }}"></div>
-        <div class="form-group col-md-4"><label>max_attempts（-1=無限）</label><input class="form-control" name="meta_max" value="{{ f.meta_max }}"></div>
-      </div>
     </details>
 
-    <div class="form-group mt-2"><label>Flag 說明</label><textarea class="form-control" name="flag_description" rows="2">{{ f.flag_description }}</textarea></div>
-    <div class="form-group"><label>官方解步驟（一步一行）</label><textarea class="form-control" name="solution_steps" rows="3">{{ f.solution_steps }}</textarea></div>
-    <div class="form-group"><label>測試帳密（每行 <code>帳號 : 密碼</code>）</label><textarea class="form-control" name="test_credentials" rows="2">{{ f.test_credentials }}</textarea></div>
-    <div class="form-group"><label>內部筆記</label><textarea class="form-control" name="internal_notes" rows="3">{{ f.internal_notes }}</textarea></div>
+    <div class="form-group"><label>內部筆記 <small class="text-muted">（官方解 / 學習資訊 / 測試帳密請寫 writeup/README.md，不進此表單）</small></label>
+      <textarea class="form-control" name="internal_notes" rows="3">{{ f.internal_notes }}</textarea></div>
     <details class="mb-3">
-      <summary class="text-muted">更多（動態 flag / 驗題註記）</summary>
+      <summary class="text-muted">更多（動態 flag / 驗題記錄）</summary>
       <div class="form-row mt-2">
         <div class="form-group col-md-6"><label>dynamic_flag template</label><input class="form-control" name="dyn_template" value="{{ f.dyn_template }}"></div>
         <div class="form-group col-md-6"><label>dynamic_flag salt</label><input class="form-control" name="dyn_salt" value="{{ f.dyn_salt }}"></div>
       </div>
       <div class="form-row">
-        <div class="form-group col-md-6"><label>tested_by</label><input class="form-control" name="tested_by" value="{{ f.tested_by }}"></div>
-        <div class="form-group col-md-6"><label>test_result</label><input class="form-control" name="test_result" value="{{ f.test_result }}"></div>
+        <div class="form-group col-md-6"><label>tested_by</label><input class="form-control" name="test_by" value="{{ f.test_by }}"></div>
+        <div class="form-group col-md-6"><label>test_status</label><input class="form-control" name="test_status" value="{{ f.test_status }}"></div>
       </div>
     </details>
     <input type="hidden" name="passthrough" value="{{ f.passthrough }}">
@@ -746,8 +725,9 @@ make verify-solution ARGS="challenges/{{ repo_path }}"</pre>
 
 def _form_defaults():
     f = {"name": "", "category": "", "value": 100, "dev_status": "developing",
-         "description": "", "flag": "", "flag_type": "static", "tags": "", "hints": "",
-         "difficulty": "", "challenge_type": ""}
+         "description": "", "flag": "", "tags": "", "hints": "", "difficulty": "",
+         "deploy_type": "", "deploy_connection": "",
+         "flag_load": "static", "flag_scope": "shared", "flag_match": "exact"}
     for k in _META_STR_ALL:
         f[k] = ""
     for k in _META_BOOL_ALL:
@@ -761,8 +741,10 @@ def _form_from_request():
         "name": g("name", "").strip(), "category": g("category", "").strip(),
         "value": g("value", "100").strip() or "100", "dev_status": g("dev_status", "developing"),
         "description": g("description", ""), "flag": g("flag", "").strip(),
-        "flag_type": g("flag_type", "static"), "tags": g("tags", ""), "hints": g("hints", ""),
-        "difficulty": g("difficulty", ""), "challenge_type": g("challenge_type", ""),
+        "flag_load": g("flag_load", "static"), "flag_scope": g("flag_scope", "shared"),
+        "flag_match": g("flag_match", "exact"),
+        "tags": g("tags", ""), "hints": g("hints", ""),
+        "difficulty": g("difficulty", ""), "deploy_type": g("deploy_type", ""),
     }
     for k in _META_STR_ALL:
         f[k] = g(k, "")
@@ -799,7 +781,8 @@ def challenge_new():
             return render_template_string(_FORM_TMPL, challenge=None, f=f,
                                           nonce=session.get("nonce", ""), error=error, saved=False,
                                           dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
-                                          challenge_types=CHALLENGE_TYPES)
+                                          deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
+                                  flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES)
         chal = Challenges(name=f["name"], description=f["description"],
                           value=int(f["value"] or 0), category=f["category"],
                           state="visible", type="standard")  # dev 站預設可見 → 直接上 /challenges 試玩
@@ -811,7 +794,7 @@ def challenge_new():
             challenge_id=chal.id, owner_id=(owner.id if owner else None),
             uid=_new_uid(), repo_path=repo_path, blob=blob, dev_status=f["dev_status"]))
         db.session.commit()
-        _sync_flag(chal.id, f["flag"], f["flag_type"])
+        _sync_flag(chal.id, f["flag"], f["flag_match"])
         _sync_tags(chal.id, f["tags"])
         _sync_hints(chal.id, f["hints"])
         return redirect(url_for("is1ab_authoring.challenge_edit", challenge_id=chal.id))
@@ -823,7 +806,8 @@ def challenge_new():
     return render_template_string(_FORM_TMPL, challenge=None, f=f,
                                   nonce=session.get("nonce", ""), error=None, saved=False,
                                   dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
-                                  challenge_types=CHALLENGE_TYPES)
+                                  deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
+                                  flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES)
 
 
 @bp.route("/is1ab/challenges/<int:challenge_id>/edit", methods=["GET", "POST"])
@@ -864,7 +848,7 @@ def challenge_edit(challenge_id):
             if _can_manage_acl(meta):
                 meta.collaborators = ",".join(request.form.getlist("collaborators"))
                 db.session.commit()
-            _sync_flag(challenge_id, f["flag"], f["flag_type"])
+            _sync_flag(challenge_id, f["flag"], f["flag_match"])
             _sync_tags(challenge_id, f["tags"])
             _sync_hints(challenge_id, f["hints"])
             saved = True
@@ -879,16 +863,18 @@ def challenge_edit(challenge_id):
             "value": chal.value or 0,
             "dev_status": (meta.dev_status if meta else "developing"),
             "description": chal.description or "",
-            "flag": native["flag"], "flag_type": native["flag_type"],
+            "flag": native["flag"], "flag_match": native["flag_match"],
             "tags": native["tags"], "hints": native["hints"],
         }
+        # flag_load/flag_scope 由 blob 補（_blob_to_fields 會設）
         f.update(_blob_to_fields(meta.blob if meta else ""))
     f["collaborators"] = _collaborator_ids(meta)
     owner = Users.query.filter_by(id=meta.owner_id).first() if (meta and meta.owner_id) else None
     return render_template_string(_FORM_TMPL, challenge=chal, f=f,
                                   nonce=session.get("nonce", ""), error=error, saved=saved,
                                   dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
-                                  challenge_types=CHALLENGE_TYPES,
+                                  deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
+                                  flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES,
                                   users=Users.query.all(), can_manage=_can_manage_acl(meta),
                                   owner_name=(owner.name if owner else None))
 

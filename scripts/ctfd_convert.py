@@ -32,14 +32,20 @@ from typing import Any, Iterable, Optional
 # metadata blob 中屬於「敏感、只能進 private.yml」的鍵。
 # 這份清單對齊 challenge-template/private.yml.template 底部的宣告。
 SENSITIVE_KEYS: frozenset[str] = frozenset({
+    # canonical
     "flag",
-    "flag_type",
+    "flag_load",
+    "flag_scope",
+    "flag_match",
     "dynamic_flag",
+    "internal_notes",
+    "testing",
+    # 舊 schema（匯入舊題時仍正確落 private，並保留 round-trip）
+    "flag_type",
     "flag_description",
     "solution_steps",
     "test_credentials",
     "deploy_secrets",
-    "internal_notes",
     "test_cases",
     "verified_solutions",
     "last_tested",
@@ -50,23 +56,26 @@ SENSITIVE_KEYS: frozenset[str] = frozenset({
 # metadata blob 中屬於「公開、進 public.yml」的鍵。
 # 不在這裡、也不在 SENSITIVE_KEYS 的鍵，一律 fail-safe 進 private（見 split_metadata）。
 KNOWN_PUBLIC_KEYS: frozenset[str] = frozenset({
+    # canonical
     "author",
     "difficulty",
-    "challenge_type",
-    "owners",
-    "assignee",
+    "deploy_type",
     "source_code_provided",
     "status",
     "ready_for_release",
     "created_at",
     "updated_at",
     "deploy_info",
+    "files",  # player-facing 附件清單（實體檔在 repo files/，見 spec Ⓒ）
+    # 舊 schema（匯入舊題時仍正確落 public，並保留 round-trip）
+    "challenge_type",
+    "owners",
+    "assignee",
     "learning_objectives",
     "required_skills",
     "recommended_tools",
     "references",
     "metadata",
-    "files",  # player-facing 附件清單（實體檔在 repo files/，見 spec Ⓒ）
 })
 
 # public.yml 中「CTFd 有原生對應」的鍵；challenge_to_ctfd 逆轉時不放進 blob。
@@ -74,9 +83,9 @@ NATIVE_PUBLIC_KEYS: frozenset[str] = frozenset({
     "id", "title", "category", "description", "points", "tags", "hints",
 })
 
-# CTFd flag type → private.yml 的 flag_type
-_CTFD_FLAG_TYPE = {
-    "static": "static",
+# CTFd flag type → private.yml 的 flag_match（canonical）
+_CTFD_TO_FLAG_MATCH = {
+    "static": "exact",
     "regex": "regex",
 }
 
@@ -122,16 +131,16 @@ def normalize_hints(hints: Optional[Iterable[dict]]) -> list[dict]:
 
 
 def first_flag(flags: Optional[Iterable[dict]]) -> Optional[tuple[str, str]]:
-    """取第一個 CTFd flag，回傳 (content, flag_type)；沒有則 None。
+    """取第一個 CTFd flag，回傳 (content, flag_match)；沒有則 None。
 
-    未知的 CTFd flag type 一律退回 'static'（唯一安全的預設）。
+    flag_match ∈ {exact, regex}；未知的 CTFd flag type 一律退回 'exact'（唯一安全的預設）。
     """
     for flag in flags or []:
         content = (flag or {}).get("content")
         if content is None or str(content) == "":
             continue
         ctfd_type = str((flag or {}).get("type", "static")).lower()
-        return str(content), _CTFD_FLAG_TYPE.get(ctfd_type, "static")
+        return str(content), _CTFD_TO_FLAG_MATCH.get(ctfd_type, "exact")
     return None
 
 
@@ -207,10 +216,15 @@ def ctfd_to_challenge(
     if file_list:
         public["files"] = file_list
 
-    # ---- CTFd flags → private（權威，覆蓋 blob 帶進來的 flag/flag_type）----
+    # ---- CTFd flags → private（權威，覆蓋 blob 帶進來的 flag）----
     resolved = first_flag(flags)
     if resolved:
-        private["flag"], private["flag_type"] = resolved
+        private["flag"], private["flag_match"] = resolved
+        # flag_load/flag_scope 是授權端 metadata（CTFd 原生沒有）；
+        # 若 blob 沒帶，給 canonical 預設（CTFd 靜態 flag = 內建、統一）
+        private.setdefault("flag_load", "static")
+        private.setdefault("flag_scope", "shared")
+        private.pop("flag_type", None)  # 舊欄位由 flag_match 取代
 
     return public, private
 
@@ -236,16 +250,28 @@ def challenge_to_ctfd(public: dict, private: Optional[dict] = None) -> dict:
         if content:
             hints.append({"content": content, "cost": int((hint or {}).get("cost", 0) or 0)})
 
-    # blob = public 的非原生欄位 + private 的非 flag 欄位（flag/flag_type 走 CTFd flag，不入 blob）
+    # blob = public 的非原生欄位 + private 的非 flag 欄位。
+    # flag（答案）與 flag_match（→CTFd flag type）走 CTFd flag、不入 blob；
+    # flag_load/flag_scope 是授權端 metadata，留在 blob 才能 round-trip。
+    _flag_native = ("flag", "flag_match", "flag_type")
     blob: dict = {}
     for key, value in public.items():
         if key not in NATIVE_PUBLIC_KEYS:
             blob[key] = value
     for key, value in private.items():
-        if key not in ("flag", "flag_type"):
+        if key not in _flag_native:
             blob[key] = value
 
+    # CTFd flag type：新 flag_match 優先，相容舊 flag_type
+    match = str(private.get("flag_match") or "").lower()
+    legacy = str(private.get("flag_type") or "").lower()
+    ctfd_flag_type = "regex" if (match == "regex" or legacy == "regex") else "static"
+
     flag = private.get("flag")
+    # 多 flag（陣列）：CTFd 端只建第一個（dev 站測試用）；完整清單以 repo 的 private.yml 為準
+    if isinstance(flag, list):
+        flag = flag[0] if flag else None
+
     return {
         "name": public.get("title", ""),
         "category": public.get("category", ""),
@@ -254,7 +280,7 @@ def challenge_to_ctfd(public: dict, private: Optional[dict] = None) -> dict:
         "tags": normalize_tags(public.get("tags")),
         "hints": hints,
         "flag": (str(flag) if flag else None),
-        "flag_type": str(private.get("flag_type") or "static"),
+        "flag_type": ctfd_flag_type,
         "uid": public.get("id"),
         "blob": blob,
     }
