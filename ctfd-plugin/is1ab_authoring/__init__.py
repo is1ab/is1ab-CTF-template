@@ -42,7 +42,7 @@ from CTFd.utils.decorators import admins_only, authed_only
 from CTFd.utils.user import get_current_user, is_admin
 
 # 分類 / 難度 / 狀態的受控詞彙（配額與指派共用，避免自由文字對帳誤差，見審查 B4）
-CATEGORIES = ["web", "pwn", "reverse", "crypto", "forensic", "misc", "general"]
+CATEGORIES = ["web", "pwn", "reverse", "crypto", "forensic", "misc", "osint", "general"]
 DIFFICULTIES = ["baby", "easy", "middle", "hard", "impossible"]
 ASSIGN_STATUSES = ["unassigned", "assigned", "in_progress", "in_review", "done"]
 # 題目「開發進度」的單一真相（Ⓑ）。與工單 status / CTFd state / ready_for_release 是不同概念。
