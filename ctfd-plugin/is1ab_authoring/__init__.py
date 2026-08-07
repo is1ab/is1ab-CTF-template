@@ -47,6 +47,14 @@ DIFFICULTIES = ["baby", "easy", "middle", "hard", "impossible"]
 ASSIGN_STATUSES = ["unassigned", "assigned", "in_progress", "in_review", "done"]
 # 題目「開發進度」的單一真相（Ⓑ）。與工單 status / CTFd state / ready_for_release 是不同概念。
 DEV_STATUSES = ["planning", "developing", "testing", "completed", "deployed"]
+# 進度顯示：dev_status → (中文標籤, bootstrap badge 色)
+DEV_STATUS_LABEL = {
+    "planning":   ("規劃",   "secondary"),
+    "developing": ("出題中", "info"),
+    "testing":    ("驗題中", "warning"),
+    "completed":  ("完成",   "success"),
+    "deployed":   ("已部署", "primary"),
+}
 # canonical（見 docs/challenge-schema.md）：交付方式 + 連線方式 + flag 三軸
 DEPLOY_TYPES = ["", "attachment", "container", "none"]
 CONNECTION_TYPES = ["", "nc", "http", "https"]
@@ -439,7 +447,9 @@ def _dashboard_matrix():
     targets = {(q.category, q.difficulty): q.target for q in ChallengeQuota.query.all()}
     umap = _users_map()
     chal_by_id = {c.id: c for c in Challenges.query.all()}
-    owner_by_cid = {m.challenge_id: m.owner_id for m in ChallengeMetadata.query.all()}
+    metas = ChallengeMetadata.query.all()
+    owner_by_cid = {m.challenge_id: m.owner_id for m in metas}
+    status_by_cid = {m.challenge_id: m.dev_status for m in metas}
 
     chal_cell = {cat: {d: [] for d in DIFFICULTIES} for cat in CATEGORIES}
     for c in Challenges.query.order_by(Challenges.id).all():
@@ -465,15 +475,21 @@ def _dashboard_matrix():
                                  if c.id not in linked and owner_by_cid.get(c.id) == a.author_id), None)
                 if chal:
                     linked.add(chal.id)
-                slots.append({"author": umap.get(a.author_id), "author_id": a.author_id,
+                # 出題者：優先指派者，其次題目擁有者
+                author = umap.get(a.author_id) or (umap.get(owner_by_cid.get(chal.id)) if chal else None)
+                slots.append({"author": author, "author_id": a.author_id,
                               "reviewers": [umap.get(int(x)) for x in (a.reviewer_ids or "").split(",") if x],
                               "cid": chal.id if chal else None,
-                              "cname": chal.name if chal else None})
-            for c in chal_cell[cat][d]:                     # 再放沒對應指派的題
+                              "cname": chal.name if chal else None,
+                              "status": status_by_cid.get(chal.id) if chal else None})
+            for c in chal_cell[cat][d]:                     # 再放沒對應指派的題（顯示擁有者 + 進度）
                 if c.id not in linked:
-                    slots.append({"author": None, "author_id": None, "reviewers": [], "cid": c.id, "cname": c.name})
+                    slots.append({"author": umap.get(owner_by_cid.get(c.id)), "author_id": None,
+                                  "reviewers": [], "cid": c.id, "cname": c.name,
+                                  "status": status_by_cid.get(c.id)})
             while len(slots) < target:                      # 補滿到配額數 → 缺
-                slots.append({"author": None, "author_id": None, "reviewers": [], "cid": None, "cname": None})
+                slots.append({"author": None, "author_id": None, "reviewers": [],
+                              "cid": None, "cname": None, "status": None})
             data[cat][d] = {"slots": slots, "target": target}
     return data
 
@@ -522,20 +538,35 @@ def _team_overview():
 
 
 def _my_stuff(user_id):
-    """回傳 (我出/協作的題, 指派給我出的工單, 指派給我驗的工單)。"""
-    my_challenges = []
+    """回傳 (我的題目 unified, 指派給我驗題)。
+
+    unified 把「我出/協作的題」與「指派我出但還沒建的題」合成一張表：
+      - 已建：題名 + 分類/難度/進度 + 角色（出題/協作）
+      - 指派待出：題目留空，只有分類/難度（方便閱讀）
+    """
+    mine, owned_catdiff = [], set()
     for m in ChallengeMetadata.query.all():
         if m.owner_id == user_id or str(user_id) in _collaborator_ids(m):
             chal = Challenges.query.filter_by(id=m.challenge_id).first()
             if chal:
-                my_challenges.append({
-                    "id": chal.id, "name": chal.name,
-                    "role": "owner" if m.owner_id == user_id else "collaborator",
-                })
-    to_author = Assignment.query.filter_by(author_id=user_id).all()
+                diff = _challenge_difficulty(chal.id)
+                is_owner = (m.owner_id == user_id)
+                mine.append({"id": chal.id, "name": chal.name,
+                             "category": chal.category, "difficulty": diff,
+                             "dev_status": m.dev_status,
+                             "role": ("出題" if is_owner else "協作"), "built": True})
+                if is_owner:
+                    owned_catdiff.add((chal.category, diff))
+    # 指派我出、還沒建題、且我在該 分類×難度 還沒有題 → 併進來（題目留空）
+    for a in Assignment.query.filter_by(author_id=user_id).all():
+        if a.challenge_id or (a.category, a.difficulty) in owned_catdiff:
+            continue
+        mine.append({"id": None, "name": None, "category": a.category,
+                     "difficulty": a.difficulty, "dev_status": None,
+                     "role": "指派待出", "built": False})
     to_review = [a for a in Assignment.query.all()
                  if str(user_id) in (a.reviewer_ids or "").split(",")]
-    return my_challenges, to_author, to_review
+    return mine, to_review
 
 
 # --------------------------------------------------------------------------- #
@@ -554,20 +585,22 @@ _LIST_TMPL = """
 </div></div>
 <div class="container">
   <table class="table table-striped">
-    <thead><tr><th>ID</th><th>題目</th><th>分類</th><th>分數</th><th>狀態</th><th>詳細</th><th></th></tr></thead>
+    <thead><tr><th>ID</th><th>題目</th><th>分類</th><th>難度</th><th>分數</th><th>進度</th><th>出題者</th><th>驗題者</th><th></th></tr></thead>
     <tbody>
     {% for c in rows %}
       <tr>
-        <td>{{ c.id }}</td><td>{{ c.name }}</td><td>{{ c.category }}</td>
-        <td>{{ c.value }}</td><td>{{ c.state }}</td>
-        <td>{% if c.has_meta %}<span class="badge badge-success">已填</span>{% else %}<span class="badge badge-secondary">未填</span>{% endif %}</td>
+        <td>{{ c.id }}</td><td>{{ c.name }}</td><td>{{ c.category }}</td><td>{{ c.difficulty }}</td>
+        <td>{{ c.value }}</td>
+        <td>{% if c.dev_status %}<span class="badge badge-{{ (status_label.get(c.dev_status) or ['','secondary'])[1] }}">{{ (status_label.get(c.dev_status) or [c.dev_status])[0] }}</span>{% else %}<span class="badge badge-light">未填</span>{% endif %}</td>
+        <td>{{ c.author or '—' }}</td>
+        <td>{% if c.reviewers %}{{ c.reviewers|join(', ') }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
         <td>
           {% if c.can_edit %}<a class="btn btn-sm btn-primary" href="{{ url_for('is1ab_authoring.challenge_edit', challenge_id=c.id) }}">編輯</a>{% endif %}
           <a class="btn btn-sm btn-outline-info" href="{{ url_for('is1ab_authoring.challenge_export', challenge_id=c.id) }}">匯出</a>
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="7" class="text-center text-muted">還沒有題目。點右上「新增題目」。</td></tr>
+      <tr><td colspan="9" class="text-center text-muted">還沒有題目。點右上「新增題目」。</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -753,20 +786,44 @@ def _form_from_request():
     return f
 
 
+def _reviewers_by_cid(metas_by_cid, umap):
+    """把每張工單的驗題者對應到題目 id（工單有 challenge_id 用它，否則以 出題者×分類×難度 自動關聯）。"""
+    by_owner_catdiff = {}
+    for c in Challenges.query.all():
+        m = metas_by_cid.get(c.id)
+        if m:
+            by_owner_catdiff[(m.owner_id, c.category, _challenge_difficulty(c.id))] = c.id
+    result = {}
+    for a in Assignment.query.all():
+        cid = a.challenge_id or (by_owner_catdiff.get((a.author_id, a.category, a.difficulty)) if a.author_id else None)
+        if not cid:
+            continue
+        for x in (a.reviewer_ids or "").split(","):
+            name = umap.get(int(x)) if x.strip().isdigit() else None
+            if name:
+                result.setdefault(cid, []).append(name)
+    return result
+
+
 @bp.route("/is1ab", methods=["GET"])
 @authed_only
 def challenge_list():
     metas = {m.challenge_id: m for m in ChallengeMetadata.query.all()}
+    umap = _users_map()
+    reviewers = _reviewers_by_cid(metas, umap)
     rows = []
     for c in Challenges.query.order_by(Challenges.id).all():
         meta = metas.get(c.id)
         rows.append(type("Row", (), {
             "id": c.id, "name": c.name, "category": c.category,
-            "value": c.value, "state": c.state,
+            "difficulty": _challenge_difficulty(c.id), "value": c.value,
+            "dev_status": (meta.dev_status if meta else None),
+            "author": (umap.get(meta.owner_id) if meta else None),
+            "reviewers": reviewers.get(c.id, []),
             "has_meta": meta is not None,
             "can_edit": _can_edit(meta),  # meta None → 僅 admin（不再對所有人開放）
         }))
-    return render_template_string(_LIST_TMPL, rows=rows)
+    return render_template_string(_LIST_TMPL, rows=rows, status_label=DEV_STATUS_LABEL)
 
 
 @bp.route("/is1ab/new", methods=["GET", "POST"])
@@ -1062,7 +1119,7 @@ _DASH_TMPL = """
       <td style="vertical-align:top">
         {% for s in cell.slots %}
           {% if s.cid %}
-          <a class="d-block mb-1 px-2 py-1 border rounded" href="{{ url_for('is1ab_authoring.challenge_edit', challenge_id=s.cid) }}">{{ s.cname }}{% if s.author %} <small class="text-muted">（{{ s.author }}）</small>{% endif %}{% if s.reviewers %}<br><small class="text-muted">驗:{{ s.reviewers|join(',') }}</small>{% endif %}</a>
+          <a class="d-block mb-1 px-2 py-1 border rounded" href="{{ url_for('is1ab_authoring.challenge_edit', challenge_id=s.cid) }}">{{ s.cname }}{% if s.status %} <span class="badge badge-{{ (status_label.get(s.status) or ['','secondary'])[1] }}">{{ (status_label.get(s.status) or [s.status])[0] }}</span>{% endif %}{% if s.author %} <small class="text-muted">出:{{ s.author }}</small>{% endif %}{% if s.reviewers %}<br><small class="text-muted">驗:{{ s.reviewers|join(',') }}</small>{% endif %}</a>
           {% elif s.author %}
             {% if s.author_id == me %}
             <a class="d-block mb-1 px-2 py-1 border rounded bg-light" href="{{ url_for('is1ab_authoring.challenge_new') }}?category={{ cat }}&difficulty={{ d }}"><span class="text-info">{{ s.author }}</span> <small class="text-muted">未建 · 點我建題</small>{% if s.reviewers %}<br><small class="text-muted">驗:{{ s.reviewers|join(',') }}</small>{% endif %}</a>
@@ -1095,22 +1152,22 @@ _MINE_TMPL = """
 {% block content %}
 <div class="container mt-4 mb-3"><div><h1>我的題目 / 指派給我</h1></div></div>
 <div class="container">
-  <h4>我出 / 協作的題</h4>
-  <table class="table table-sm table-striped"><thead><tr><th>#</th><th>題目</th><th>角色</th><th></th></tr></thead>
-  <tbody>{% for c in mine %}<tr><td>{{ c.id }}</td><td>{{ c.name }}</td><td>{{ c.role }}</td>
-    <td><a class="btn btn-sm btn-primary" href="{{ url_for('is1ab_authoring.challenge_edit', challenge_id=c.id) }}">編輯</a></td></tr>
-  {% else %}<tr><td colspan="4" class="text-muted text-center">還沒有</td></tr>{% endfor %}</tbody></table>
-
-  <h4 class="mt-4">指派給我「出題」</h4>
-  <table class="table table-sm"><thead><tr><th>#</th><th>標題</th><th>分類/難度</th><th>對應題目</th><th>狀態</th></tr></thead>
-  <tbody>{% for a in to_author %}<tr><td>{{ a.id }}</td><td>{{ a.title }}</td><td>{{ a.category }}/{{ a.difficulty }}</td>
-    <td>{% if a.challenge_id %}#{{ a.challenge_id }}{% else %}<span class="badge badge-warning">尚未建題</span>{% endif %}</td>
-    <td>{{ a.status }}</td></tr>{% else %}<tr><td colspan="5" class="text-muted text-center">沒有</td></tr>{% endfor %}</tbody></table>
+  <h4>我的題目 <small class="text-muted">（出題 / 協作 / 指派待出）</small></h4>
+  <table class="table table-sm table-striped">
+    <thead><tr><th>題目</th><th>分類</th><th>難度</th><th>進度</th><th>角色</th><th></th></tr></thead>
+    <tbody>{% for c in mine %}<tr>
+      <td>{% if c.built %}{{ c.name }}{% else %}<span class="badge badge-warning">尚未建題</span>{% endif %}</td>
+      <td>{{ c.category }}</td><td>{{ c.difficulty }}</td>
+      <td>{% if c.dev_status %}<span class="badge badge-{{ (status_label.get(c.dev_status) or ['','secondary'])[1] }}">{{ (status_label.get(c.dev_status) or [c.dev_status])[0] }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+      <td>{{ c.role }}</td>
+      <td>{% if c.built %}<a class="btn btn-sm btn-primary" href="{{ url_for('is1ab_authoring.challenge_edit', challenge_id=c.id) }}">編輯</a>{% else %}<a class="btn btn-sm btn-outline-info" href="{{ url_for('is1ab_authoring.challenge_new') }}?category={{ c.category }}&difficulty={{ c.difficulty }}">建題</a>{% endif %}</td>
+    </tr>{% else %}<tr><td colspan="6" class="text-muted text-center">還沒有</td></tr>{% endfor %}</tbody>
+  </table>
 
   <h4 class="mt-4">指派給我「驗題」</h4>
-  <table class="table table-sm"><thead><tr><th>#</th><th>標題</th><th>對應題目</th><th>狀態</th></tr></thead>
-  <tbody>{% for a in to_review %}<tr><td>{{ a.id }}</td><td>{{ a.title }}</td>
-    <td>{% if a.challenge_id %}#{{ a.challenge_id }}{% else %}—{% endif %}</td><td>{{ a.status }}</td></tr>
+  <table class="table table-sm"><thead><tr><th>#</th><th>分類</th><th>難度</th><th>對應題目</th></tr></thead>
+  <tbody>{% for a in to_review %}<tr><td>{{ a.id }}</td><td>{{ a.category }}</td><td>{{ a.difficulty }}</td>
+    <td>{% if a.challenge_id %}#{{ a.challenge_id }}{% else %}<span class="text-muted">尚未建題</span>{% endif %}</td></tr>
   {% else %}<tr><td colspan="4" class="text-muted text-center">沒有</td></tr>{% endfor %}</tbody></table>
   <a class="btn btn-secondary" href="{{ url_for('is1ab_authoring.dashboard') }}">儀表板</a>
 </div>
@@ -1125,7 +1182,7 @@ def dashboard():
     user = get_current_user()
     return render_template_string(_DASH_TMPL, data=_dashboard_matrix(),
                                   categories=CATEGORIES, difficulties=DIFFICULTIES,
-                                  prs=prs, pr_error=pr_error,
+                                  prs=prs, pr_error=pr_error, status_label=DEV_STATUS_LABEL,
                                   show_admin=is_admin(), me=(user.id if user else None))
 
 
@@ -1133,8 +1190,9 @@ def dashboard():
 @authed_only
 def my_page():
     user = get_current_user()
-    mine, to_author, to_review = _my_stuff(user.id) if user else ([], [], [])
-    return render_template_string(_MINE_TMPL, mine=mine, to_author=to_author, to_review=to_review)
+    mine, to_review = _my_stuff(user.id) if user else ([], [])
+    return render_template_string(_MINE_TMPL, mine=mine, to_review=to_review,
+                                  status_label=DEV_STATUS_LABEL)
 
 
 # --------------------------------------------------------------------------- #
