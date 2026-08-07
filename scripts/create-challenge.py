@@ -39,29 +39,30 @@ class ChallengeCreator:
     
     def validate_inputs(self, category, name, difficulty):
         """驗證輸入參數"""
-        # 驗證分類
-        valid_categories = ['web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc', 'general']
-        if category not in valid_categories:
-            print(f"❌ Invalid category: {category}")
-            print(f"💡 Valid categories: {', '.join(valid_categories)}")
+        # 分類：自由填寫（非建議值只提醒不擋，見 docs/challenge-schema.md 決策 8）
+        suggested = ['web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc', 'osint', 'general']
+        if not category:
+            print("❌ category 不可為空")
             return False
-        
+        if category not in suggested:
+            print(f"💡 非建議分類 '{category}'（允許自由填寫；建議 {', '.join(suggested)}）")
+
         # 驗證題目名稱
         if not name or not name.replace('_', '').replace('-', '').isalnum():
             print(f"❌ Invalid challenge name: {name}")
             print("💡 Name should only contain letters, numbers, underscores, and hyphens")
             return False
-        
-        # 驗證難度
+
+        # 難度：控制詞彙（medium→middle 別名由呼叫端正規化）
         valid_difficulties = ['baby', 'easy', 'middle', 'hard', 'impossible']
         if difficulty not in valid_difficulties:
             print(f"❌ Invalid difficulty: {difficulty}")
             print(f"💡 Valid difficulties: {', '.join(valid_difficulties)}")
             return False
-        
+
         return True
     
-    def create_challenge(self, category, name, difficulty, author='', challenge_type=None):
+    def create_challenge(self, category, name, difficulty, author='', deploy_type=None, connection_type=None):
         """創建新題目"""
         try:
             # author 解析順序：--author > git config user.name > team.default_author
@@ -95,37 +96,41 @@ class ChallengeCreator:
                 return False
 
             print(f"🚀 Creating challenge: {category}/{name}")
-            
-            # 決定題目類型
-            if not challenge_type:
-                challenge_type = self.detect_challenge_type(category)
-            
+
+            # 決定交付方式（deploy_type + connection_type）
+            detected_dt, detected_conn = self.detect_deploy(category)
+            if not deploy_type:
+                deploy_type = detected_dt
+                connection_type = detected_conn
+            elif connection_type is None:
+                connection_type = detected_conn if deploy_type == 'container' else ''
+
             # 建立目錄結構
             challenge_path = Path(f"challenges/{category}/{name}")
             if challenge_path.exists():
                 print(f"❌ Error: Challenge {category}/{name} already exists")
                 return False
-                
-            self.create_directory_structure(challenge_path, challenge_type)
-            
+
+            self.create_directory_structure(challenge_path, deploy_type, connection_type)
+
             # 建立配置檔案 (創建 private.yml，後續由它生成 public.yml)
             private_config = self.create_private_config(
-                name, category, difficulty, author, challenge_type
+                name, category, difficulty, author, deploy_type, connection_type
             )
             self.save_private_config(challenge_path, private_config)
-            
+
             # 生成 public.yml (從 private.yml 移除敏感資訊)
             public_config = self.generate_public_from_private(private_config)
             self.save_public_config(challenge_path, public_config)
-            
+
             # 建立模板檔案
-            self.create_template_files(challenge_path, private_config, challenge_type)
-            
+            self.create_template_files(challenge_path, private_config, deploy_type, connection_type)
+
             # Git 操作
             self.create_git_branch(category, name)
-            
+
             print(f"✅ Challenge created at: {challenge_path}")
-            self.print_next_steps(challenge_path, challenge_type)
+            self.print_next_steps(challenge_path, deploy_type, connection_type)
             return True
             
         except PermissionError as e:
@@ -140,16 +145,19 @@ class ChallengeCreator:
             print("💡 Please check your input and try again")
             return False
         
-    def detect_challenge_type(self, category):
-        """根據分類決定題目類型"""
-        if category in ['pwn', 'reverse']:
-            return 'nc_challenge'  # nc 題目適合 pwn 和 reverse
-        elif category in ['web']:
-            return 'static_container'
-        else:
-            return 'static_attachment'
+    def detect_deploy(self, category):
+        """依分類推測 (deploy_type, connection_type)。作者可用 --deploy-type 覆蓋。"""
+        if category == 'pwn':
+            return ('container', 'nc')       # pwn 多為 nc 服務
+        if category == 'web':
+            return ('container', 'http')     # web 為 http 服務
+        return ('attachment', '')            # reverse/crypto/forensic/misc/osint 多為附件
     
-    def create_directory_structure(self, base_path, challenge_type):
+    @staticmethod
+    def _is_nc(deploy_type, connection_type):
+        return deploy_type == 'container' and (connection_type or '') == 'nc'
+
+    def create_directory_structure(self, base_path, deploy_type, connection_type):
         """建立標準目錄結構"""
         try:
             base_dirs = [
@@ -159,15 +167,16 @@ class ChallengeCreator:
                 'files',
                 'writeup/screenshots'
             ]
-            
-            # 根據題目類型決定額外目錄
-            if challenge_type == 'nc_challenge':
+
+            # nc 服務題多附預編 binary → 加 bin/
+            if self._is_nc(deploy_type, connection_type):
                 base_dirs.extend([
                     'bin',
                     'docker'
                 ])
-            else:
+            elif deploy_type == 'container':
                 base_dirs.append('docker')
+            # attachment / none 不需要 docker/
             
             # 建立主目錄
             base_path.mkdir(parents=True, exist_ok=True)
@@ -186,64 +195,42 @@ class ChallengeCreator:
             print(f"❌ Error creating directory structure: {e}")
             raise
             
-    def create_private_config(self, name, category, difficulty, author, challenge_type):
-        """建立 private.yml 配置（包含敏感資訊如 flag）"""
+    def create_private_config(self, name, category, difficulty, author, deploy_type, connection_type):
+        """建立 private.yml 配置（含敏感 flag）。新 canonical schema，見 docs/challenge-schema.md。"""
         flag_prefix = self.config['project']['flag_prefix']
+
+        deploy_info = {'requires_build': deploy_type == 'container'}
+        if deploy_type == 'container':
+            if self._is_nc(deploy_type, connection_type):
+                deploy_info.update({'connection_type': 'nc', 'nc_port': 9999, 'timeout': 60})
+            else:
+                deploy_info.update({'connection_type': connection_type or 'http', 'port': 8080})
+
         config = {
             'title': name.replace('_', ' ').replace('-', ' ').title(),
             'author': author,
             'difficulty': difficulty,
             'category': category,
             'description': 'TODO: Add challenge description here',
-            'challenge_type': challenge_type,
-            'source_code_provided': False,  # 是否提供原始碼
+            'deploy_type': deploy_type,          # attachment | container | none
+            'source_code_provided': False,
             'files': [],
             'status': 'planning',
             'points': self.config['points'].get(difficulty, 100),
             'tags': [category],
-            'created_at': datetime.now().isoformat(),
-            # 敏感資訊 (僅在 private.yml 中)
-            'flag': f'{flag_prefix}{{TODO_replace_with_actual_flag}}',
-            'flag_description': 'TODO: 描述如何獲得這個 flag',
-            'solution_steps': [
-                'TODO: 第一步解題步驟',
-                'TODO: 第二步解題步驟', 
-                'TODO: 第三步解題步驟'
-            ],
-            'internal_notes': 'TODO: 內部開發筆記，測試要點等',
-            'deploy_info': {
-                'port': None,
-                'url': None,
-                'requires_build': True
-            },
-            # 多階段提示系統
+            'created_at': datetime.now().strftime('%Y-%m-%d'),
             'hints': [
-                {
-                    'level': 1,
-                    'cost': 0,
-                    'content': 'TODO: 第一個免費提示 - 引導參賽者思考方向'
-                },
-                {
-                    'level': 2, 
-                    'cost': 10,
-                    'content': 'TODO: 第二個提示 - 提供具體的技術線索'
-                },
-                {
-                    'level': 3,
-                    'cost': 25,
-                    'content': 'TODO: 第三個提示 - 給出關鍵步驟或工具'
-                }
-            ]
+                {'level': 1, 'cost': 0, 'content': 'TODO: 第一個免費提示 - 引導參賽者思考方向'},
+            ],
+            # ---- 敏感（僅 private.yml）----
+            'flag': f'{flag_prefix}{{TODO_replace_with_actual_flag}}',
+            'flag_load': 'static',     # static | dynamic
+            'flag_scope': 'shared',    # shared | per_team
+            'flag_match': 'exact',     # exact | regex
+            'internal_notes': 'TODO: 內部開發筆記、測試要點。解題文件請寫 writeup/README.md',
         }
-        
-        # nc 題目特殊配置
-        if challenge_type == 'nc_challenge':
-            config['deploy_info'].update({
-                'nc_port': 9999,
-                'timeout': 60,
-                'connection_type': 'nc'
-            })
-        
+        if deploy_info:
+            config['deploy_info'] = deploy_info
         return config
     
     def save_private_config(self, challenge_path, config):
@@ -264,13 +251,15 @@ class ChallengeCreator:
         """從 private.yml 生成 public.yml (移除敏感資訊)"""
         public_config = private_config.copy()
         
-        # 移除敏感資訊
+        # 移除敏感資訊（flag 三軸 + 內部筆記；hints/deploy_info 屬公開）
         sensitive_fields = [
-            'flag', 'flag_description', 'solution_steps', 'internal_notes',
+            'flag', 'flag_load', 'flag_scope', 'flag_match', 'dynamic_flag',
+            'internal_notes', 'testing',
+            'flag_description', 'solution_steps',  # 舊欄位若殘留一併移除
         ]
         for field in sensitive_fields:
             public_config.pop(field, None)
-        
+
         return public_config
         
     def save_public_config(self, challenge_path, config):
@@ -278,7 +267,7 @@ class ChallengeCreator:
         try:
             config_file = challenge_path / 'public.yml'
             with open(config_file, 'w', encoding='utf-8') as f:
-                yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+                yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
             print(f"📝 Created: {config_file}")
         except IOError as e:
             print(f"❌ Failed to save public.yml: {e}")
@@ -287,29 +276,31 @@ class ChallengeCreator:
             print(f"❌ YAML formatting error: {e}")
             raise
             
-    def create_template_files(self, challenge_path, config, challenge_type):
+    def create_template_files(self, challenge_path, config, deploy_type, connection_type):
         """建立模板檔案"""
+        is_nc = self._is_nc(deploy_type, connection_type)
+
         # README.md
-        readme_content = self.generate_readme_template(config, challenge_type)
+        readme_content = self.generate_readme_template(config, deploy_type, connection_type)
         with open(challenge_path / 'README.md', 'w', encoding='utf-8') as f:
             f.write(readme_content)
-            
-        # Docker files
-        if challenge_type == 'nc_challenge':
+
+        # Docker files（只有 container 類才產；attachment/none 不需要）
+        if is_nc:
             self.create_nc_docker_files(challenge_path, config)
-        else:
+        elif deploy_type == 'container':
             self.create_web_docker_files(challenge_path, config)
-        
+
         # Writeup template
         writeup_content = self.generate_writeup_template(config)
-        with open(challenge_path / 'writeup/solution.md', 'w', encoding='utf-8') as f:
+        with open(challenge_path / 'writeup/README.md', 'w', encoding='utf-8') as f:
             f.write(writeup_content)
 
         # 官方解 stub + 相依宣告（verify-solution 讀 solution/exploit.py）
         self.create_solution_template(challenge_path)
 
-        # 題目特定檔案
-        if challenge_type == 'nc_challenge':
+        # nc 題目特定檔案（範例 C + 腳本）
+        if is_nc:
             self.create_nc_challenge_files(challenge_path, config)
 
     def create_solution_template(self, challenge_path):
@@ -597,12 +588,21 @@ gunicorn==21.2.0
         with open(docker_path / 'requirements.txt', 'w') as f:
             f.write(requirements_content)
             
-    def generate_readme_template(self, config, challenge_type):
+    def generate_readme_template(self, config, deploy_type, connection_type):
         """生成 README 模板"""
         flag_prefix = self.config['project']['flag_prefix']
-        
-        # 根據題目類型調整內容
-        if challenge_type == 'nc_challenge':
+        is_nc = self._is_nc(deploy_type, connection_type)
+
+        # 動態渲染提示（數量不固定）
+        hints_md_lines = []
+        for h in config.get('hints', []):
+            cost = h.get('cost', 0)
+            label = "免費" if not cost else f"消耗 {cost} 分"
+            hints_md_lines.append(f"### 提示 {h.get('level', '?')}（{label}）\n{h.get('content', '')}")
+        hints_md = "\n\n".join(hints_md_lines) or "（尚未撰寫提示）"
+
+        # 根據交付方式調整內容
+        if is_nc:
             connection_info = f"""
 ## 連線資訊
 - **本地測試**: `nc localhost 9999`
@@ -626,11 +626,10 @@ make
 cp challenge ../docker/bin/
 ```
 """
-        else:
-            connection_info = f"""
+        elif deploy_type == 'container':
+            connection_info = """
 ## 連線資訊
-- **本地**: http://localhost:8080
-- **遠端**: {config['deploy_info']['url'] or 'TBD'}
+- **本地**: http://localhost:8080（正式站 port 由平台/frp 配發）
 """
             quick_start = """
 ## 🏃‍♂️ 快速開始
@@ -641,6 +640,9 @@ cd docker/
 docker-compose up -d
 ```
 """
+        else:
+            connection_info = "\n## 連線資訊\n- 附件題：檔案放 `files/`，無需連線\n"
+            quick_start = "\n## 🏃‍♂️ 快速開始\n\n把提供給選手的檔案放到 `files/`。\n"
         
         template = f"""# {config['title']}
 
@@ -657,12 +659,9 @@ docker-compose up -d
 flag: {flag_prefix}{{fake_flag_example}}
 ```
 
-## 題目類型
-- [{'x' if config['challenge_type'] == 'static_attachment' else ' '}] **靜態附件**: 共用附件，任意 flag
-- [{'x' if config['challenge_type'] == 'static_container' else ' '}] **靜態容器**: 共用容器，任意 flag  
-- [{'x' if config['challenge_type'] == 'dynamic_attachment' else ' '}] **動態附件**: 依照隊伍分配附件
-- [{'x' if config['challenge_type'] == 'dynamic_container' else ' '}] **動態容器**: 自動生成 flag，每隊唯一
-- [{'x' if config['challenge_type'] == 'nc_challenge' else ' '}] **NC 題目**: 透過 netcat 連線的題目
+## 交付方式
+- **deploy_type**: `{config['deploy_type']}`（attachment=只給檔案 / container=有服務 / none=純知識）
+- **連線方式**: `{(config.get('deploy_info') or {}).get('connection_type', '—')}`（nc / http / https）
 
 ## 提供的檔案
 {chr(10).join(f'- `{file}` - 檔案描述' for file in config['files']) if config['files'] else '- 無'}
@@ -685,16 +684,7 @@ flag: {flag_prefix}{{fake_flag_example}}
 
 ## 💡 題目提示
 
-本題提供漸進式提示系統，幫助參賽者逐步解題：
-
-### 提示 1 (免費)
-{config['hints'][0]['content']}
-
-### 提示 2 (消耗 {config['hints'][1]['cost']} 分)
-{config['hints'][1]['content']}
-
-### 提示 3 (消耗 {config['hints'][2]['cost']} 分)
-{config['hints'][2]['content']}
+{hints_md}
 
 ---
 
@@ -807,7 +797,7 @@ TODO: 描述最終獲取 flag 的過程
             print(f"⚠️  Git operation failed: {e}")
             print("📝 Please manually create branch and commit")
     
-    def print_next_steps(self, challenge_path, challenge_type):
+    def print_next_steps(self, challenge_path, deploy_type, connection_type):
         """印出後續步驟"""
         # 從路徑提取 category 和 name
         parts = str(challenge_path).replace("\\", "/").split("/")
@@ -833,12 +823,12 @@ TODO: 描述最終獲取 flag 的過程
         print(f"  3. 實作題目")
         print(f"     → 原始碼放在 {challenge_path}/src/")
 
-        if challenge_type == 'nc_challenge':
+        if self._is_nc(deploy_type, connection_type):
             print(f"     → 編譯：cd {challenge_path}/src && make")
             print(f"     → 複製執行檔到 {challenge_path}/docker/bin/")
             print(f"     → 測試：cd {challenge_path}/docker && docker-compose up")
             print(f"     → 連線測試：nc localhost 9999")
-        elif challenge_type in ('static_container', 'dynamic_container'):
+        elif deploy_type == 'container':
             print(f"     → 如需 Docker：編輯 {challenge_path}/docker/")
             print(f"     → 測試：cd {challenge_path}/docker && docker-compose up")
         else:
@@ -861,19 +851,22 @@ TODO: 描述最終獲取 flag 的過程
 def main():
     try:
         parser = argparse.ArgumentParser(description='Create new CTF challenge')
-        parser.add_argument('category', 
-                           choices=['web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc', 'general'],
-                           help='Challenge category')
+        parser.add_argument('category',
+                           help='Challenge category（自由填寫；建議 web/pwn/reverse/crypto/forensic/misc/osint/general）')
         parser.add_argument('name', help='Challenge name (use underscore for spaces)')
-        parser.add_argument('difficulty', 
+        parser.add_argument('difficulty',
                            choices=['baby', 'easy', 'middle', 'hard', 'impossible'],
                            help='Challenge difficulty')
         parser.add_argument('--author', default='',
                            help='出題人（未填則使用 git user.name，再退回 config.yml team.default_author）')
-        parser.add_argument('--type', choices=['static_attachment', 'static_container', 'dynamic_attachment', 'dynamic_container', 'nc_challenge'],
-                           help='Challenge type (auto-detect if not specified)')
+        parser.add_argument('--deploy-type', dest='deploy_type',
+                           choices=['attachment', 'container', 'none'],
+                           help='交付方式（未指定則依分類自動推測）')
+        parser.add_argument('--connection-type', dest='connection_type',
+                           choices=['nc', 'http', 'https'],
+                           help='container 題的連線方式（預設 pwn=nc / web=http）')
         parser.add_argument('--config', default='config.yml', help='Config file path')
-        
+
         args = parser.parse_args()
         
         # 檢查配置檔案
@@ -882,7 +875,8 @@ def main():
         
         creator = ChallengeCreator(args.config)
         success = creator.create_challenge(
-            args.category, args.name, args.difficulty, args.author, args.type
+            args.category, args.name, args.difficulty, args.author,
+            args.deploy_type, args.connection_type
         )
         
         if success:

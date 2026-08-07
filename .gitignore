@@ -339,3 +339,7 @@ id_ed25519.*
 # 最後更新：2026-01-19
 # 維護者：IS1AB Team
 # ================================================
+
+# generate-dashboard.py 產物
+dashboard.html
+dashboard.json

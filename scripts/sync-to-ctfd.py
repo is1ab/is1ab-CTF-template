@@ -47,7 +47,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, List, Optional, Tuple
+
+import challenge_schema as cs
 
 try:
     import yaml
@@ -218,8 +220,7 @@ def gate(public: dict, private: dict, target: str, config: dict) -> list[str]:
     if status in excluded:
         problems.append(f"status 為 {status}（在排除清單中）")
 
-    challenge_type = public.get("challenge_type", "")
-    needs_flag = challenge_type not in DYNAMIC_TYPES
+    needs_flag = cs.needs_static_flag(private)
     if needs_flag and not private.get("flag"):
         problems.append("非動態題但 private.yml 沒有 flag")
 
@@ -235,33 +236,28 @@ def resolve_points(public: dict, config: dict) -> int:
     return int(points_map.get(difficulty, 100))
 
 
-def resolve_flag(private: dict) -> Optional[tuple[str, str]]:
+def resolve_flag(private: dict) -> List[Tuple[str, str]]:
     """
-    回傳 (flag_content, ctfd_flag_type) 或 None。
+    回傳要在 CTFd 建立的 flag 清單 [(content, ctfd_flag_type), ...]。
 
-    唯一的判斷依據是 private.yml 的 `flag_type`（static | dynamic | regex），
-    答案內容一律取自 `flag` 欄位：
+    依 private.yml 的 flag 三軸（見 docs/challenge-schema.md）判斷：
 
-      - static（或未宣告）→ 精確比對
-      - regex             → `flag` 欄位本身就是正規表達式
-      - dynamic           → 不在 CTFd 建 flag，由插件發放時驗證
+      - flag_load=dynamic 或 flag_scope=per_team → 不建靜態 flag（由插件發放時驗證），回 []
+      - flag_match=regex → CTFd flag type=regex，`flag` 欄位本身即正規表達式
+      - 否則             → CTFd flag type=static，精確比對
+      - `flag` 可為單一字串或陣列（多個可接受答案）
 
-    ⚠️ 不要把 `flag_format` 當成答案。它不在 template 的 schema 裡，
-    程式碼沒有任何地方讀它，範例中的值（例如 "is1abCTF{fake_flag_.*}"）
-    是「flag 長什麼樣子」的註記。若誤當 regex 答案送進 CTFd，
-    任何符合該前綴的字串都會被判定為答對。
-    未宣告 flag_type 時一律退回 static，這是唯一安全的預設值。
+    ⚠️ 不讀 `flag_format`（那是「flag 長什麼樣子」的註記，不是答案）。
     """
-    flag = private.get("flag")
-    if not flag:
-        return None
-
-    declared = (private.get("flag_type") or "").lower()
-    if declared == "dynamic":
-        return None
-    if declared == "regex":
-        return str(flag), "regex"
-    return str(flag), "static"
+    load, scope, match = cs.flag_axes(private)
+    if load == "dynamic" or scope == "per_team":
+        return []
+    flags = private.get("flag")
+    if not flags:
+        return []
+    flags = flags if isinstance(flags, list) else [flags]
+    ftype = cs.ctfd_flag_type(private)
+    return [(str(f), ftype) for f in flags if f]
 
 
 def check_flag_format(private: dict) -> Optional[str]:
@@ -309,7 +305,6 @@ def sync_challenge(
     target: str,
 ) -> str:
     name = public["title"]
-    challenge_type = public.get("challenge_type", "")
     existing = client.find_challenge_by_name(name)
 
     payload = {
@@ -357,26 +352,22 @@ def sync_challenge(
 
 
 def sync_flag(client: CTFdClient, chal_id: Any, public: dict, private: dict) -> None:
-    challenge_type = public.get("challenge_type", "")
-    if challenge_type in DYNAMIC_TYPES:
-        # 動態題的 flag 由 instancer / 動態附件插件在發放時產生並驗證，
-        # 不能在 CTFd 建靜態 flag，否則所有人共用同一個答案。
-        return
-
+    # 動態/每隊 flag 由 instancer / 動態附件插件在發放時產生並驗證，
+    # 不能在 CTFd 建靜態 flag，否則所有人共用同一個答案。resolve_flag 已據 flag 三軸判斷。
     resolved = resolve_flag(private)
     if not resolved:
         return
-    content, flag_type = resolved
 
     if client.dry_run or chal_id == "<dry-run>":
         return
 
-    # 先清掉既有 flag，避免舊 flag 殘留造成兩個答案都能過
+    # 先清掉既有 flag，避免舊 flag 殘留造成多個答案都能過
     existing = client.get(f"/challenges/{chal_id}/flags") or {}
     for flag in existing.get("data", []):
         client.delete(f"/flags/{flag['id']}")
 
-    client.post("/flags", {"challenge": chal_id, "content": content, "type": flag_type})
+    for content, flag_type in resolved:
+        client.post("/flags", {"challenge": chal_id, "content": content, "type": flag_type})
 
 
 def sync_hints(client: CTFdClient, chal_id: Any, public: dict) -> None:
@@ -432,12 +423,14 @@ def _rel(path: Path) -> str:
 
 
 def describe(chal_dir: Path, public: dict, private: dict, config: dict) -> str:
-    challenge_type = public.get("challenge_type", "—")
+    kind = cs.kind(public)
+    load, scope, _ = cs.flag_axes(private)
     resolved = resolve_flag(private)
-    if challenge_type in DYNAMIC_TYPES:
-        flag_note = "動態（由插件發放）"
+    if load == "dynamic" or scope == "per_team":
+        flag_note = "動態/每隊（由插件發放）"
     elif resolved:
-        flag_note = f"{resolved[1]}，{len(resolved[0])} 字元"
+        ftype = resolved[0][1]
+        flag_note = f"{ftype}，{len(resolved)} 個" if len(resolved) > 1 else f"{ftype}，{len(resolved[0][0])} 字元"
     else:
         flag_note = "無"
 
@@ -453,7 +446,7 @@ def describe(chal_dir: Path, public: dict, private: dict, config: dict) -> str:
         f"    路徑     : {_rel(chal_dir)}\n"
         f"{slug_line}"
         f"    分類/難度: {public.get('category', '—')} / {public.get('difficulty', '—')}\n"
-        f"    類型     : {challenge_type}\n"
+        f"    交付     : {kind}\n"
         f"    分數     : {resolve_points(public, config)}\n"
         f"    Flag     : {flag_note}\n"
         f"    提示     : {len(public.get('hints') or [])} 則"

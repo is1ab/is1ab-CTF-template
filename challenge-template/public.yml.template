@@ -1,153 +1,61 @@
 # =============================================================================
 # 📢 CTF Challenge Public Configuration
 # =============================================================================
-# ✅ 此檔案包含公開資訊，可以安全地同步到 public repository
-# ❌ 不包含任何 flag、解答或敏感資訊
+# ✅ 公開資訊，可安全同步到 public repo。❌ 不含 flag / 解答 / 敏感資訊。
+# 欄位定義見 docs/challenge-schema.md（canonical）。
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# 基本資訊
-# -----------------------------------------------------------------------------
+# ---- 必填 --------------------------------------------------------------------
 title: "${CHALLENGE_TITLE}"
-author: "${AUTHOR}"
-difficulty: "${DIFFICULTY}"  # baby | easy | middle | hard | impossible
-category: "${CATEGORY}"       # web | pwn | reverse | crypto | forensic | misc | general
-
-# -----------------------------------------------------------------------------
-# 分工資訊（使用 GitHub username）
-# -----------------------------------------------------------------------------
-owners:
-  - "${AUTHOR}"
-
-# 單一主負責（建議填 GitHub username）
-assignee: "${AUTHOR}"
-
-# 題目描述 - 提供給參賽者的說明
+author: "${AUTHOR}"                 # GitHub username；唯一的人員欄位
+difficulty: "${DIFFICULTY}"        # baby | easy | middle | hard | impossible
+category: "${CATEGORY}"            # 自由填；建議 web/pwn/reverse/crypto/forensic/misc/osint/general
 description: |
   ${CHALLENGE_DESCRIPTION}
 
-# 題目類型
-# - static_attachment: 靜態附件下載
-# - static_container: 靜態容器服務
-# - dynamic_attachment: 動態附件（每隊不同）
-# - dynamic_container: 動態容器（每隊獨立）
-# - nc_challenge: NC 連線題目
-challenge_type: "${CHALLENGE_TYPE}"
+# 交付方式（只講「有沒有服務」；連線方式在 deploy_info.connection_type）
+#   attachment = 只給檔案 ; container = 有服務 ; none = 純知識/OSINT，無部署無附件
+deploy_type: "${DEPLOY_TYPE}"
+source_code_provided: false        # 是否附原始碼
 
-# -----------------------------------------------------------------------------
-# 題目配置
-# -----------------------------------------------------------------------------
-# 分數
+# ---- 選填 --------------------------------------------------------------------
 points: ${POINTS}
 
-# 標籤
 tags:
   - "${CATEGORY}"
-  - "${TAG_1}"
-  - "${TAG_2}"
 
-# 是否提供原始碼
-source_code_provided: false
-
-# 提供給參賽者的檔案
+# 提供給參賽者的檔案（container/nc 題也能附檔）
 files: []
   # - "challenge.zip"
-  # - "source.tar.gz"
 
-# -----------------------------------------------------------------------------
-# 狀態追蹤
-# -----------------------------------------------------------------------------
-status: "developing"  # planning | developing | testing | completed | deployed
-
-# 是否準備好發布到 public repo
+status: "developing"               # planning | developing | testing | completed | deployed
 ready_for_release: false
 
-# 創建時間
 created_at: "${CURRENT_DATE}"
 updated_at: "${CURRENT_DATE}"
 
-# -----------------------------------------------------------------------------
-# 部署資訊（公開部分）
-# -----------------------------------------------------------------------------
+# 部署資訊（有服務才需要）
 deploy_info:
-  # 服務端口
-  port: 8080
-  
-  # 部署後的 URL（比賽時填入）
-  url: ""
-  
-  # 是否需要 Docker 建構
-  requires_build: true
-  
-  # NC 題目設定
-  # nc_port: 9999
+  # connection_type: "nc"          # nc | http | https —— 玩家怎麼連
+  # port: 8080
+  # nc_port: 9999                  # connection_type=nc 時
   # timeout: 60
-  
-  # 資源限制
-  resources:
-    memory: "256Mi"
-    cpu: "100m"
+  requires_build: true
+  # resources: { memory: "256Mi", cpu: "100m" }
 
-# -----------------------------------------------------------------------------
-# 提示系統
-# -----------------------------------------------------------------------------
+# 提示（level/cost/content）
 hints:
   - level: 1
     cost: 0
     content: |
-      TODO: 第一個提示（免費）
-      引導方向但不透露答案
+      TODO: 第一個提示（免費），引導方向但不透露答案
 
-  - level: 2
-    cost: 10
-    content: |
-      TODO: 第二個提示
-      更具體的技術線索
-
-  - level: 3
-    cost: 25
-    content: |
-      TODO: 第三個提示
-      關鍵技術步驟
-
-# -----------------------------------------------------------------------------
-# 學習目標
-# -----------------------------------------------------------------------------
-learning_objectives:
-  - "TODO: 學習目標 1"
-  - "TODO: 學習目標 2"
-
-required_skills:
-  - "TODO: 所需技能 1"
-  - "TODO: 所需技能 2"
-
-recommended_tools:
-  - "TODO: 推薦工具 1"
-
-# -----------------------------------------------------------------------------
-# 參考資料（公開）
-# -----------------------------------------------------------------------------
-references:
-  - title: "相關學習資源"
-    url: "https://example.com"
-
-# -----------------------------------------------------------------------------
-# 元資料
-# -----------------------------------------------------------------------------
-metadata:
-  estimated_solve_time: "30 分鐘"
-  first_blood_bonus: 50
-  max_attempts: -1  # -1 表示無限制
+# 公開 repo 檔案白名單（選填；有安全用途，控制哪些檔案進 public）
+# allowed_files:
+#   - "src/**"
+#   - "files/*.zip"
 
 # =============================================================================
-# ✅ 安全檢查清單
+# ✅ 發布前檢查：無 flag / 無解題步驟 / 無測試憑證 / 無內部筆記 / description 無洩漏
+# 學習目標 / 所需技能 / 推薦工具 / 參考資料等說明 → 寫進 writeup/README.md，不進此檔
 # =============================================================================
-# 發布前請確認：
-# [ ] 此檔案不包含 flag 或 flag 相關字串
-# [ ] 此檔案不包含解題步驟
-# [ ] 此檔案不包含測試憑證
-# [ ] 此檔案不包含內部筆記
-# [ ] description 中無敏感資訊洩漏
-# [ ] hints 中無直接答案
-# =============================================================================
-

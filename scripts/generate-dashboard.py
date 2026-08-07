@@ -2,8 +2,12 @@
 # scripts/generate-dashboard.py
 
 import json
+import sys
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path as _Path
+sys.path.insert(0, str(_Path(__file__).resolve().parent))
+import challenge_schema as cs
 from pathlib import Path
 
 import yaml
@@ -62,9 +66,7 @@ def get_challenge_progress():
                     progress["by_category"][category_dir.name] += 1
                     progress["by_difficulty"][data.get("difficulty", "unknown")] += 1
                     progress["by_status"][data.get("status", "unknown")] += 1
-                    progress["by_type"][
-                        data.get("challenge_type", "static_attachment")
-                    ] += 1
+                    progress["by_type"][cs.kind(data)] += 1
                 except:
                     continue
 

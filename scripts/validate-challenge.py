@@ -40,7 +40,10 @@ class ChallengeValidator:
             
             # 驗證 public.yml
             self.validate_public_yml(challenge_path)
-            
+
+            # 驗證 private.yml 的 flag 三軸（若存在）
+            self.validate_private_yml(challenge_path)
+
             # 驗證 Docker 檔案
             self.validate_docker_files(challenge_path, challenge_type)
             
@@ -60,16 +63,43 @@ class ChallengeValidator:
             self.errors.append(f"Unexpected error validating {challenge_path}: {e}")
             return False
     
+    # ---- schema 正規化（新 deploy_type 相容舊 challenge_type）------------------
+    @staticmethod
+    def _deploy_from_legacy(legacy):
+        """舊 challenge_type → 新 deploy_type。"""
+        if not legacy:
+            return None
+        if legacy == 'nc_challenge':
+            return 'container'
+        if legacy.endswith('_container'):
+            return 'container'
+        if legacy.endswith('_attachment'):
+            return 'attachment'
+        return None
+
+    @classmethod
+    def _is_nc(cls, data):
+        """nc 連線題：新 schema 用 container + connection_type=nc；舊 schema 用 nc_challenge。"""
+        legacy = data.get('challenge_type')
+        deploy_type = data.get('deploy_type') or cls._deploy_from_legacy(legacy)
+        conn = (data.get('deploy_info') or {}).get('connection_type')
+        return legacy == 'nc_challenge' or (deploy_type == 'container' and conn == 'nc')
+
     def get_challenge_type(self, challenge_path):
-        """取得題目類型"""
+        """取得正規化題型：nc 題回 'nc_challenge'，否則回 deploy_type（供下游 nc 特判沿用）。"""
         public_yml = challenge_path / 'public.yml'
         if public_yml.exists():
             try:
                 with open(public_yml, 'r', encoding='utf-8') as f:
-                    data = yaml.safe_load(f)
-                    challenge_type = data.get('challenge_type', 'static_attachment')
-                    print(f"📝 Detected challenge type: {challenge_type}")
-                    return challenge_type
+                    data = yaml.safe_load(f) or {}
+                if self._is_nc(data):
+                    kind = 'nc_challenge'
+                else:
+                    kind = (data.get('deploy_type')
+                            or self._deploy_from_legacy(data.get('challenge_type'))
+                            or 'attachment')
+                print(f"📝 Detected challenge kind: {kind}")
+                return kind
             except yaml.YAMLError as e:
                 self.errors.append(f"YAML parsing error in public.yml: {e}")
                 return None
@@ -113,9 +143,15 @@ class ChallengeValidator:
             with open(public_yml, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f)
                 
-            # 必要欄位檢查
-            required_fields = ['title', 'author', 'difficulty', 'category', 'description', 'challenge_type', 'source_code_provided']
+            # 必要欄位檢查（deploy_type 取代 challenge_type；舊欄位相容但提示遷移）
+            required_fields = ['title', 'author', 'difficulty', 'category', 'description', 'deploy_type', 'source_code_provided']
             for field in required_fields:
+                if field == 'deploy_type' and field not in data:
+                    if data.get('challenge_type'):
+                        self.warnings.append("使用舊 challenge_type，請遷移為 deploy_type（見 docs/challenge-schema.md）")
+                    else:
+                        self.errors.append("Missing required field in public.yml: deploy_type")
+                    continue
                 if field not in data:
                     self.errors.append(f"Missing required field in public.yml: {field}")
                 elif field == 'source_code_provided':
@@ -124,29 +160,42 @@ class ChallengeValidator:
                         self.errors.append(f"Field '{field}' should be boolean (true/false)")
                 elif not data[field] or str(data[field]).startswith("TODO"):
                     self.warnings.append(f"Field '{field}' needs to be updated in public.yml")
-                    
-            # 值驗證
+
+            # difficulty：控制詞彙 + 別名正規化（medium→middle，大小寫不敏感）
+            difficulty_aliases = {'medium': 'middle', 'mid': 'middle'}
             valid_difficulties = ['baby', 'easy', 'middle', 'hard', 'impossible']
-            if data.get('difficulty') not in valid_difficulties:
+            raw_diff = str(data.get('difficulty') or '').strip().lower()
+            norm_diff = difficulty_aliases.get(raw_diff, raw_diff)
+            if norm_diff not in valid_difficulties:
                 self.errors.append(f"Invalid difficulty: {data.get('difficulty')}")
-                
-            valid_categories = ['web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc', 'general']
-            if data.get('category') not in valid_categories:
-                self.errors.append(f"Invalid category: {data.get('category')}")
-                
-            valid_types = ['static_attachment', 'static_container', 'dynamic_attachment', 'dynamic_container', 'nc_challenge']
-            if data.get('challenge_type') not in valid_types:
-                self.errors.append(f"Invalid challenge_type: {data.get('challenge_type')}")
-                
+
+            # category：自由填寫——非建議值只警告不擋（見 docs/challenge-schema.md 決策 8）
+            suggested_categories = ['web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc', 'osint', 'general']
+            raw_cat = str(data.get('category') or '').strip().lower()
+            if not raw_cat:
+                self.errors.append("Missing category")
+            elif raw_cat not in suggested_categories:
+                self.warnings.append(f"非建議分類 '{data.get('category')}'（自由填寫允許，但建議用 {'/'.join(suggested_categories)}）")
+
+            # deploy_type：attachment | container | none（舊 challenge_type 值相容並提示）
+            valid_deploy_types = ['attachment', 'container', 'none']
+            legacy_types = ['static_attachment', 'static_container', 'dynamic_attachment', 'dynamic_container', 'nc_challenge']
+            deploy_type = data.get('deploy_type')
+            if deploy_type is not None and deploy_type not in valid_deploy_types:
+                if deploy_type in legacy_types:
+                    self.warnings.append(f"舊 deploy 值 '{deploy_type}'，請改用 {'/'.join(valid_deploy_types)} + deploy_info.connection_type")
+                else:
+                    self.errors.append(f"Invalid deploy_type: {deploy_type}")
+
             valid_statuses = ['planning', 'developing', 'testing', 'completed', 'deployed']
             if data.get('status') not in valid_statuses:
                 self.warnings.append(f"Invalid status: {data.get('status')}")
-                
-            # NC 題目特殊驗證
-            if data.get('challenge_type') == 'nc_challenge':
-                deploy_info = data.get('deploy_info', {})
-                if 'nc_port' not in deploy_info:
-                    self.warnings.append("NC challenge missing nc_port in deploy_info")
+
+            # NC 題目特殊驗證（新舊 schema 皆偵測）
+            if self._is_nc(data):
+                deploy_info = data.get('deploy_info', {}) or {}
+                if 'nc_port' not in deploy_info and 'port' not in deploy_info:
+                    self.warnings.append("NC challenge 缺 nc_port/port（deploy_info）")
                 if 'timeout' not in deploy_info:
                     self.warnings.append("NC challenge missing timeout in deploy_info")
                 
@@ -155,6 +204,67 @@ class ChallengeValidator:
         except Exception as e:
             self.errors.append(f"Error reading public.yml: {e}")
             
+    def validate_private_yml(self, challenge_path):
+        """驗證 private.yml 的 flag 三軸（向後相容舊 flag_type）。"""
+        private_yml = challenge_path / 'private.yml'
+        if not private_yml.exists():
+            return
+        try:
+            with open(private_yml, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+        except yaml.YAMLError as e:
+            self.errors.append(f"Invalid YAML in private.yml: {e}")
+            return
+        except Exception as e:
+            self.errors.append(f"Error reading private.yml: {e}")
+            return
+
+        if 'flag' not in data:
+            self.warnings.append("private.yml 缺 flag")
+
+        # 新 schema：flag_load / flag_scope / flag_match；舊 schema：flag_type
+        legacy = str(data.get('flag_type') or '').strip().lower()
+        load = str(data.get('flag_load') or ('dynamic' if legacy == 'dynamic' else 'static')).strip().lower()
+        scope = str(data.get('flag_scope') or ('per_team' if legacy == 'dynamic' else 'shared')).strip().lower()
+        match = str(data.get('flag_match') or ('regex' if legacy == 'regex' else 'exact')).strip().lower()
+
+        if load not in ('static', 'dynamic'):
+            self.errors.append(f"Invalid flag_load: {data.get('flag_load')}（static | dynamic）")
+        if scope not in ('shared', 'per_team'):
+            self.errors.append(f"Invalid flag_scope: {data.get('flag_scope')}（shared | per_team）")
+        if match not in ('exact', 'regex'):
+            self.errors.append(f"Invalid flag_match: {data.get('flag_match')}（exact | regex）")
+        # 唯一 flag 必然是注入的：static + per_team 非法
+        if load == 'static' and scope == 'per_team':
+            self.errors.append("非法組合 flag_load=static + flag_scope=per_team（唯一 flag 必為 dynamic 注入）")
+
+        # flag 格式檢查：對照 config.yml 的專案統一格式（PM 設定，如 is1abCTF{...}）
+        # 略過：regex 比對（flag 本身是樣式）、dynamic 載入（flag 可能是 template/種子）
+        if match != 'regex' and load != 'dynamic':
+            prefix = self._flag_prefix()
+            import re as _re
+            pattern = _re.compile(rf'^{_re.escape(prefix)}\{{.*\}}$')
+            flags = data.get('flag')
+            flags = flags if isinstance(flags, list) else [flags]
+            for fl in flags:
+                if not fl:
+                    continue
+                if str(fl).startswith(f'{prefix}{{TODO'):
+                    self.warnings.append(f"flag 仍是佔位符，記得換成實際 flag")
+                elif not pattern.match(str(fl)):
+                    self.errors.append(f"flag 不符合專案格式 {prefix}{{...}}：{fl}")
+
+    @staticmethod
+    def _flag_prefix():
+        """讀 config.yml 的專案統一 flag 前綴（PM 設定）。"""
+        try:
+            config_path = Path(__file__).parent.parent / "config.yml"
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f) or {}
+            return config.get('project', {}).get('flag_prefix', 'is1abCTF')
+        except Exception:
+            return 'is1abCTF'
+
     def validate_docker_files(self, challenge_path, challenge_type):
         """驗證 Docker 檔案"""
         docker_dir = challenge_path / 'docker'

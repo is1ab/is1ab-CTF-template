@@ -43,6 +43,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+import challenge_schema as cs
+
 try:
     import yaml
 except ImportError:  # pragma: no cover
@@ -230,22 +232,26 @@ def extract_flag(stdout: str) -> Optional[str]:
 
 def compare_flag(found: str, private: dict) -> tuple[bool, str]:
     expected = private.get("flag")
-    flag_type = (private.get("flag_type") or "static").lower()
+    load, scope, match = cs.flag_axes(private)
 
-    if flag_type == "dynamic":
-        return True, "動態 flag，僅要求解題腳本成功（不比對內容）"
+    if load == "dynamic" or scope == "per_team":
+        return True, "動態/每隊 flag，僅要求解題腳本成功（不比對內容）"
     if not expected:
         return False, "private.yml 沒有 flag，無法比對"
 
-    if flag_type == "regex":
-        try:
-            if re.fullmatch(str(expected), found):
-                return True, "符合 regex"
-            return False, f"不符合 regex：{expected}"
-        except re.error as e:
-            return False, f"private.yml 的 flag 不是合法 regex：{e}"
+    # 多個可接受 flag（陣列）：任一命中即通過
+    candidates = expected if isinstance(expected, list) else [expected]
 
-    if found == str(expected):
+    if match == "regex":
+        for exp in candidates:
+            try:
+                if re.fullmatch(str(exp), found):
+                    return True, "符合 regex"
+            except re.error as e:
+                return False, f"private.yml 的 flag 不是合法 regex：{e}"
+        return False, f"不符合 regex：{candidates}"
+
+    if any(found == str(exp) for exp in candidates):
         return True, "與 private.yml 相符"
     return False, "與 private.yml 不符（flag drift：題目烘進 image 的 flag 與 private.yml 不同）"
 
@@ -259,8 +265,7 @@ def verify(chal_dir: Path, timeout: int, keep: bool) -> int:
         return EXIT_ERROR
 
     title = public.get("title", chal_dir.name)
-    challenge_type = public.get("challenge_type", "")
-    log(f"\n=== 驗題：{title}（{challenge_type}）===")
+    log(f"\n=== 驗題：{title}（{cs.kind(public)}）===")
 
     if (public.get("healthcheck") or {}).get("enabled") is False:
         log("⏭️  public.yml 明確關閉 healthcheck，略過")
@@ -271,7 +276,7 @@ def verify(chal_dir: Path, timeout: int, keep: bool) -> int:
         log(f"⚠️  找不到解題腳本（{' / '.join(SOLUTION_CANDIDATES)}）")
         return EXIT_NOT_IMPLEMENTED
 
-    needs_service = challenge_type not in NO_SERVICE_TYPES
+    needs_service = cs.has_service(public)
     compose = compose_cmd(chal_dir) if needs_service else None
     port = resolve_port(public)
     connection_info = None
