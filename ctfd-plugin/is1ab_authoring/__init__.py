@@ -162,6 +162,17 @@ class Assignment(db.Model):
     status = db.Column(db.String(32), default="unassigned")
 
 
+class ChallengeComment(db.Model):
+    """題目留言：任何登入者皆可留言（審題 / 討論 / 回饋）。"""
+
+    __tablename__ = "is1ab_comment"
+    id = db.Column(db.Integer, primary_key=True)
+    challenge_id = db.Column(db.Integer, db.ForeignKey("challenges.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    body = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+
 # --------------------------------------------------------------------------- #
 # helpers
 # --------------------------------------------------------------------------- #
@@ -595,8 +606,9 @@ _LIST_TMPL = """
         <td>{{ c.author or '—' }}</td>
         <td>{% if c.reviewers %}{{ c.reviewers|join(', ') }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
         <td>
-          {% if c.can_edit %}<a class="btn btn-sm btn-primary" href="{{ url_for('is1ab_authoring.challenge_edit', challenge_id=c.id) }}">編輯</a>{% endif %}
-          <a class="btn btn-sm btn-outline-info" href="{{ url_for('is1ab_authoring.challenge_export', challenge_id=c.id) }}">匯出</a>
+          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('is1ab_authoring.challenge_view', challenge_id=c.id) }}">查看</a>
+          {% if c.can_edit %}<a class="btn btn-sm btn-primary" href="{{ url_for('is1ab_authoring.challenge_edit', challenge_id=c.id) }}">編輯</a>
+          <a class="btn btn-sm btn-outline-info" href="{{ url_for('is1ab_authoring.challenge_export', challenge_id=c.id) }}">匯出</a>{% endif %}
         </td>
       </tr>
     {% else %}
@@ -962,6 +974,102 @@ def challenge_export_file(challenge_id, which):
     body = pub if which == "public" else priv
     return Response(body or "", mimetype="text/yaml",
                     headers={"Content-Disposition": f"attachment; filename={which}.yml"})
+
+
+# --------------------------------------------------------------------------- #
+# 唯讀檢視 + 留言（任何登入者；不含 flag/私密欄位）
+# --------------------------------------------------------------------------- #
+
+def _comments_for(challenge_id):
+    umap = _users_map()
+    out = []
+    for c in (ChallengeComment.query.filter_by(challenge_id=challenge_id)
+              .order_by(ChallengeComment.id).all()):
+        out.append({"name": umap.get(c.user_id) or "（未知）", "body": c.body,
+                    "created_at": c.created_at.strftime("%Y-%m-%d %H:%M") if c.created_at else ""})
+    return out
+
+
+_VIEW_TMPL = """
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4 mb-3"><div>
+  <h1>{{ v.name }}
+    {% if v.dev_status %}<span class="badge badge-{{ (status_label.get(v.dev_status) or ['','secondary'])[1] }}">{{ (status_label.get(v.dev_status) or [v.dev_status])[0] }}</span>{% endif %}
+  </h1>
+  <p class="text-muted">#{{ v.id }} · {{ v.category }} / {{ v.difficulty }} · {{ v.value }} 分</p>
+  {% if can_edit %}<a class="btn btn-primary btn-sm" href="{{ url_for('is1ab_authoring.challenge_edit', challenge_id=v.id) }}">編輯</a>{% else %}<span class="badge badge-light">唯讀（你不是出題者/協作者）</span>{% endif %}
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('is1ab_authoring.challenge_list') }}">返回清單</a>
+</div></div>
+<div class="container">
+  <table class="table table-sm">
+    <tr><th style="width:120px">出題者</th><td>{{ v.author or '—' }}</td></tr>
+    <tr><th>驗題者</th><td>{% if v.reviewers %}{{ v.reviewers|join(', ') }}{% else %}—{% endif %}</td></tr>
+    <tr><th>交付方式</th><td>{{ v.deploy_type or '—' }}{% if v.connection %}（{{ v.connection }}）{% endif %} · 原始碼：{{ '提供' if v.source_code_provided else '不提供' }}</td></tr>
+    {% if v.tags %}<tr><th>Tags</th><td>{{ v.tags|join(', ') }}</td></tr>{% endif %}
+    {% if v.files %}<tr><th>附件</th><td>{{ v.files|join(', ') }}</td></tr>{% endif %}
+  </table>
+  <h5 class="mt-3">描述</h5>
+  <div class="border rounded p-2 mb-3" style="white-space:pre-wrap">{{ v.description or '（無）' }}</div>
+  {% if v.hints %}<h5>提示</h5><ul>{% for h in v.hints %}<li>[{{ h.cost }}分] {{ h.content }}</li>{% endfor %}</ul>{% endif %}
+  <p class="text-muted"><small>flag / 官方解 / 內部筆記屬私密，僅出題者/協作者/admin 可於「編輯」「匯出」查看。</small></p>
+
+  <h4 class="mt-4">留言 <small class="text-muted">（{{ comments|length }}）</small></h4>
+  {% for c in comments %}
+    <div class="border rounded p-2 mb-2"><strong>{{ c.name }}</strong> <small class="text-muted">{{ c.created_at }}</small>
+      <div style="white-space:pre-wrap">{{ c.body }}</div></div>
+  {% else %}<p class="text-muted">還沒有留言。</p>{% endfor %}
+
+  <form method="post" action="{{ url_for('is1ab_authoring.challenge_comment', challenge_id=v.id) }}" class="mt-2 mb-4">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <div class="form-group"><textarea class="form-control" name="body" rows="2" placeholder="留言（審題回饋 / 討論）" required></textarea></div>
+    <button class="btn btn-success btn-sm" type="submit">送出留言</button>
+  </form>
+</div>
+{% endblock %}
+"""
+
+
+@bp.route("/is1ab/challenges/<int:challenge_id>/view", methods=["GET"])
+@authed_only
+def challenge_view(challenge_id):
+    """任何登入者可唯讀檢視（不含 flag/私密欄位）+ 看留言。"""
+    chal = Challenges.query.filter_by(id=challenge_id).first_or_404()
+    meta = _get_meta(challenge_id)
+    mf = _blob_to_fields(meta.blob if meta else "")
+    umap = _users_map()
+    reviewers = _reviewers_by_cid({m.challenge_id: m for m in ChallengeMetadata.query.all()},
+                                  umap).get(challenge_id, [])
+    hints = Hints.query.filter_by(challenge_id=challenge_id).order_by(Hints.cost).all()
+    tags = [t.value for t in Tags.query.filter_by(challenge_id=challenge_id)]
+    view = {
+        "id": chal.id, "name": chal.name, "category": chal.category,
+        "difficulty": mf.get("difficulty") or _challenge_difficulty(challenge_id),
+        "value": chal.value, "description": chal.description,
+        "deploy_type": mf.get("deploy_type"), "connection": mf.get("deploy_connection"),
+        "source_code_provided": mf.get("source_code_provided"),
+        "files": [x for x in (mf.get("files") or "").splitlines() if x.strip()],
+        "author": (umap.get(meta.owner_id) if meta else None),
+        "reviewers": reviewers, "dev_status": (meta.dev_status if meta else None),
+        "hints": [{"cost": h.cost, "content": h.content} for h in hints], "tags": tags,
+    }
+    return render_template_string(_VIEW_TMPL, v=view, comments=_comments_for(challenge_id),
+                                  can_edit=_can_edit(meta), nonce=session.get("nonce", ""),
+                                  status_label=DEV_STATUS_LABEL)
+
+
+@bp.route("/is1ab/challenges/<int:challenge_id>/comment", methods=["POST"])
+@authed_only
+def challenge_comment(challenge_id):
+    """任何登入者可留言（審題/討論）。"""
+    Challenges.query.filter_by(id=challenge_id).first_or_404()
+    user = get_current_user()
+    body = (request.form.get("body") or "").strip()
+    if body:
+        db.session.add(ChallengeComment(
+            challenge_id=challenge_id, user_id=(user.id if user else None), body=body[:5000]))
+        db.session.commit()
+    return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
 
 
 # --------------------------------------------------------------------------- #
