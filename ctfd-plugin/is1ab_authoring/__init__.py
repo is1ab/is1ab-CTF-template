@@ -990,6 +990,66 @@ def _comments_for(challenge_id):
     return out
 
 
+_CHAL_SRC_BASES = ["/repo/challenges", "/repo/challenges/examples", "/repo"]
+_SRC_TEXT_EXT = {".py", ".c", ".cc", ".cpp", ".h", ".hpp", ".js", ".ts", ".go", ".rs",
+                 ".java", ".rb", ".php", ".sh", ".txt", ".md", ".yml", ".yaml", ".json",
+                 ".html", ".css", ".sql", ".cfg", ".ini", ".toml", ".env", ".s", ".asm"}
+_SRC_SKIP_DIRS = {".git", "__pycache__", "node_modules", ".pytest_cache", ".venv"}
+_SRC_SENSITIVE_FILES = {"flag", "flag.txt", "private.yml"}       # 不顯示（洩 flag）
+_SRC_EDITOR_ONLY_DIRS = {"solution", "writeup"}                 # 官方解/writeup 洩答案 → 僅編輯者
+
+
+def _source_dir(repo_path):
+    if not repo_path:
+        return None
+    safe = repo_path.strip("/").replace("..", "")
+    for base in _CHAL_SRC_BASES:
+        cand = os.path.join(base, safe)
+        if os.path.isdir(cand):
+            return cand
+    return None
+
+
+def _read_source(repo_path, include_editor_only):
+    """讀掛載 repo 內的題目程式（src/docker/files…）供唯讀檢視。回傳 (顯示用相對路徑, [檔案])。
+    flag 檔一律略過；solution/writeup 僅編輯者可見。文字檔 <60KB 附內容，其餘只列大小。"""
+    d = _source_dir(repo_path)
+    if not d:
+        return None, []
+    out = []
+    for root, dirs, fnames in os.walk(d):
+        dirs[:] = [x for x in dirs if x not in _SRC_SKIP_DIRS]
+        rel_root = os.path.relpath(root, d)
+        top = "" if rel_root == "." else rel_root.split(os.sep)[0]
+        if not include_editor_only and top in _SRC_EDITOR_ONLY_DIRS:
+            dirs[:] = []
+            continue
+        for fn in sorted(fnames):
+            if fn in _SRC_SENSITIVE_FILES:
+                continue
+            full = os.path.join(root, fn)
+            try:
+                size = os.path.getsize(full)
+            except OSError:
+                continue
+            ext = os.path.splitext(fn)[1].lower()
+            is_text = (ext in _SRC_TEXT_EXT or fn in ("Dockerfile", "Makefile")) and size < 60000
+            text = None
+            if is_text:
+                try:
+                    with open(full, encoding="utf-8", errors="replace") as fh:
+                        text = fh.read()
+                except OSError:
+                    text = None
+            out.append({"path": os.path.relpath(full, d), "size": size, "text": text})
+    out.sort(key=lambda x: x["path"])
+    try:
+        rel = os.path.relpath(d, "/repo")
+    except ValueError:
+        rel = d
+    return rel, out
+
+
 _VIEW_TMPL = """
 {% extends "base.html" %}
 {% block content %}
@@ -1003,7 +1063,8 @@ _VIEW_TMPL = """
 </div></div>
 <div class="container">
   <table class="table table-sm">
-    <tr><th style="width:120px">出題者</th><td>{{ v.author or '—' }}</td></tr>
+    <tr><th style="width:120px">Flag</th><td><code>{{ v.flag or '（未設）' }}</code>{% if v.flag_type=='regex' %} <span class="badge badge-info">regex</span>{% endif %}</td></tr>
+    <tr><th>出題者</th><td>{{ v.author or '—' }}</td></tr>
     <tr><th>驗題者</th><td>{% if v.reviewers %}{{ v.reviewers|join(', ') }}{% else %}—{% endif %}</td></tr>
     <tr><th>交付方式</th><td>{{ v.deploy_type or '—' }}{% if v.connection %}（{{ v.connection }}）{% endif %} · 原始碼：{{ '提供' if v.source_code_provided else '不提供' }}</td></tr>
     {% if v.tags %}<tr><th>Tags</th><td>{{ v.tags|join(', ') }}</td></tr>{% endif %}
@@ -1012,7 +1073,16 @@ _VIEW_TMPL = """
   <h5 class="mt-3">描述</h5>
   <div class="border rounded p-2 mb-3" style="white-space:pre-wrap">{{ v.description or '（無）' }}</div>
   {% if v.hints %}<h5>提示</h5><ul>{% for h in v.hints %}<li>[{{ h.cost }}分] {{ h.content }}</li>{% endfor %}</ul>{% endif %}
-  <p class="text-muted"><small>flag / 官方解 / 內部筆記屬私密，僅出題者/協作者/admin 可於「編輯」「匯出」查看。</small></p>
+  {% if src_files %}
+  <h5 class="mt-3">題目程式 <small class="text-muted">（repo: {{ src_rel }}／{{ src_files|length }} 檔）</small></h5>
+  {% for f in src_files %}
+    <div class="mb-2"><code>{{ f.path }}</code> <small class="text-muted">({{ f.size }} bytes)</small>
+    {% if f.text %}<pre class="border rounded p-2" style="max-height:360px;overflow:auto;font-size:.85em">{{ f.text }}</pre>{% else %}<div class="text-muted"><small>（二進位 / 大檔，不顯示內容）</small></div>{% endif %}</div>
+  {% endfor %}
+  {% else %}
+  <p class="text-muted mt-3"><small>題目程式不在掛載的 repo（此題為匯入或尚未 commit 到 <code>challenges/{{ v.repo_path }}</code>）。</small></p>
+  {% endif %}
+  <p class="text-muted"><small>全體出題者皆可檢視此頁（含 flag / 官方解），方便審題與確認 flag；但只有出題者／協作者／admin 能「編輯」或「匯出」，避免誤改。</small></p>
 
   <h4 class="mt-4">留言 <small class="text-muted">（{{ comments|length }}）</small></h4>
   {% for c in comments %}
@@ -1037,6 +1107,7 @@ def challenge_view(challenge_id):
     chal = Challenges.query.filter_by(id=challenge_id).first_or_404()
     meta = _get_meta(challenge_id)
     mf = _blob_to_fields(meta.blob if meta else "")
+    fl = Flags.query.filter_by(challenge_id=challenge_id).first()
     umap = _users_map()
     reviewers = _reviewers_by_cid({m.challenge_id: m for m in ChallengeMetadata.query.all()},
                                   umap).get(challenge_id, [])
@@ -1052,10 +1123,14 @@ def challenge_view(challenge_id):
         "author": (umap.get(meta.owner_id) if meta else None),
         "reviewers": reviewers, "dev_status": (meta.dev_status if meta else None),
         "hints": [{"cost": h.cost, "content": h.content} for h in hints], "tags": tags,
+        "repo_path": (meta.repo_path if meta else None),
+        "flag": (fl.content if fl else None), "flag_type": (fl.type if fl else None),
     }
+    # 點1：全體出題者皆可檢視（含官方解/writeup）；只有「編輯/匯出」受 ACL 保護
+    src_rel, src_files = _read_source(meta.repo_path if meta else None, True)
     return render_template_string(_VIEW_TMPL, v=view, comments=_comments_for(challenge_id),
                                   can_edit=_can_edit(meta), nonce=session.get("nonce", ""),
-                                  status_label=DEV_STATUS_LABEL)
+                                  status_label=DEV_STATUS_LABEL, src_rel=src_rel, src_files=src_files)
 
 
 @bp.route("/is1ab/challenges/<int:challenge_id>/comment", methods=["POST"])
