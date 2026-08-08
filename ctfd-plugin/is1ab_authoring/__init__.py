@@ -980,6 +980,21 @@ def challenge_export_file(challenge_id, which):
 # 唯讀檢視 + 留言（任何登入者；不含 flag/私密欄位）
 # --------------------------------------------------------------------------- #
 
+def _flag_prefix():
+    try:
+        with open("/repo/config.yml", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        return cfg.get("project", {}).get("flag_prefix", "is1abCTF")
+    except Exception:
+        return "is1abCTF"
+
+
+def _flag_format_ok(flag):
+    if not flag:
+        return False
+    return bool(re.match(rf"^{re.escape(_flag_prefix())}\{{.*\}}$", str(flag)))
+
+
 def _comments_for(challenge_id):
     umap = _users_map()
     out = []
@@ -1063,7 +1078,7 @@ _VIEW_TMPL = """
 </div></div>
 <div class="container">
   <table class="table table-sm">
-    <tr><th style="width:120px">Flag</th><td><code>{{ v.flag or '（未設）' }}</code>{% if v.flag_type=='regex' %} <span class="badge badge-info">regex</span>{% endif %}</td></tr>
+    <tr><th style="width:120px">Flag</th><td><code>{{ v.flag or '（未設）' }}</code>{% if v.flag_type=='regex' %} <span class="badge badge-info">regex</span>{% endif %} {% if flag_ok %}<span class="badge badge-success">格式正確</span>{% else %}<span class="badge badge-danger">格式不符 / 未設</span>{% endif %}</td></tr>
     <tr><th>出題者</th><td>{{ v.author or '—' }}</td></tr>
     <tr><th>驗題者</th><td>{% if v.reviewers %}{{ v.reviewers|join(', ') }}{% else %}—{% endif %}</td></tr>
     <tr><th>交付方式</th><td>{{ v.deploy_type or '—' }}{% if v.connection %}（{{ v.connection }}）{% endif %} · 原始碼：{{ '提供' if v.source_code_provided else '不提供' }}</td></tr>
@@ -1083,6 +1098,20 @@ _VIEW_TMPL = """
   <p class="text-muted mt-3"><small>題目程式不在掛載的 repo（此題為匯入或尚未 commit 到 <code>challenges/{{ v.repo_path }}</code>）。</small></p>
   {% endif %}
   <p class="text-muted"><small>全體出題者皆可檢視此頁（含 flag / 官方解），方便審題與確認 flag；但只有出題者／協作者／admin 能「編輯」或「匯出」，避免誤改。</small></p>
+
+  <h4 class="mt-4">驗題者 <small class="text-muted">（任何出題者皆可設定）</small></h4>
+  <form method="post" action="{{ url_for('is1ab_authoring.challenge_set_reviewers', challenge_id=v.id) }}" class="mb-3">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <select class="form-control" name="reviewers" multiple size="4">
+      {% for u in users %}<option value="{{ u.id }}" {{ 'selected' if (u.id|string) in cur_reviewers else '' }}>{{ u.name }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-sm btn-primary mt-2" type="submit">更新驗題者</button>
+  </form>
+
+  {% if verify_cmd %}
+  <h4 class="mt-4">快速驗題 <small class="text-muted">（本機 clone 執行：起服務 → 跑官方解 → 比對 flag）</small></h4>
+  <pre class="border rounded p-2">{{ verify_cmd }}</pre>
+  {% endif %}
 
   <h4 class="mt-4">留言 <small class="text-muted">（{{ comments|length }}）</small></h4>
   {% for c in comments %}
@@ -1128,9 +1157,15 @@ def challenge_view(challenge_id):
     }
     # 點1：全體出題者皆可檢視（含官方解/writeup）；只有「編輯/匯出」受 ACL 保護
     src_rel, src_files = _read_source(meta.repo_path if meta else None, True)
+    asg = Assignment.query.filter_by(challenge_id=challenge_id).first()
+    cur_reviewers = set((asg.reviewer_ids or "").split(",")) if asg else set()
+    verify_cmd = (f'make verify-solution ARGS="challenges/{view["repo_path"]}"'
+                  if view["repo_path"] else None)
     return render_template_string(_VIEW_TMPL, v=view, comments=_comments_for(challenge_id),
                                   can_edit=_can_edit(meta), nonce=session.get("nonce", ""),
-                                  status_label=DEV_STATUS_LABEL, src_rel=src_rel, src_files=src_files)
+                                  status_label=DEV_STATUS_LABEL, src_rel=src_rel, src_files=src_files,
+                                  flag_ok=_flag_format_ok(view["flag"]), verify_cmd=verify_cmd,
+                                  users=Users.query.all(), cur_reviewers=cur_reviewers)
 
 
 @bp.route("/is1ab/challenges/<int:challenge_id>/comment", methods=["POST"])
@@ -1144,6 +1179,26 @@ def challenge_comment(challenge_id):
         db.session.add(ChallengeComment(
             challenge_id=challenge_id, user_id=(user.id if user else None), body=body[:5000]))
         db.session.commit()
+    return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
+
+
+@bp.route("/is1ab/challenges/<int:challenge_id>/reviewers", methods=["POST"])
+@authed_only
+def challenge_set_reviewers(challenge_id):
+    """任何登入出題者皆可設定驗題者（自薦 / 指定他人）；PM 的 /assignments 仍可指派。"""
+    chal = Challenges.query.filter_by(id=challenge_id).first_or_404()
+    rids = ",".join(x for x in request.form.getlist("reviewers") if x.strip())
+    asg = Assignment.query.filter_by(challenge_id=challenge_id).first()
+    if asg is None:
+        meta = _get_meta(challenge_id)
+        asg = Assignment(challenge_id=challenge_id,
+                         author_id=(meta.owner_id if meta else None),
+                         category=chal.category, difficulty=_challenge_difficulty(challenge_id),
+                         reviewer_ids=rids, status="assigned")
+        db.session.add(asg)
+    else:
+        asg.reviewer_ids = rids
+    db.session.commit()
     return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
 
 
