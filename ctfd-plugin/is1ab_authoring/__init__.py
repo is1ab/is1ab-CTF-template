@@ -629,9 +629,17 @@ _FORM_TMPL = """
 {% block content %}
 <div class="container mt-4 mb-3"><div>
   <h1>{{ "編輯題目" if challenge else "新增題目" }}</h1>
-  {% if challenge %}<p class="text-muted">#{{ challenge.id }}</p>{% endif %}
+  {% if challenge %}<p class="text-muted">#{{ challenge.id }}
+    <a class="btn btn-sm btn-outline-primary ml-2" href="{{ url_for('is1ab_authoring.challenge_view', challenge_id=challenge.id) }}">檢視 / 部署測試 →</a></p>{% endif %}
 </div></div>
 <div class="container">
+  {% if created %}<div class="alert alert-success">
+    <strong>✅ 題目已建立！</strong> 接下來：
+    <ol class="mb-0 mt-1">
+      <li>到「<a href="{{ url_for('is1ab_authoring.challenge_view', challenge_id=challenge.id) }}">檢視 / 部署測試</a>」頁上傳 docker 檔 → 一鍵建立實例試玩、確認 flag</li>
+      <li>寫好 code 後，在題目頁「匯出」public/private.yml 到你的 clone</li>
+      <li>本機 <code>make verify-solution</code> 綠燈 → commit + PR</li>
+    </ol></div>{% endif %}
   {% if saved %}<div class="alert alert-success">已儲存。</div>{% endif %}
   {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
   <form method="POST">
@@ -648,7 +656,7 @@ _FORM_TMPL = """
         <input class="form-control" type="number" name="value" value="{{ f.value }}"></div>
       <div class="form-group col-md-4"><label>開發進度</label>
         <select class="form-control" name="dev_status">
-          {% for s in dev_statuses %}<option value="{{ s }}" {{ 'selected' if f.dev_status==s else '' }}>{{ s }}</option>{% endfor %}
+          {% for s in dev_statuses %}<option value="{{ s }}" {{ 'selected' if f.dev_status==s else '' }}>{{ (status_label.get(s) or [s])[0] }}</option>{% endfor %}
         </select></div>
       <div class="form-group col-md-5"><label>Tags（逗號分隔）</label>
         <input class="form-control" name="tags" value="{{ f.tags }}"></div>
@@ -656,8 +664,8 @@ _FORM_TMPL = """
     <div class="form-group"><label>描述</label>
       <textarea class="form-control" name="description" rows="3">{{ f.description }}</textarea></div>
     <div class="form-row">
-      <div class="form-group col-md-6"><label>Flag</label>
-        <input class="form-control" name="flag" value="{{ f.flag }}"></div>
+      <div class="form-group col-md-6"><label>Flag <small class="text-muted">格式 {{ flag_prefix }}{...}</small></label>
+        <input class="form-control" name="flag" value="{{ f.flag }}" placeholder="{{ flag_prefix }}{...}"></div>
       <div class="form-group col-md-2"><label>載入 <small class="text-muted">load</small></label>
         <select class="form-control" name="flag_load">
           {% for s in flag_loads %}<option value="{{ s }}" {{ 'selected' if f.flag_load==s else '' }}>{{ s }}</option>{% endfor %}</select></div>
@@ -687,7 +695,7 @@ _FORM_TMPL = """
         <input class="form-control" name="author" value="{{ f.author }}"></div>
     </div>
     <details class="mb-3">
-      <summary class="text-muted">更多欄位（選填，大多題不用填：發布旗標 / 學習資訊 / 部署 / metadata）</summary>
+      <summary class="text-muted">更多欄位（選填，大多題不用填：發布旗標 / 附件 / 部署參數）</summary>
       <div class="mt-2 mb-2">
         <span class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="ready_for_release" id="rfr" {{ 'checked' if f.ready_for_release else '' }}><label class="form-check-label" for="rfr">可發布</label></span>
         <span class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="source_code_provided" id="scp" {{ 'checked' if f.source_code_provided else '' }}><label class="form-check-label" for="scp">提供原始碼</label></span>
@@ -802,6 +810,20 @@ def _form_from_request():
     return f
 
 
+def _assignment_for(challenge_id):
+    """找這題對應的工單：先 challenge_id 直連，否則以 出題者×分類×難度 關聯 PM 的工單（challenge_id=None）。"""
+    a = Assignment.query.filter_by(challenge_id=challenge_id).first()
+    if a:
+        return a
+    meta = _get_meta(challenge_id)
+    chal = Challenges.query.filter_by(id=challenge_id).first()
+    if meta and meta.owner_id and chal:
+        return Assignment.query.filter_by(
+            author_id=meta.owner_id, category=chal.category,
+            difficulty=_challenge_difficulty(challenge_id), challenge_id=None).first()
+    return None
+
+
 def _reviewers_by_cid(metas_by_cid, umap):
     """把每張工單的驗題者對應到題目 id（工單有 challenge_id 用它，否則以 出題者×分類×難度 自動關聯）。"""
     by_owner_catdiff = {}
@@ -854,6 +876,7 @@ def challenge_new():
             return render_template_string(_FORM_TMPL, challenge=None, f=f,
                                           nonce=session.get("nonce", ""), error=error, saved=False,
                                           dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
+                                  status_label=DEV_STATUS_LABEL, flag_prefix=_flag_prefix(),
                                           deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
                                   flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES)
         chal = Challenges(name=f["name"], description=f["description"],
@@ -870,7 +893,7 @@ def challenge_new():
         _sync_flag(chal.id, f["flag"], f["flag_match"])
         _sync_tags(chal.id, f["tags"])
         _sync_hints(chal.id, f["hints"])
-        return redirect(url_for("is1ab_authoring.challenge_edit", challenge_id=chal.id))
+        return redirect(url_for("is1ab_authoring.challenge_edit", challenge_id=chal.id, created=1))
     f = _form_defaults()
     if request.args.get("category"):
         f["category"] = request.args.get("category").strip()
@@ -879,6 +902,7 @@ def challenge_new():
     return render_template_string(_FORM_TMPL, challenge=None, f=f,
                                   nonce=session.get("nonce", ""), error=None, saved=False,
                                   dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
+                                  status_label=DEV_STATUS_LABEL, flag_prefix=_flag_prefix(),
                                   deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
                                   flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES)
 
@@ -945,7 +969,9 @@ def challenge_edit(challenge_id):
     owner = Users.query.filter_by(id=meta.owner_id).first() if (meta and meta.owner_id) else None
     return render_template_string(_FORM_TMPL, challenge=chal, f=f,
                                   nonce=session.get("nonce", ""), error=error, saved=saved,
+                                  created=request.args.get("created"),
                                   dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
+                                  status_label=DEV_STATUS_LABEL, flag_prefix=_flag_prefix(),
                                   deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
                                   flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES,
                                   users=Users.query.all(), can_manage=_can_manage_acl(meta),
@@ -1082,7 +1108,7 @@ _VIEW_TMPL = """
 </div></div>
 <div class="container">
   <table class="table table-sm">
-    <tr><th style="width:120px">Flag</th><td><code>{{ v.flag or '（未設）' }}</code>{% if v.flag_type=='regex' %} <span class="badge badge-info">regex</span>{% endif %} {% if flag_ok %}<span class="badge badge-success">格式正確</span>{% else %}<span class="badge badge-danger">格式不符 / 未設</span>{% endif %}</td></tr>
+    <tr><th style="width:120px">Flag</th><td><code>{{ v.flag or '（未設）' }}</code>{% if v.flag_type=='regex' %} <span class="badge badge-info">regex</span>{% endif %} {% if flag_ok %}<span class="badge badge-success">格式正確</span>{% else %}<span class="badge badge-danger" title="應為 {{ flag_prefix }}{...}">格式不符 / 未設（應為 {{ flag_prefix }}{...}）</span>{% endif %} <small class="text-muted">載入:{{ v.flag_load or 'static' }} · 範圍:{{ v.flag_scope or 'shared' }}</small></td></tr>
     <tr><th>出題者</th><td>{{ v.author or '—' }}</td></tr>
     <tr><th>驗題者</th><td>{% if v.reviewers %}{{ v.reviewers|join(', ') }}{% else %}—{% endif %}</td></tr>
     <tr><th>交付方式</th><td>{{ v.deploy_type or '—' }}{% if v.connection %}（{{ v.connection }}）{% endif %} · 原始碼：{{ '提供' if v.source_code_provided else '不提供' }}</td></tr>
@@ -1092,6 +1118,8 @@ _VIEW_TMPL = """
   <h5 class="mt-3">描述</h5>
   <div class="border rounded p-2 mb-3" style="white-space:pre-wrap">{{ v.description or '（無）' }}</div>
   {% if v.hints %}<h5>提示</h5><ul>{% for h in v.hints %}<li>[{{ h.cost }}分] {{ h.content }}</li>{% endfor %}</ul>{% endif %}
+  {% if v.internal_notes %}<h5 class="mt-3">內部筆記 <small class="text-muted">（開發/審題）</small></h5>
+  <div class="border rounded p-2 mb-2" style="white-space:pre-wrap">{{ v.internal_notes }}</div>{% endif %}
   {% if src_files %}
   <h5 class="mt-3">題目程式 <small class="text-muted">（repo: {{ src_rel }}／{{ src_files|length }} 檔）</small></h5>
   {% for f in src_files %}
@@ -1105,8 +1133,8 @@ _VIEW_TMPL = """
 
   <h4 class="mt-4">建立實例 <small class="text-muted">（CTFd 內 build+run 題目 docker，注入正確 flag，快速驗題）</small></h4>
   {% if deploy_msg %}<div class="alert alert-secondary" style="white-space:pre-wrap">{{ deploy_msg }}</div>{% endif %}
-  <p>狀態：{% if deploy_running %}<span class="badge badge-success">運行中</span>{% else %}<span class="badge badge-secondary">未部署</span>{% endif %}
-    {% if deploy_files %} · 已上傳：{% for fn in deploy_files %}<code>{{ fn }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% else %} · <span class="text-muted">尚未上傳 docker 檔</span>{% endif %}</p>
+  <p>狀態：{% if deploy_running %}<span class="badge badge-success">運行中</span>{% if deploy_ports %} · 連線埠：{% for p in deploy_ports %}<code>localhost:{{ p }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}{% else %}<span class="badge badge-secondary">未部署</span>{% endif %}
+    {% if deploy_files %} · 已上傳：{% for fn in deploy_files %}<code>{{ fn }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% elif deploy_ready %} · <span class="text-muted">用 repo 內題目程式部署</span>{% else %} · <span class="text-muted">尚未上傳 docker 檔</span>{% endif %}</p>
   {% if can_edit %}
   <form method="post" action="{{ url_for('is1ab_authoring.deploy_upload', challenge_id=v.id) }}" enctype="multipart/form-data" class="form-inline mb-2">
     <input type="hidden" name="nonce" value="{{ nonce }}">
@@ -1114,9 +1142,10 @@ _VIEW_TMPL = """
     <button class="btn btn-sm btn-outline-secondary" type="submit">上傳 docker 檔（可多檔 / .zip）</button>
   </form>
   {% endif %}
+  {% if not deploy_ready %}<p class="text-muted"><small>此題無可部署的 compose。{% if not can_edit %}請出題者上傳 docker 檔，或把題目 code commit 到 repo。{% else %}請上傳 docker 檔（Dockerfile + docker-compose.yml）。{% endif %}</small></p>{% endif %}
   <form method="post" action="{{ url_for('is1ab_authoring.deploy_up', challenge_id=v.id) }}" style="display:inline">
     <input type="hidden" name="nonce" value="{{ nonce }}">
-    <button class="btn btn-sm btn-success" type="submit" {{ 'disabled' if not deploy_files else '' }}>▶ 建立實例</button>
+    <button class="btn btn-sm btn-success" type="submit" {{ 'disabled' if not deploy_ready else '' }}>▶ 建立實例</button>
   </form>
   <form method="post" action="{{ url_for('is1ab_authoring.deploy_stop', challenge_id=v.id) }}" style="display:inline">
     <input type="hidden" name="nonce" value="{{ nonce }}">
@@ -1178,21 +1207,27 @@ def challenge_view(challenge_id):
         "hints": [{"cost": h.cost, "content": h.content} for h in hints], "tags": tags,
         "repo_path": (meta.repo_path if meta else None),
         "flag": (fl.content if fl else None), "flag_type": (fl.type if fl else None),
+        "flag_load": mf.get("flag_load"), "flag_scope": mf.get("flag_scope"),
+        "internal_notes": mf.get("internal_notes"),
     }
     # 點1：全體出題者皆可檢視（含官方解/writeup）；只有「編輯/匯出」受 ACL 保護
     src_rel, src_files = _read_source(meta.repo_path if meta else None, True)
-    asg = Assignment.query.filter_by(challenge_id=challenge_id).first()
+    asg = _assignment_for(challenge_id)
     cur_reviewers = set((asg.reviewer_ids or "").split(",")) if asg else set()
+    # 快速驗題指令只在程式實際掛在 repo 時才顯示（否則本機也跑不動）
     verify_cmd = (f'make verify-solution ARGS="challenges/{view["repo_path"]}"'
-                  if view["repo_path"] else None)
+                  if (view["repo_path"] and _source_dir(view["repo_path"])) else None)
     return render_template_string(_VIEW_TMPL, v=view, comments=_comments_for(challenge_id),
                                   can_edit=_can_edit(meta), nonce=session.get("nonce", ""),
                                   status_label=DEV_STATUS_LABEL, src_rel=src_rel, src_files=src_files,
                                   flag_ok=_flag_format_ok(view["flag"]), verify_cmd=verify_cmd,
+                                  flag_prefix=_flag_prefix(),
                                   users=Users.query.all(), cur_reviewers=cur_reviewers,
                                   deploy_msg=session.pop("deploy_msg", None),
                                   deploy_files=_list_deploy_files(challenge_id),
-                                  deploy_running=_deploy_status(challenge_id) > 0)
+                                  deploy_ready=_deploy_ready(challenge_id, view["repo_path"]),
+                                  deploy_running=_deploy_status(challenge_id) > 0,
+                                  deploy_ports=_deploy_live_ports(challenge_id))
 
 
 @bp.route("/is1ab/challenges/<int:challenge_id>/comment", methods=["POST"])
@@ -1215,7 +1250,7 @@ def challenge_set_reviewers(challenge_id):
     """任何登入出題者皆可設定驗題者（自薦 / 指定他人）；PM 的 /assignments 仍可指派。"""
     chal = Challenges.query.filter_by(id=challenge_id).first_or_404()
     rids = ",".join(x for x in request.form.getlist("reviewers") if x.strip())
-    asg = Assignment.query.filter_by(challenge_id=challenge_id).first()
+    asg = _assignment_for(challenge_id)   # 找 PM 既有工單（含自動關聯），避免重建
     if asg is None:
         meta = _get_meta(challenge_id)
         asg = Assignment(challenge_id=challenge_id,
@@ -1225,6 +1260,8 @@ def challenge_set_reviewers(challenge_id):
         db.session.add(asg)
     else:
         asg.reviewer_ids = rids
+        if asg.challenge_id is None:      # 回填 challenge_id → 之後直連、不再靠猜
+            asg.challenge_id = challenge_id
     db.session.commit()
     return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
 
@@ -1308,10 +1345,33 @@ def _deploy_ports(compose_data):
     return ports
 
 
-def _deploy_instance(cid, flag):
+def _deploy_ready(cid, repo_path):
+    """是否有可部署的 compose：上傳目錄，或 repo 內的題目目錄（committed 題）。"""
     d = _deploy_dir(cid)
-    if not os.path.isdir(d) or not _list_deploy_files(cid):
-        return False, "尚未上傳 docker 檔（Dockerfile / docker-compose.yml）", []
+    if os.path.isdir(d) and _find_compose(d):
+        return True
+    src = _source_dir(repo_path)
+    return bool(src and _find_compose(src))
+
+
+def _resolve_deploy_dir(cid, repo_path):
+    """回傳可部署工作目錄。優先上傳目錄；否則把 repo 題目目錄複製到上傳目錄（不在 repo 內 build / 留 deploy 檔）。"""
+    d = _deploy_dir(cid)
+    if os.path.isdir(d) and _find_compose(d):
+        return d
+    src = _source_dir(repo_path)
+    if src and _find_compose(src):
+        if os.path.isdir(d):
+            shutil.rmtree(d)
+        shutil.copytree(src, d, ignore=shutil.ignore_patterns(".git", "__pycache__", ".venv"))
+        return d
+    return None
+
+
+def _deploy_instance(cid, flag, repo_path=None):
+    d = _resolve_deploy_dir(cid, repo_path)
+    if not d:
+        return False, "尚未上傳 docker 檔，且 repo 內也沒有可部署的 compose（Dockerfile / docker-compose.yml）", []
     compose = _find_compose(d)
     if not compose:
         return False, "找不到 docker-compose.yml（目前一鍵部署僅支援 compose）", []
@@ -1341,6 +1401,21 @@ def _deploy_status(cid):
         return len([x for x in r.stdout.splitlines() if x.strip()])
     except Exception:
         return 0
+
+
+def _deploy_live_ports(cid):
+    """查目前運行中實例對外發布的 host 埠（常駐顯示，不靠 session）。"""
+    try:
+        r = subprocess.run(["docker", "ps", "--filter",
+                            f"label=com.docker.compose.project={_deploy_project(cid)}",
+                            "--format", "{{.Ports}}"], capture_output=True, text=True, timeout=30)
+        ports = set()
+        for line in r.stdout.splitlines():
+            for m in re.findall(r":(\d+)->", line):
+                ports.add(m)
+        return sorted(ports, key=lambda x: int(x))
+    except Exception:
+        return []
 
 
 def _deploy_down(cid):
@@ -1386,8 +1461,10 @@ def deploy_upload(challenge_id):
 def deploy_up(challenge_id):
     """一鍵部署實例（任何出題者可測）。注入 CTFd 的正確 flag 為 FLAG env。"""
     Challenges.query.filter_by(id=challenge_id).first_or_404()
+    meta = _get_meta(challenge_id)
     fl = Flags.query.filter_by(challenge_id=challenge_id).first()
-    ok, msg, ports = _deploy_instance(challenge_id, fl.content if fl else "")
+    ok, msg, ports = _deploy_instance(challenge_id, fl.content if fl else "",
+                                      meta.repo_path if meta else None)
     session["deploy_msg"] = ("✅ " if ok else "❌ ") + msg + (f"（連線埠：{', '.join(ports)}）" if ports else "")
     return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
 
@@ -1598,14 +1675,14 @@ _MINE_TMPL = """
       <td>{% if c.dev_status %}<span class="badge badge-{{ (status_label.get(c.dev_status) or ['','secondary'])[1] }}">{{ (status_label.get(c.dev_status) or [c.dev_status])[0] }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
       <td>{{ c.role }}</td>
       <td>{% if c.built %}<a class="btn btn-sm btn-primary" href="{{ url_for('is1ab_authoring.challenge_edit', challenge_id=c.id) }}">編輯</a>{% else %}<a class="btn btn-sm btn-outline-info" href="{{ url_for('is1ab_authoring.challenge_new') }}?category={{ c.category }}&difficulty={{ c.difficulty }}">建題</a>{% endif %}</td>
-    </tr>{% else %}<tr><td colspan="6" class="text-muted text-center">還沒有</td></tr>{% endfor %}</tbody>
+    </tr>{% else %}<tr><td colspan="6" class="text-muted text-center">還沒有題目。想自己出題 → <a href="{{ url_for('is1ab_authoring.challenge_new') }}">＋新增題目</a>；或等 PM 在<a href="{{ url_for('is1ab_authoring.dashboard') }}">儀表板</a>指派給你。</td></tr>{% endfor %}</tbody>
   </table>
 
   <h4 class="mt-4">指派給我「驗題」</h4>
   <table class="table table-sm"><thead><tr><th>#</th><th>分類</th><th>難度</th><th>對應題目</th></tr></thead>
   <tbody>{% for a in to_review %}<tr><td>{{ a.id }}</td><td>{{ a.category }}</td><td>{{ a.difficulty }}</td>
-    <td>{% if a.challenge_id %}#{{ a.challenge_id }}{% else %}<span class="text-muted">尚未建題</span>{% endif %}</td></tr>
-  {% else %}<tr><td colspan="4" class="text-muted text-center">沒有</td></tr>{% endfor %}</tbody></table>
+    <td>{% if a.challenge_id %}<a href="{{ url_for('is1ab_authoring.challenge_view', challenge_id=a.challenge_id) }}">進題目 #{{ a.challenge_id }} →</a>{% else %}<span class="text-muted">尚未建題</span>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="4" class="text-muted text-center">目前沒有指派給你的驗題。出題者可在題目頁把你設為驗題者。</td></tr>{% endfor %}</tbody></table>
   <a class="btn btn-secondary" href="{{ url_for('is1ab_authoring.dashboard') }}">儀表板</a>
 </div>
 {% endblock %}
@@ -1700,7 +1777,7 @@ def challenge_import():
             for h in c["hints"]:
                 db.session.add(Hints(challenge_id=chal.id, content=h["content"], cost=int(h["cost"])))
             db.session.commit()
-            return redirect(url_for("is1ab_authoring.challenge_edit", challenge_id=chal.id))
+            return redirect(url_for("is1ab_authoring.challenge_edit", challenge_id=chal.id, created=1))
     return render_template_string(_IMPORT_TMPL, error=error, nonce=session.get("nonce", ""),
                                   public_yaml=public_yaml, private_yaml=private_yaml)
 
