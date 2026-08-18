@@ -23,6 +23,7 @@ import sys
 import urllib.request
 import uuid
 import zipfile
+from datetime import datetime
 
 import yaml
 from flask import (
@@ -51,6 +52,7 @@ DIFFICULTIES = ["baby", "easy", "middle", "hard", "impossible"]
 ASSIGN_STATUSES = ["unassigned", "assigned", "in_progress", "in_review", "done"]
 # 題目「開發進度」的單一真相（Ⓑ）。與工單 status / CTFd state / ready_for_release 是不同概念。
 DEV_STATUSES = ["planning", "developing", "testing", "completed", "deployed"]
+STALE_DAYS = 7   # developing/testing 超過幾天沒動 → 視為停滯（該催）
 # 進度顯示：dev_status → (中文標籤, bootstrap badge 色)
 DEV_STATUS_LABEL = {
     "planning":   ("規劃",   "secondary"),
@@ -122,6 +124,7 @@ class ChallengeMetadata(db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)  # F1
     collaborators = db.Column(db.Text, default="")       # Phase 6：可共同編輯的 user id（逗號分隔）
     dev_status = db.Column(db.String(32), default="developing")  # Ⓑ 開發進度單一真相 → public.yml.status
+    dev_status_at = db.Column(db.DateTime, nullable=True)  # 最後異動時間（停滯偵測用）
     uid = db.Column(db.String(16), nullable=True)        # Ⓓ 隱形亂碼綁定鍵
     repo_path = db.Column(db.String(255), nullable=True)  # Ⓓ 可讀目錄 <cat>/<slug>
     blob = db.Column("metadata_yaml", db.Text, default="")
@@ -132,6 +135,7 @@ class ChallengeMetadata(db.Model):
         self.owner_id = owner_id
         self.collaborators = collaborators
         self.dev_status = dev_status
+        self.dev_status_at = datetime.utcnow()
         self.uid = uid
         self.repo_path = repo_path
         self.blob = blob
@@ -534,12 +538,25 @@ def _dashboard_matrix():
             completed += sum(1 for s in cell["slots"]
                              if s["status"] in ("completed", "deployed"))
             missing += max(0, cell["target"] - cell_built)
+    # 停滯偵測（E2）：developing/testing 超過 STALE_DAYS 天沒動 → 該催了
+    now = datetime.utcnow()
+    stalled = []
+    for m in metas:
+        if m.dev_status in ("developing", "testing") and m.dev_status_at:
+            age = (now - m.dev_status_at).days
+            if age >= STALE_DAYS:
+                ch = chal_by_id.get(m.challenge_id)
+                if ch:
+                    stalled.append({"cid": ch.id, "cname": ch.name, "days": age,
+                                    "author": umap.get(m.owner_id), "status": m.dev_status})
+    stalled.sort(key=lambda x: -x["days"])
+
     total_target = sum(targets.values())
     denom = max(total_target, built)   # 配額未設滿時，用已建題數當分母，避免完成率爆表
     summary = {"target": total_target, "built": built, "completed": completed,
-               "missing": missing, "uncat": len(uncategorized),
+               "missing": missing, "uncat": len(uncategorized), "stalled": len(stalled),
                "rate": (round(completed * 100 / denom) if denom else 0)}
-    return {"grid": data, "summary": summary, "uncategorized": uncategorized}
+    return {"grid": data, "summary": summary, "uncategorized": uncategorized, "stalled": stalled}
 
 
 def _open_prs():
@@ -976,6 +993,7 @@ def challenge_edit(challenge_id):
             else:
                 meta.blob = blob  # uid / repo_path 不可變（Ⓓ）
             meta.dev_status = f["dev_status"]  # Ⓑ 單一真相
+            meta.dev_status_at = datetime.utcnow()  # 記最後異動 → 停滯偵測
             db.session.commit()
             # 只有 owner/admin 能改協作者清單（不信任表單，後端再判一次）
             if _can_manage_acl(meta):
@@ -1639,21 +1657,33 @@ _ASSIGN_TMPL = """
   </form>
   <hr>
   <table class="table table-striped">
-    <thead><tr><th>#</th><th>分類/難度</th><th>出題者</th><th>驗題者</th><th>對應題目</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>分類/難度</th><th>出題者</th><th>驗題者</th><th>對應題目</th><th>進度</th><th></th></tr></thead>
     <tbody>
     {% for r in rows %}
       <tr>
         <td>{{ r.a.id }}</td><td>{{ r.a.category }}/{{ r.a.difficulty }}</td>
         <td>{{ r.author }}</td><td>{{ r.reviewers }}</td>
-        <td>{% if r.a.challenge_id %}#{{ r.a.challenge_id }}{% else %}<span class="text-muted">未建</span>{% endif %}</td>
+        <td>{% if r.cid %}<a href="{{ url_for('is1ab_authoring.challenge_view', challenge_id=r.cid) }}">進題目 #{{ r.cid }}</a>{% else %}<span class="text-muted">未建</span>{% endif %}</td>
+        <td>{% if r.status %}<span class="badge badge-{{ (status_label.get(r.status) or ['','secondary'])[1] }}">{{ (status_label.get(r.status) or [r.status])[0] }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
         <td><form method="POST" onsubmit="return confirm('刪除工單？')">
           <input type="hidden" name="nonce" value="{{ nonce }}">
           <input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="{{ r.a.id }}">
           <button class="btn btn-sm btn-outline-danger">刪</button></form></td>
       </tr>
-    {% else %}<tr><td colspan="6" class="text-center text-muted">還沒有工單。</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="7" class="text-center text-muted">還沒有工單。</td></tr>{% endfor %}
     </tbody>
   </table>
+  {% if quota_rows %}
+  <h4 class="mt-4">配額 vs 指派 vs 已建</h4>
+  <table class="table table-sm" style="max-width:520px">
+    <thead><tr><th>分類/難度</th><th>配額</th><th>已指派</th><th>已建</th><th>缺</th></tr></thead>
+    <tbody>{% for q in quota_rows %}<tr>
+      <td>{{ q.category }}/{{ q.difficulty }}</td><td>{{ q.target }}</td>
+      <td>{% if q.assigned > q.target %}<span class="text-danger">{{ q.assigned }}（超額）</span>{% else %}{{ q.assigned }}{% endif %}</td>
+      <td>{{ q.built }}</td>
+      <td>{% set miss = q.target - q.built %}{% if miss > 0 %}<span class="badge badge-danger">{{ miss }}</span>{% else %}0{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table>{% endif %}
   <a class="btn btn-secondary" href="{{ url_for('is1ab_authoring.challenge_list') }}">返回</a>
 </div>
 {% endblock %}
@@ -1702,14 +1732,36 @@ def assignments_page():
         return redirect(url_for("is1ab_authoring.assignments_page"))
 
     umap = _users_map()
+    metas = ChallengeMetadata.query.all()
+    status_by_cid = {m.challenge_id: m.dev_status for m in metas}
+    by_owner_catdiff = {}
+    built_ct = {}
+    for c in Challenges.query.all():
+        m = next((x for x in metas if x.challenge_id == c.id), None)
+        diff = _challenge_difficulty(c.id)
+        if m and m.owner_id:
+            by_owner_catdiff[(m.owner_id, c.category, diff)] = c.id
+        built_ct[(c.category, diff)] = built_ct.get((c.category, diff), 0) + 1
     rows = []
+    assigned_ct = {}
     for a in Assignment.query.order_by(Assignment.id).all():
+        cid = a.challenge_id or by_owner_catdiff.get((a.author_id, a.category, a.difficulty))
+        assigned_ct[(a.category, a.difficulty)] = assigned_ct.get((a.category, a.difficulty), 0) + 1
         rows.append({
-            "a": a,
+            "a": a, "cid": cid,
             "author": umap.get(a.author_id, "—"),
             "reviewers": ", ".join(umap.get(int(x), x) for x in (a.reviewer_ids or "").split(",") if x),
+            "status": status_by_cid.get(cid),
         })
+    # 配額 vs 指派 vs 已建（超額 / 未指派一眼可辨）
+    quota_rows = []
+    for q in ChallengeQuota.query.all():
+        key = (q.category, q.difficulty)
+        quota_rows.append({"category": q.category, "difficulty": q.difficulty, "target": q.target,
+                           "assigned": assigned_ct.get(key, 0), "built": built_ct.get(key, 0)})
+    quota_rows.sort(key=lambda x: (x["category"], x["difficulty"]))
     return render_template_string(_ASSIGN_TMPL, rows=rows, users=Users.query.all(),
+                                  quota_rows=quota_rows, status_label=DEV_STATUS_LABEL,
                                   categories=CATEGORIES, difficulties=DIFFICULTIES,
                                   nonce=session.get("nonce", ""))
 
@@ -1736,8 +1788,13 @@ _DASH_TMPL = """
     <span class="mr-3">完成 <span class="badge badge-success">{{ summary.completed }}</span></span>
     <span class="mr-3">缺 <span class="badge badge-{{ 'danger' if summary.missing else 'secondary' }}">{{ summary.missing }}</span></span>
     <span class="mr-3">完成率 <strong>{{ summary.rate }}%</strong></span>
+    {% if summary.stalled %}<span class="mr-3">停滯 <span class="badge badge-danger">{{ summary.stalled }}</span></span>{% endif %}
     {% if summary.uncat %}<span class="mr-3">未分類 <span class="badge badge-warning">{{ summary.uncat }}</span></span>{% endif %}
   </div></div>
+  {% if stalled %}
+  <div class="alert alert-danger py-2"><strong>🕒 停滯題（{{ stalled|length }}，逾 7 天沒動）</strong>：
+    {% for s in stalled %}<a href="{{ url_for('is1ab_authoring.challenge_view', challenge_id=s.cid) }}" class="badge badge-light border">{{ s.cname }} · {{ s.days }}天 · 出:{{ s.author or '?' }}</a> {% endfor %}
+  </div>{% endif %}
   {% if uncategorized %}
   <div class="alert alert-warning py-2"><strong>⚠️ 落在配額格外的題（{{ uncategorized|length }}）</strong>
     ——分類非既有值或難度未填，不計入上方矩陣/配額：
@@ -1814,7 +1871,7 @@ def dashboard():
     user = get_current_user()
     dash = _dashboard_matrix()
     return render_template_string(_DASH_TMPL, data=dash["grid"], summary=dash["summary"],
-                                  uncategorized=dash["uncategorized"],
+                                  uncategorized=dash["uncategorized"], stalled=dash["stalled"],
                                   categories=CATEGORIES, difficulties=DIFFICULTIES,
                                   prs=prs, pr_error=pr_error, status_label=DEV_STATUS_LABEL,
                                   show_admin=is_admin(), me=(user.id if user else None))
@@ -1963,6 +2020,13 @@ def load(app):
     try:
         with app.app_context():
             db.create_all()
+            # 輕量遷移：既有表補上後加的欄位（create_all 不會 ALTER 既有表）
+            for stmt in ("ALTER TABLE is1ab_challenge_metadata ADD COLUMN dev_status_at DATETIME",):
+                try:
+                    db.session.execute(db.text(stmt))
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
     except Exception as exc:  # pragma: no cover
         app.logger.warning("[%s] db.create_all skipped: %s", PLUGIN_NAME, exc)
 
