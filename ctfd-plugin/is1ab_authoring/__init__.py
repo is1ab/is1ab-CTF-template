@@ -466,11 +466,26 @@ def _dashboard_matrix():
     owner_by_cid = {m.challenge_id: m.owner_id for m in metas}
     status_by_cid = {m.challenge_id: m.dev_status for m in metas}
 
+    def _blob_test(m):
+        try:
+            b = yaml.safe_load(m.blob) if m.blob else {}
+            t = (b or {}).get("testing") if isinstance(b, dict) else {}
+            return (t or {}).get("test_status") if isinstance(t, dict) else None
+        except Exception:
+            return None
+    test_by_cid = {m.challenge_id: _blob_test(m) for m in metas}
+
     chal_cell = {cat: {d: [] for d in DIFFICULTIES} for cat in CATEGORIES}
+    uncategorized = []   # C1：落在固定格外的題（自由填分類/空難度）→ 收容，不讓它從追蹤消失
     for c in Challenges.query.order_by(Challenges.id).all():
         cat, diff = (c.category or ""), _challenge_difficulty(c.id)
         if cat in chal_cell and diff in chal_cell[cat]:
             chal_cell[cat][diff].append(c)
+        else:
+            uncategorized.append({"cid": c.id, "cname": c.name,
+                                  "category": cat or "（空）", "difficulty": diff or "（空）",
+                                  "author": umap.get(owner_by_cid.get(c.id)),
+                                  "status": status_by_cid.get(c.id)})
 
     asg_cell = {cat: {d: [] for d in DIFFICULTIES} for cat in CATEGORIES}
     for a in Assignment.query.all():
@@ -496,17 +511,35 @@ def _dashboard_matrix():
                               "reviewers": [umap.get(int(x)) for x in (a.reviewer_ids or "").split(",") if x],
                               "cid": chal.id if chal else None,
                               "cname": chal.name if chal else None,
-                              "status": status_by_cid.get(chal.id) if chal else None})
+                              "status": status_by_cid.get(chal.id) if chal else None,
+                              "review": test_by_cid.get(chal.id) if chal else None})
             for c in chal_cell[cat][d]:                     # 再放沒對應指派的題（顯示擁有者 + 進度）
                 if c.id not in linked:
                     slots.append({"author": umap.get(owner_by_cid.get(c.id)), "author_id": None,
                                   "reviewers": [], "cid": c.id, "cname": c.name,
-                                  "status": status_by_cid.get(c.id)})
+                                  "status": status_by_cid.get(c.id),
+                                  "review": test_by_cid.get(c.id)})
             while len(slots) < target:                      # 補滿到配額數 → 缺
                 slots.append({"author": None, "author_id": None, "reviewers": [],
                               "cid": None, "cname": None, "status": None})
             data[cat][d] = {"slots": slots, "target": target}
-    return data
+
+    # KPI 彙總（E1）：跨格加總，讓 PM 一眼看「還差多少、完成幾成」
+    built = completed = missing = 0
+    for cat in CATEGORIES:
+        for d in DIFFICULTIES:
+            cell = data[cat][d]
+            cell_built = sum(1 for s in cell["slots"] if s["cid"])
+            built += cell_built
+            completed += sum(1 for s in cell["slots"]
+                             if s["status"] in ("completed", "deployed"))
+            missing += max(0, cell["target"] - cell_built)
+    total_target = sum(targets.values())
+    denom = max(total_target, built)   # 配額未設滿時，用已建題數當分母，避免完成率爆表
+    summary = {"target": total_target, "built": built, "completed": completed,
+               "missing": missing, "uncat": len(uncategorized),
+               "rate": (round(completed * 100 / denom) if denom else 0)}
+    return {"grid": data, "summary": summary, "uncategorized": uncategorized}
 
 
 def _open_prs():
@@ -648,8 +681,9 @@ _FORM_TMPL = """
     <div class="form-row">
       <div class="form-group col-md-8"><label>題名 *</label>
         <input class="form-control" name="name" value="{{ f.name }}" required></div>
-      <div class="form-group col-md-4"><label>分類</label>
-        <input class="form-control" name="category" value="{{ f.category }}"></div>
+      <div class="form-group col-md-4"><label>分類 <small class="text-muted">建議用既有分類，否則不進儀表板配額格</small></label>
+        <input class="form-control" name="category" value="{{ f.category }}" list="cat_list" placeholder="web / pwn / crypto …">
+        <datalist id="cat_list">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist></div>
     </div>
     <div class="form-row">
       <div class="form-group col-md-3"><label>分數</label>
@@ -795,7 +829,7 @@ def _form_defaults():
 def _form_from_request():
     g = request.form.get
     f = {
-        "name": g("name", "").strip(), "category": g("category", "").strip(),
+        "name": g("name", "").strip(), "category": g("category", "").strip().lower(),
         "value": g("value", "100").strip() or "100", "dev_status": g("dev_status", "developing"),
         "description": g("description", ""), "flag": g("flag", "").strip(),
         "flag_load": g("flag_load", "static"), "flag_scope": g("flag_scope", "shared"),
@@ -876,6 +910,7 @@ def challenge_new():
             return render_template_string(_FORM_TMPL, challenge=None, f=f,
                                           nonce=session.get("nonce", ""), error=error, saved=False,
                                           dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
+                                  categories=CATEGORIES,
                                   status_label=DEV_STATUS_LABEL, flag_prefix=_flag_prefix(),
                                           deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
                                   flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES)
@@ -902,6 +937,7 @@ def challenge_new():
     return render_template_string(_FORM_TMPL, challenge=None, f=f,
                                   nonce=session.get("nonce", ""), error=None, saved=False,
                                   dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
+                                  categories=CATEGORIES,
                                   status_label=DEV_STATUS_LABEL, flag_prefix=_flag_prefix(),
                                   deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
                                   flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES)
@@ -971,6 +1007,7 @@ def challenge_edit(challenge_id):
                                   nonce=session.get("nonce", ""), error=error, saved=saved,
                                   created=request.args.get("created"),
                                   dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
+                                  categories=CATEGORIES,
                                   status_label=DEV_STATUS_LABEL, flag_prefix=_flag_prefix(),
                                   deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
                                   flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES,
@@ -1152,13 +1189,29 @@ _VIEW_TMPL = """
     <button class="btn btn-sm btn-outline-danger" type="submit" {{ 'disabled' if not deploy_running else '' }}>🧹 收掉</button>
   </form>
 
-  <h4 class="mt-4">驗題者 <small class="text-muted">（任何出題者皆可設定）</small></h4>
+  <h4 class="mt-4">驗題 <small class="text-muted">（任何出題者皆可設驗題者 / 自薦 / 標記結論）</small></h4>
+  <p>驗題結果：
+    {% if v.test_status == 'passed' %}<span class="badge badge-success">通過</span>
+    {% elif v.test_status == 'failed' %}<span class="badge badge-danger">退回</span>
+    {% else %}<span class="badge badge-secondary">待驗</span>{% endif %}
+    {% if v.tested_by %}<small class="text-muted">by {{ v.tested_by }}</small>{% endif %}
+    <form method="post" action="{{ url_for('is1ab_authoring.challenge_review_outcome', challenge_id=v.id) }}" style="display:inline" class="ml-2">
+      <input type="hidden" name="nonce" value="{{ nonce }}"><input type="hidden" name="outcome" value="passed">
+      <button class="btn btn-sm btn-outline-success" type="submit">標記通過</button></form>
+    <form method="post" action="{{ url_for('is1ab_authoring.challenge_review_outcome', challenge_id=v.id) }}" style="display:inline">
+      <input type="hidden" name="nonce" value="{{ nonce }}"><input type="hidden" name="outcome" value="failed">
+      <button class="btn btn-sm btn-outline-danger" type="submit">退回</button></form>
+    <form method="post" action="{{ url_for('is1ab_authoring.challenge_review_me', challenge_id=v.id) }}" style="display:inline">
+      <input type="hidden" name="nonce" value="{{ nonce }}">
+      <button class="btn btn-sm btn-outline-secondary" type="submit">＋把我加為驗題者</button></form>
+  </p>
   <form method="post" action="{{ url_for('is1ab_authoring.challenge_set_reviewers', challenge_id=v.id) }}" class="mb-3">
     <input type="hidden" name="nonce" value="{{ nonce }}">
+    <label class="text-muted"><small>驗題者名單（多選；按住 Ctrl/Cmd 可複選，避免洗掉他人）</small></label>
     <select class="form-control" name="reviewers" multiple size="4">
       {% for u in users %}<option value="{{ u.id }}" {{ 'selected' if (u.id|string) in cur_reviewers else '' }}>{{ u.name }}</option>{% endfor %}
     </select>
-    <button class="btn btn-sm btn-primary mt-2" type="submit">更新驗題者</button>
+    <button class="btn btn-sm btn-primary mt-2" type="submit">更新驗題者名單</button>
   </form>
 
   {% if verify_cmd %}
@@ -1209,6 +1262,7 @@ def challenge_view(challenge_id):
         "flag": (fl.content if fl else None), "flag_type": (fl.type if fl else None),
         "flag_load": mf.get("flag_load"), "flag_scope": mf.get("flag_scope"),
         "internal_notes": mf.get("internal_notes"),
+        "test_status": mf.get("test_status"), "tested_by": mf.get("test_by"),
     }
     # 點1：全體出題者皆可檢視（含官方解/writeup）；只有「編輯/匯出」受 ACL 保護
     src_rel, src_files = _read_source(meta.repo_path if meta else None, True)
@@ -1262,6 +1316,57 @@ def challenge_set_reviewers(challenge_id):
         asg.reviewer_ids = rids
         if asg.challenge_id is None:      # 回填 challenge_id → 之後直連、不再靠猜
             asg.challenge_id = challenge_id
+    db.session.commit()
+    return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
+
+
+@bp.route("/is1ab/challenges/<int:challenge_id>/review-me", methods=["POST"])
+@authed_only
+def challenge_review_me(challenge_id):
+    """驗題者自薦：把自己 append 進驗題者名單（不覆寫他人）。"""
+    chal = Challenges.query.filter_by(id=challenge_id).first_or_404()
+    user = get_current_user()
+    asg = _assignment_for(challenge_id)
+    ids = set(x for x in (asg.reviewer_ids or "").split(",") if x) if asg else set()
+    if user:
+        ids.add(str(user.id))
+    if asg is None:
+        meta = _get_meta(challenge_id)
+        asg = Assignment(challenge_id=challenge_id, author_id=(meta.owner_id if meta else None),
+                         category=chal.category, difficulty=_challenge_difficulty(challenge_id),
+                         reviewer_ids=",".join(sorted(ids)), status="assigned")
+        db.session.add(asg)
+    else:
+        asg.reviewer_ids = ",".join(sorted(ids))
+        if asg.challenge_id is None:
+            asg.challenge_id = challenge_id
+    db.session.commit()
+    return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
+
+
+@bp.route("/is1ab/challenges/<int:challenge_id>/review-outcome", methods=["POST"])
+@authed_only
+def challenge_review_outcome(challenge_id):
+    """驗題者標記結論（通過/退回），寫入 metadata blob 的 testing.test_status + tested_by。"""
+    Challenges.query.filter_by(id=challenge_id).first_or_404()
+    meta = _get_meta(challenge_id)
+    if not meta:
+        abort(404)
+    outcome = request.form.get("outcome")
+    if outcome not in ("passed", "failed"):
+        abort(400)
+    user = get_current_user()
+    try:
+        blob = yaml.safe_load(meta.blob) if meta.blob else {}
+    except yaml.YAMLError:
+        blob = {}
+    if not isinstance(blob, dict):
+        blob = {}
+    testing = blob.get("testing") if isinstance(blob.get("testing"), dict) else {}
+    testing["test_status"] = outcome
+    testing["tested_by"] = (user.name if user else "")
+    blob["testing"] = testing
+    meta.blob = yaml.safe_dump(blob, sort_keys=False, allow_unicode=True)
     db.session.commit()
     return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
 
@@ -1625,6 +1730,19 @@ _DASH_TMPL = """
     <a class="btn btn-outline-secondary btn-sm" href="/admin/config">CTFd 後台設定</a>
     <a class="btn btn-outline-secondary btn-sm" href="/admin/users">帳號管理</a>
   </div>{% endif %}
+  <div class="card mb-3"><div class="card-body py-2">
+    <span class="mr-3"><strong>總配額</strong> {{ summary.target }}</span>
+    <span class="mr-3">已建 <span class="badge badge-info">{{ summary.built }}</span></span>
+    <span class="mr-3">完成 <span class="badge badge-success">{{ summary.completed }}</span></span>
+    <span class="mr-3">缺 <span class="badge badge-{{ 'danger' if summary.missing else 'secondary' }}">{{ summary.missing }}</span></span>
+    <span class="mr-3">完成率 <strong>{{ summary.rate }}%</strong></span>
+    {% if summary.uncat %}<span class="mr-3">未分類 <span class="badge badge-warning">{{ summary.uncat }}</span></span>{% endif %}
+  </div></div>
+  {% if uncategorized %}
+  <div class="alert alert-warning py-2"><strong>⚠️ 落在配額格外的題（{{ uncategorized|length }}）</strong>
+    ——分類非既有值或難度未填，不計入上方矩陣/配額：
+    {% for u in uncategorized %}<a href="{{ url_for('is1ab_authoring.challenge_view', challenge_id=u.cid) }}" class="badge badge-light border">{{ u.cname }}（{{ u.category }}/{{ u.difficulty }}）</a> {% endfor %}
+  </div>{% endif %}
   <h4>題目分布（配額幾題就幾個位；點方格進題目）</h4>
   <table class="table table-bordered">
     <thead><tr><th>分類 \\ 難度</th>{% for d in difficulties %}<th class="text-center">{{ d }}</th>{% endfor %}</tr></thead>
@@ -1633,7 +1751,7 @@ _DASH_TMPL = """
       <td style="vertical-align:top">
         {% for s in cell.slots %}
           {% if s.cid %}
-          <a class="d-block mb-1 px-2 py-1 border rounded" href="{{ url_for('is1ab_authoring.challenge_edit', challenge_id=s.cid) }}">{{ s.cname }}{% if s.status %} <span class="badge badge-{{ (status_label.get(s.status) or ['','secondary'])[1] }}">{{ (status_label.get(s.status) or [s.status])[0] }}</span>{% endif %}{% if s.author %} <small class="text-muted">出:{{ s.author }}</small>{% endif %}{% if s.reviewers %}<br><small class="text-muted">驗:{{ s.reviewers|join(',') }}</small>{% endif %}</a>
+          <a class="d-block mb-1 px-2 py-1 border rounded" href="{{ url_for('is1ab_authoring.challenge_edit', challenge_id=s.cid) }}">{{ s.cname }}{% if s.status %} <span class="badge badge-{{ (status_label.get(s.status) or ['','secondary'])[1] }}">{{ (status_label.get(s.status) or [s.status])[0] }}</span>{% endif %}{% if s.review == 'passed' %} <span class="badge badge-success">驗✓</span>{% elif s.review == 'failed' %} <span class="badge badge-danger">驗✗</span>{% endif %}{% if s.author %} <small class="text-muted">出:{{ s.author }}</small>{% endif %}{% if s.reviewers %}<br><small class="text-muted">驗:{{ s.reviewers|join(',') }}</small>{% endif %}</a>
           {% elif s.author %}
             {% if s.author_id == me %}
             <a class="d-block mb-1 px-2 py-1 border rounded bg-light" href="{{ url_for('is1ab_authoring.challenge_new') }}?category={{ cat }}&difficulty={{ d }}"><span class="text-info">{{ s.author }}</span> <small class="text-muted">未建 · 點我建題</small>{% if s.reviewers %}<br><small class="text-muted">驗:{{ s.reviewers|join(',') }}</small>{% endif %}</a>
@@ -1694,7 +1812,9 @@ _MINE_TMPL = """
 def dashboard():
     prs, pr_error = _open_prs()
     user = get_current_user()
-    return render_template_string(_DASH_TMPL, data=_dashboard_matrix(),
+    dash = _dashboard_matrix()
+    return render_template_string(_DASH_TMPL, data=dash["grid"], summary=dash["summary"],
+                                  uncategorized=dash["uncategorized"],
                                   categories=CATEGORIES, difficulties=DIFFICULTIES,
                                   prs=prs, pr_error=pr_error, status_label=DEV_STATUS_LABEL,
                                   show_admin=is_admin(), me=(user.id if user else None))
