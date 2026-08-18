@@ -14,9 +14,11 @@
 
 services:
   ctfd:
-    image: ctfd/ctfd:3.7.5   # ← 對齊 spec §10-A 的 pin；要換版本改這裡
-    # 啟動時補裝 plugin 需要、但 CTFd 映像沒有的套件（PyYAML 供富欄位 YAML 驗證）
-    entrypoint: ["/bin/sh", "-c", "pip install --no-cache-dir pyyaml >/dev/null 2>&1; exec /opt/CTFd/docker-entrypoint.sh"]
+    build:                   # ← 由 Dockerfile.dev build（烤入 docker CLI + compose + pyyaml）
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        CTFD_VERSION: "3.7.5"  # ← 要換 CTFd 版本改這裡（對齊 spec §10-A 的 pin）
     restart: unless-stopped
     ports:
       - "8010:8000"   # 對外 8010（8000 常被占用）；改這裡即可換埠
@@ -32,8 +34,10 @@ services:
       - ctfd_uploads:/var/uploads
       # 掛入本外掛（CTFd 會掃 CTFd/plugins/*/ 的 load(app)）
       - ./is1ab_authoring:/opt/CTFd/CTFd/plugins/is1ab_authoring:ro
-      # 掛入整個 repo，供之後的 git 整合（Phase 4）在容器內操作題目樹
+      # 掛入整個 repo，供 git 整合在容器內操作題目樹
       - ../:/repo
+      # dev-only：掛 host docker socket，供「CTFd 內一鍵部署」build/run 題目實例（≈root，僅信任 dev 站）
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - db
       - cache

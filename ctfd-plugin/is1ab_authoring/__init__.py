@@ -13,12 +13,16 @@ schema，匯出走同一個轉換器（scripts/ctfd_convert.py，容器內在 /r
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import urllib.request
 import uuid
+import zipfile
 
 import yaml
 from flask import (
@@ -1099,6 +1103,26 @@ _VIEW_TMPL = """
   {% endif %}
   <p class="text-muted"><small>全體出題者皆可檢視此頁（含 flag / 官方解），方便審題與確認 flag；但只有出題者／協作者／admin 能「編輯」或「匯出」，避免誤改。</small></p>
 
+  <h4 class="mt-4">建立實例 <small class="text-muted">（CTFd 內 build+run 題目 docker，注入正確 flag，快速驗題）</small></h4>
+  {% if deploy_msg %}<div class="alert alert-secondary" style="white-space:pre-wrap">{{ deploy_msg }}</div>{% endif %}
+  <p>狀態：{% if deploy_running %}<span class="badge badge-success">運行中</span>{% else %}<span class="badge badge-secondary">未部署</span>{% endif %}
+    {% if deploy_files %} · 已上傳：{% for fn in deploy_files %}<code>{{ fn }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% else %} · <span class="text-muted">尚未上傳 docker 檔</span>{% endif %}</p>
+  {% if can_edit %}
+  <form method="post" action="{{ url_for('is1ab_authoring.deploy_upload', challenge_id=v.id) }}" enctype="multipart/form-data" class="form-inline mb-2">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <input type="file" name="files" multiple class="form-control-file mr-2">
+    <button class="btn btn-sm btn-outline-secondary" type="submit">上傳 docker 檔（可多檔 / .zip）</button>
+  </form>
+  {% endif %}
+  <form method="post" action="{{ url_for('is1ab_authoring.deploy_up', challenge_id=v.id) }}" style="display:inline">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <button class="btn btn-sm btn-success" type="submit" {{ 'disabled' if not deploy_files else '' }}>▶ 建立實例</button>
+  </form>
+  <form method="post" action="{{ url_for('is1ab_authoring.deploy_stop', challenge_id=v.id) }}" style="display:inline">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <button class="btn btn-sm btn-outline-danger" type="submit" {{ 'disabled' if not deploy_running else '' }}>🧹 收掉</button>
+  </form>
+
   <h4 class="mt-4">驗題者 <small class="text-muted">（任何出題者皆可設定）</small></h4>
   <form method="post" action="{{ url_for('is1ab_authoring.challenge_set_reviewers', challenge_id=v.id) }}" class="mb-3">
     <input type="hidden" name="nonce" value="{{ nonce }}">
@@ -1165,7 +1189,10 @@ def challenge_view(challenge_id):
                                   can_edit=_can_edit(meta), nonce=session.get("nonce", ""),
                                   status_label=DEV_STATUS_LABEL, src_rel=src_rel, src_files=src_files,
                                   flag_ok=_flag_format_ok(view["flag"]), verify_cmd=verify_cmd,
-                                  users=Users.query.all(), cur_reviewers=cur_reviewers)
+                                  users=Users.query.all(), cur_reviewers=cur_reviewers,
+                                  deploy_msg=session.pop("deploy_msg", None),
+                                  deploy_files=_list_deploy_files(challenge_id),
+                                  deploy_running=_deploy_status(challenge_id) > 0)
 
 
 @bp.route("/is1ab/challenges/<int:challenge_id>/comment", methods=["POST"])
@@ -1199,6 +1226,178 @@ def challenge_set_reviewers(challenge_id):
     else:
         asg.reviewer_ids = rids
     db.session.commit()
+    return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
+
+
+# --------------------------------------------------------------------------- #
+# CTFd 內一鍵部署（掛 docker socket；上傳 docker 檔 → build/run → 收掉）
+# --------------------------------------------------------------------------- #
+
+DEPLOY_ROOT = "/var/uploads/is1ab_deploy"
+_COMPOSE_NAMES = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
+
+
+def _deploy_dir(cid):
+    return os.path.join(DEPLOY_ROOT, str(cid))
+
+
+def _deploy_project(cid):
+    return f"is1ab{cid}"
+
+
+def _list_deploy_files(cid):
+    d = _deploy_dir(cid)
+    out = []
+    if os.path.isdir(d):
+        for root, _dirs, fns in os.walk(d):
+            for fn in fns:
+                if fn == "docker-compose.deploy.yml":
+                    continue
+                out.append(os.path.relpath(os.path.join(root, fn), d))
+    return sorted(out)
+
+
+def _find_compose(d):
+    for root, _dirs, fns in os.walk(d):
+        for name in _COMPOSE_NAMES:
+            if name in fns:
+                return os.path.join(root, name)
+    return None
+
+
+def _transform_compose(src_path, out_path, flag):
+    """處理已知坑：剝 external network（frp/whale）、expose→補 ports、注入 FLAG=正確flag。"""
+    data = yaml.safe_load(open(src_path, encoding="utf-8")) or {}
+    data.pop("networks", None)
+    warnings = []
+    for _name, svc in (data.get("services") or {}).items():
+        if not isinstance(svc, dict):
+            continue
+        svc.pop("networks", None)
+        if isinstance(svc.get("services"), dict):   # 巢狀畸形 services（whale 模板）
+            svc.pop("services", None)
+            warnings.append("移除巢狀 services（whale 模板）")
+        if not svc.get("ports"):                    # expose 但無 ports → 補 host port
+            ports = [f"{p}:{p}" for p in (svc.get("expose") or [])]
+            if ports:
+                svc["ports"] = ports
+                warnings.append(f"補 ports {ports}")
+        env = svc.get("environment")                # 注入正確 flag（env-based 題目）
+        if isinstance(env, list):
+            env = [e for e in env if str(e).split("=", 1)[0].strip() != "FLAG"]
+            if flag:
+                env.append(f"FLAG={flag}")
+            svc["environment"] = env
+        elif isinstance(env, dict):
+            if flag:
+                env["FLAG"] = flag
+        elif flag:
+            svc["environment"] = [f"FLAG={flag}"]
+    with open(out_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+    return warnings, data
+
+
+def _deploy_ports(compose_data):
+    ports = []
+    for _name, svc in (compose_data.get("services") or {}).items():
+        for pm in (svc.get("ports") or []):
+            host = str(pm).split(":")[0]
+            if host.isdigit():
+                ports.append(host)
+    return ports
+
+
+def _deploy_instance(cid, flag):
+    d = _deploy_dir(cid)
+    if not os.path.isdir(d) or not _list_deploy_files(cid):
+        return False, "尚未上傳 docker 檔（Dockerfile / docker-compose.yml）", []
+    compose = _find_compose(d)
+    if not compose:
+        return False, "找不到 docker-compose.yml（目前一鍵部署僅支援 compose）", []
+    workdir = os.path.dirname(compose)
+    out = os.path.join(workdir, "docker-compose.deploy.yml")
+    try:
+        warnings, data = _transform_compose(compose, out, flag)
+    except Exception as e:
+        return False, f"compose 解析失敗：{e}", []
+    try:
+        r = subprocess.run(["docker", "compose", "-p", _deploy_project(cid), "-f", out,
+                            "up", "--build", "-d"], cwd=workdir,
+                           capture_output=True, text=True, timeout=420)
+    except subprocess.TimeoutExpired:
+        return False, "部署逾時（>7 分鐘）", []
+    if r.returncode != 0:
+        return False, "部署失敗：\n" + (r.stderr or r.stdout)[-1800:], []
+    note = ("；".join(warnings) + "。") if warnings else ""
+    return True, f"部署成功。{note}", _deploy_ports(data)
+
+
+def _deploy_status(cid):
+    """回傳運行中的服務數（>0 即已部署）。"""
+    try:
+        r = subprocess.run(["docker", "compose", "-p", _deploy_project(cid), "ps", "-q"],
+                           capture_output=True, text=True, timeout=30)
+        return len([x for x in r.stdout.splitlines() if x.strip()])
+    except Exception:
+        return 0
+
+
+def _deploy_down(cid):
+    try:
+        subprocess.run(["docker", "compose", "-p", _deploy_project(cid), "down", "-v"],
+                       capture_output=True, text=True, timeout=120)
+    except Exception:
+        pass
+
+
+@bp.route("/is1ab/challenges/<int:challenge_id>/deploy-files", methods=["POST"])
+@authed_only
+def deploy_upload(challenge_id):
+    """上傳 Dockerfile / docker-compose.yml / 其他設定檔（含 .zip 解壓）。僅編輯者。"""
+    Challenges.query.filter_by(id=challenge_id).first_or_404()
+    if not _can_edit(_get_meta(challenge_id)):
+        abort(403)
+    d = _deploy_dir(challenge_id)
+    os.makedirs(d, exist_ok=True)
+    for f in request.files.getlist("files"):
+        if not f.filename:
+            continue
+        name = os.path.basename(f.filename)
+        if name.lower().endswith(".zip"):
+            try:
+                with zipfile.ZipFile(io.BytesIO(f.read())) as z:
+                    for member in z.namelist():
+                        if member.endswith("/") or ".." in member or member.startswith("/"):
+                            continue
+                        target = os.path.join(d, member)
+                        os.makedirs(os.path.dirname(target), exist_ok=True)
+                        with z.open(member) as src, open(target, "wb") as dst:
+                            shutil.copyfileobj(src, dst)
+            except zipfile.BadZipFile:
+                pass
+        else:
+            f.save(os.path.join(d, name))
+    return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
+
+
+@bp.route("/is1ab/challenges/<int:challenge_id>/deploy", methods=["POST"])
+@authed_only
+def deploy_up(challenge_id):
+    """一鍵部署實例（任何出題者可測）。注入 CTFd 的正確 flag 為 FLAG env。"""
+    Challenges.query.filter_by(id=challenge_id).first_or_404()
+    fl = Flags.query.filter_by(challenge_id=challenge_id).first()
+    ok, msg, ports = _deploy_instance(challenge_id, fl.content if fl else "")
+    session["deploy_msg"] = ("✅ " if ok else "❌ ") + msg + (f"（連線埠：{', '.join(ports)}）" if ports else "")
+    return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
+
+
+@bp.route("/is1ab/challenges/<int:challenge_id>/deploy-down", methods=["POST"])
+@authed_only
+def deploy_stop(challenge_id):
+    Challenges.query.filter_by(id=challenge_id).first_or_404()
+    _deploy_down(challenge_id)
+    session["deploy_msg"] = "🧹 已收掉實例。"
     return redirect(url_for("is1ab_authoring.challenge_view", challenge_id=challenge_id))
 
 
