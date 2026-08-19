@@ -404,6 +404,110 @@ def test_discover_challenges(bi, tmp_path):
     assert all((p / "public.yml").exists() for p in found)
 
 
+# --------------------------------------------------------------------------- #
+# build-images：compose_build_targets（多服務 build；純函式、不呼叫 docker）
+# --------------------------------------------------------------------------- #
+
+def _make_compose(chal: Path, compose_yaml: str, filename: str = "docker-compose.yml") -> None:
+    (chal / "docker" / filename).write_text(compose_yaml, encoding="utf-8")
+
+
+def test_compose_build_targets_no_compose_returns_empty(bi, tmp_path, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    chal = _make_challenge(
+        tmp_path, "solo",
+        "category: web\ndeploy_type: container\ndeploy_info:\n  requires_build: true\n",
+    )
+    # 沒有 compose → 空清單（呼叫端退回單一 Dockerfile）
+    assert bi.compose_build_targets(chal, {"deployment": {"docker_registry": "reg.example.com"}}) == []
+
+
+def test_compose_build_targets_single_build_returns_empty(bi, tmp_path, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    chal = _make_challenge(
+        tmp_path, "single",
+        "category: web\ndeploy_type: container\ndeploy_info:\n  requires_build: true\n",
+    )
+    # 只有一個 build service → 維持現行單一 Dockerfile 行為（回 []）
+    _make_compose(chal, (
+        "services:\n"
+        "  web:\n"
+        "    build:\n"
+        "      context: ..\n"
+        "      dockerfile: docker/Dockerfile\n"
+    ))
+    assert bi.compose_build_targets(chal, {"deployment": {"docker_registry": "reg.example.com"}}) == []
+
+
+def test_compose_build_targets_multi_service(bi, tmp_path, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    chal = _make_challenge(
+        tmp_path, "xss_bot",
+        "category: web\ndeploy_type: container\ndeploy_info:\n  requires_build: true\n",
+    )
+    # 主服務指向 docker/Dockerfile；bot 自建於 docker/bot/Dockerfile；redis 引用 stock image
+    (chal / "docker" / "bot").mkdir()
+    (chal / "docker" / "bot" / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
+    _make_compose(chal, (
+        "services:\n"
+        "  web:\n"
+        "    build:\n"
+        "      context: ..\n"
+        "      dockerfile: docker/Dockerfile\n"
+        "  bot:\n"
+        "    build:\n"
+        "      context: ./bot\n"
+        "  cache:\n"
+        "    image: redis:7\n"
+    ))
+    config = {"deployment": {"docker_registry": "reg.example.com"}}
+    targets = bi.compose_build_targets(chal, config)
+
+    # 主 image + bot sidecar（redis 無 build: → 略過）
+    assert len(targets) == 2
+    by_service = {t.service: t for t in targets}
+
+    main = by_service[None]
+    assert main.ref == "reg.example.com/web/xss_bot:v1"
+    # 主 image 一律用現行慣例：context=題目根、dockerfile=docker/Dockerfile
+    assert main.context == chal
+    assert main.dockerfile == chal / "docker" / "Dockerfile"
+
+    bot = by_service["bot"]
+    assert bot.ref == "reg.example.com/web/xss_bot-bot:v1"  # {slug}-{service}
+    # bot 的 context/dockerfile 依 compose 解析（context: ./bot、預設 Dockerfile）
+    assert bot.context == (chal / "docker" / "bot").resolve()
+    assert bot.dockerfile == (chal / "docker" / "bot" / "Dockerfile").resolve()
+
+
+def test_compose_build_targets_short_form_build(bi, tmp_path, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    chal = _make_challenge(
+        tmp_path, "multi",
+        "category: pwn\ndeploy_type: container\ndeploy_info:\n  requires_build: true\n  version: v2\n",
+    )
+    (chal / "docker" / "worker").mkdir()
+    (chal / "docker" / "worker" / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
+    # 主服務用短式 build（僅 context 字串，指向題目根的 docker/Dockerfile）；worker 短式指向自建目錄
+    _make_compose(chal, (
+        "services:\n"
+        "  app:\n"
+        "    build: ..\n"                # context=題目根 → dockerfile 預設 Dockerfile（非主檔）
+        "  main:\n"
+        "    build:\n"
+        "      context: ..\n"
+        "      dockerfile: docker/Dockerfile\n"
+        "  worker:\n"
+        "    build: ./worker\n"
+    ))
+    targets = bi.compose_build_targets(chal, {})  # 無 registry → 純本地 tag
+    by_service = {t.service: t for t in targets}
+    # main 指向 docker/Dockerfile → 併入主 image；app 與 worker 為 sidecar
+    assert by_service[None].ref == "pwn/multi:v2"
+    assert by_service["app"].ref == "pwn/multi-app:v2"
+    assert by_service["worker"].ref == "pwn/multi-worker:v2"
+
+
 def test_build_one_dry_run_does_not_call_docker(bi, tmp_path, monkeypatch, capsys):
     monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
     chal = _make_challenge(

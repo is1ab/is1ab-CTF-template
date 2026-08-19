@@ -153,6 +153,18 @@ build 慣例同範例 `docker/docker-compose.yml`（`context: ..`、`dockerfile:
 context = 題目根目錄、dockerfile = `docker/Dockerfile`，即
 `docker build -f <chal>/docker/Dockerfile -t <ref> <chal>`。
 
+#### 多服務（自建 sidecar image）
+
+若 `docker/docker-compose.yml` 有**多個帶 `build:` 的 service**，`build-images` 會逐一 build+push：
+
+- **主 image**（`build:` 指向 `docker/Dockerfile` 的 service）→ `{registry}/{cat}/{slug}:{version}`，
+  context/dockerfile 一律用上面的慣例，與只有單一服務時算出完全一致的 ref。
+- **其他帶 `build:` 的 service（自建 sidecar）** → `{registry}/{cat}/{slug}-{service}:{version}`，
+  context/dockerfile 依 compose 的 `build:` 解析。
+  作者在 `public.yml` 的 `deploy_info.sidecars` 就用這個 **`{slug}-{service}`** image 名引用。
+- 引用 **stock image**（如 `redis`，沒有 `build:`）的 service 直接略過。
+- **無 compose 或只有單一 `build:`** → 維持上面的單一 Dockerfile 行為。
+
 ### sync-to-ctfd 的對接
 
 `sync-to-ctfd` 遇到 `deploy_type == container` 會把題目建成 `type: k3s` 並帶上插件欄位
