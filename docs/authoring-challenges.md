@@ -9,8 +9,9 @@
 
 | 區塊                    | 用途                                                                    |
 | --------------------- | --------------------------------------------------------------------- |
-| `team.default_author` | 預設**出題人**；Web 表單會帶入此值；CLI 未帶 `--author` 時使用                           |
-| `team.members`        | 團隊成員清單（github_username + display_name + specialty）；wizard 第 2 步維護              |
+| `team.members`        | 團隊成員清單（github_username + display_name + specialty）。**canonical**：`/setup` 精靈第 2 步維護，Web 建題與儀表板優先讀此欄 |
+| `team.default_author` | 預設**出題人**（fallback）；Web 表單會帶入此值；CLI 未帶 `--author` 時使用                   |
+| `team.reviewers` / `team.authors` | **舊欄位**，仍相容：`team.members` 為空時會自動遷移成 members，設定頁也讀寫。新專案建議改用 `team.members` |
 | `challenge_quota`     | 各**類型**（`by_category`）與各**難度**（`by_difficulty`）的**題目數量**計畫，供儀表板與建題時對照 |
 | `event`               | **舉辦時間與死線**：開始/結束、出題截止、驗題截止、凍結截止；新專案建議先填，Web 也會提示 |
 
