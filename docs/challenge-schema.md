@@ -182,8 +182,17 @@ context = 題目根目錄、dockerfile = `docker/Dockerfile`，即
 - `allow_egress` = `deploy_info.allow_egress`（bool，key 存在才送）——是否放行 pod 對外連線
 - `ttl_minutes` = `deploy_info.ttl_minutes`（int，有填才送）——instance 存活分鐘數
 - `max_renews` = `deploy_info.max_renews`（int，有填才送）——可延長次數
+- `run_as_user` = `deploy_info.run_as_user`（int），**未填一律預設 `1000`**（見下「⚠️ 數字 UID」）
 
-其餘 k3s 欄位（`flag_path`/`run_as_user`/`restart_policy`…）交給插件預設；
+> **⚠️ container 題 image 必須用「數字 UID」跑非 root。** k3s 用 PSA **restricted** +
+> `runAsNonRoot: true`。image 若用 `USER 名字`（非數字），Kubernetes 無法驗證它非 root
+> → **pod 起不來**（`CreateContainerConfigError: has non-numeric user`）。兩道防線：
+> ① `Dockerfile.template` 已釘 `useradd -u 1000` + `USER 1000`，`make new-challenge` 產的
+> 新題天生合規；② adapter **一律送 `run_as_user`（預設 1000）**，就算 image 忘了用數字
+> USER，pod 也會以 uid 1000 跑。自帶特殊 base image 且要別的 uid，用 `deploy_info.run_as_user`
+> 或 `ctfd:` 覆蓋（並確保 image 內檔案 owned by 該 uid）。
+
+其餘 k3s 欄位（`flag_path`/`restart_policy`…）交給插件預設；
 `attachment` / `none` 題維持 `type: standard`。**作者要覆蓋任何欄位，用 `public.yml` 的
 `ctfd:` 區塊**（在 adapter 之後 merge，一律優先）。
 

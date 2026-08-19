@@ -257,6 +257,19 @@ def test_k3s_payload_ttl_and_max_renews_omitted_when_absent(sync, monkeypatch):
     assert "max_renews" not in payload
 
 
+def test_k3s_payload_run_as_user_defaults_1000(sync, monkeypatch):
+    # PSA restricted + runAsNonRoot 需數字 UID → 一律送，預設 1000
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    payload = sync.k3s_payload(_container_public_with(), {}, BASE_CONFIG, "sqli")
+    assert payload["run_as_user"] == 1000
+
+
+def test_k3s_payload_run_as_user_override(sync, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    payload = sync.k3s_payload(_container_public_with(run_as_user=1001), {}, BASE_CONFIG, "sqli")
+    assert payload["run_as_user"] == 1001
+
+
 # --------------------------------------------------------------------------- #
 # sync-to-ctfd：sync_challenge 的 type 與 merge 行為
 # --------------------------------------------------------------------------- #

@@ -362,6 +362,13 @@ def k3s_payload(public: dict, private: dict, config: dict, slug: str) -> dict:
     if isinstance(renews, int) and not isinstance(renews, bool):
         payload["max_renews"] = renews
 
+    # run_as_user：k3s 用 PSA restricted + runAsNonRoot，pod 一定要有「數字 UID」才驗得過
+    # 非 root（image 用 `USER 名字` 會讓 pod 起不來：CreateContainerConfigError）。所以這裡
+    # **一律送**數字 UID，預設 1000（對齊 Dockerfile.template 釘的 uid 1000）；作者可用
+    # deploy_info.run_as_user 覆蓋。這樣就算題目 image 忘了用數字 USER，pod 仍以 uid 1000 跑。
+    ruid = deploy.get("run_as_user")
+    payload["run_as_user"] = ruid if (isinstance(ruid, int) and not isinstance(ruid, bool)) else 1000
+
     return payload
 
 
