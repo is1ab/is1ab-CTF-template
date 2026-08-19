@@ -6,7 +6,13 @@ canonical 定義見 docs/challenge-schema.md。新舊對應：
 - author 取代 owners/assignee
 
 所有 getter 皆「新欄位優先、缺則由舊欄位推導」，讓遷移期間新舊題目都讀得動。
+
+另含 registry / image ref helper（build-images 與 sync-to-ctfd 共用同一套規則，
+避免兩邊算出來的 image tag 不一致）。
 """
+
+import os
+import re
 
 _LEGACY_ATTACH = {"static_attachment", "dynamic_attachment"}
 _LEGACY_CONTAINER = {"static_container", "dynamic_container", "nc_challenge"}
@@ -94,3 +100,44 @@ def difficulty(public: dict) -> str:
 def category(public: dict) -> str:
     """正規化分類（小寫；自由填寫）。"""
     return str(public.get("category") or "").strip().lower()
+
+
+# --------------------------------------------------------------------------- #
+# container image build/push helper（build-images 與 sync-to-ctfd 共用）
+# --------------------------------------------------------------------------- #
+
+def image_version(public: dict) -> str:
+    """image tag：deploy_info.version，未填預設 v1（改 image 時 bump）。"""
+    v = str((public.get("deploy_info") or {}).get("version") or "").strip()
+    return v or "v1"
+
+
+def slugify(name: str) -> str:
+    """題目目錄名 → docker image path 片段（小寫、只留 a-z0-9._-）。"""
+    s = str(name or "").strip().lower()
+    s = re.sub(r"[^a-z0-9._-]+", "-", s)
+    s = s.strip("-._")
+    return s or "challenge"
+
+
+def registry(config: dict) -> str:
+    """私有 registry 位址：環境變數 IS1AB_REGISTRY 優先，否則 config.deployment.docker_registry。
+
+    未設時回空字串（呼叫端據此改用純本地 tag、不 push）。
+    """
+    env = os.environ.get("IS1AB_REGISTRY", "").strip()
+    if env:
+        return env.rstrip("/")
+    reg = str(((config or {}).get("deployment") or {}).get("docker_registry") or "").strip()
+    return reg.rstrip("/")
+
+
+def image_ref(config: dict, category_name: str, slug: str, version: str) -> str:
+    """組出 image ref：{registry}/{category}/{slug}:{version}。
+
+    registry 未設時退回純本地 tag {category}/{slug}:{version}（只 build 不 push）。
+    """
+    cat = slugify(category_name) or "misc"
+    name = f"{cat}/{slug}:{version}"
+    reg = registry(config)
+    return f"{reg}/{name}" if reg else name

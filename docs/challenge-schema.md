@@ -45,7 +45,7 @@
 | `status` | str | viewer | `planning \| developing \| testing \| completed \| deployed` |
 | `ready_for_release` | bool | build、release、scan | 預設 `false` |
 | `created_at` / `updated_at` | str(date) | viewer | |
-| `deploy_info` | map | sync、部署 | `port / url / requires_build / nc_port / timeout / connection_type / resources{memory,cpu}` |
+| `deploy_info` | map | sync、部署 | `port / url / requires_build / version / nc_port / timeout / connection_type / resources{memory,cpu}` |
 | `hints` | list[{level,cost,content}] | sync、CTFd | |
 | `allowed_files` | list[glob] | sync-to-public、prepare-public-release | 公開 repo 檔案白名單（有安全用途，保留） |
 
@@ -118,6 +118,56 @@
 > 注入的**機制**依交付方式而異（附件題靠 build/generator 產檔、容器題靠啟動注入/服務端），
 > 但 schema 用同一組軸表達，不再為每種交付各開一個 enum。拆軸後還多出舊 enum 表達不了的組合（如 `dynamic`+`shared`、任意交付 × `regex`）。
 > 真實 2025 題庫 30 題全落在 `container`/`attachment` 兩類、flag 全 static/shared——動態軸與 `none` 是留給未來的彈性。
+
+## container 題 → k3s image build/push（build-images + sync-to-ctfd）
+
+`deploy_type: container` 的題目由 CTFd 的 `k3s_challenges` 插件用 k3s pod 起容器，
+所以同步前要先把題目 build 成 image、push 到私有 registry，sync 再把 image ref 指進去。
+
+### registry 與 image ref
+
+- **registry 位址**：`config.yml` 的 `deployment.docker_registry`，可用環境變數 `IS1AB_REGISTRY` 覆蓋。
+- **image ref 慣例**：`{registry}/{category}/{slug}:{version}`
+  - `slug` = 題目目錄名（轉小寫、docker 合法字元）
+  - `version` = `deploy_info.version`（見下）
+  - **registry 未設時**：退回純本地 tag `{category}/{slug}:{version}`，`build-images` 只 build 不 push（會警告，不會 crash）。
+
+### `deploy_info.version`
+
+| 欄位 | 型別 | 預設 | 說明 |
+|---|---|---|---|
+| `version` | str | `v1` | 即 image tag。**改 image（換底包、改題邏輯）時 bump**（`v1`→`v2`…），讓部署端拉到新版而不是吃到快取的舊 image。 |
+
+### build-images（`make build-images ARGS="…"`）
+
+只處理 `deploy_type == container` 且 `deploy_info.requires_build` 的題目，其餘略過：
+
+```bash
+make build-images                                  # build + push 全部（略過 examples/）
+make build-images ARGS="--path challenges/web/x"   # 只做單一題目
+make build-images ARGS="--dry-run"                 # 只印會做什麼，不呼叫 docker
+make build-images ARGS="--no-push"                 # 只 build 不 push
+```
+
+build 慣例同範例 `docker/docker-compose.yml`（`context: ..`、`dockerfile: docker/Dockerfile`）：
+context = 題目根目錄、dockerfile = `docker/Dockerfile`，即
+`docker build -f <chal>/docker/Dockerfile -t <ref> <chal>`。
+
+### sync-to-ctfd 的對接
+
+`sync-to-ctfd` 遇到 `deploy_type == container` 會把題目建成 `type: k3s` 並帶上插件欄位
+（`image` / `port` / `protocol` / `memory` / `cpu` / `flag_format`…）：
+
+- `image` = 上述 image ref（與 build-images 同一套規則算出）
+- `port` = `nc` 題用 `deploy_info.nc_port`，否則 `deploy_info.port`（都沒填就用插件預設 1337）
+- `protocol` = `connection_type` 為 http/https → `http`，其餘（含 nc/pwn）→ `tcp`
+- `memory` / `cpu` = `deploy_info.resources`（缺則不送、用插件預設）
+- `flag_format` = `config.yml` 的 `project.flag_prefix` 組（例 `is1abCTF{%s}`）
+
+其餘 k3s 欄位（`ttl_minutes`/`max_renews`/`flag_mode`/`flag_path`…）交給插件預設；
+`attachment` / `none` 題維持 `type: standard`。**作者要覆蓋任何欄位，用 `public.yml` 的
+`ctfd:` 區塊**（在 adapter 之後 merge，一律優先）。動態/每隊 flag 仍由插件發放，
+`sync-to-ctfd` 不為 container 題建靜態 flag。
 
 ## 逐條衝突裁決
 

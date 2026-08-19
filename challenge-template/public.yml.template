@@ -40,7 +40,8 @@ deploy_info:
   # port: 8080
   # nc_port: 9999                  # connection_type=nc 時
   # timeout: 60
-  requires_build: true
+  requires_build: true             # true 才會被 build-images 打包成 image
+  version: "v1"                    # image tag；改 image（換底包/改題）時 bump 成 v2、v3…
   # resources: { memory: "256Mi", cpu: "100m" }
 
 # 提示（level/cost/content）

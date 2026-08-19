@@ -296,6 +296,42 @@ def build_description(public: dict) -> str:
     return "\n".join(p for p in parts if p)
 
 
+def k3s_payload(public: dict, config: dict, slug: str) -> dict:
+    """把 container 題的 deploy_info 轉成 k3s_challenges 插件的建題欄位。
+
+    只送「有值 / 需覆蓋」的欄位，其餘留給插件預設（image 為必填一定送）。
+    對接契約見 docs/challenge-schema.md「container 題 → k3s」。
+
+    slug 用題目目錄名（與 build-images 一致），確保 image tag 兩邊算得出同一個。
+    """
+    deploy = public.get("deploy_info") or {}
+    payload: dict[str, Any] = {
+        "image": cs.image_ref(config, cs.category(public), slug, cs.image_version(public)),
+    }
+
+    # port：nc 題用 nc_port，其餘用 port；都沒填就交給插件預設（1337）
+    port = deploy.get("nc_port") if cs.is_nc(public) else deploy.get("port")
+    if isinstance(port, int):
+        payload["port"] = port
+
+    # protocol：http/https → "http"，其餘（含 nc/pwn）→ "tcp"
+    payload["protocol"] = "http" if cs.connection_type(public) in ("http", "https") else "tcp"
+
+    # 資源限制：deploy_info.resources 有填才送，缺則用插件預設
+    resources = deploy.get("resources") or {}
+    if resources.get("memory"):
+        payload["memory"] = str(resources["memory"])
+    if resources.get("cpu"):
+        payload["cpu"] = str(resources["cpu"])
+
+    # flag_format：用 config 的 project.flag_prefix 組（例 is1abCTF{%s}）
+    prefix = str(((config.get("project") or {}).get("flag_prefix") or "")).strip()
+    if prefix:
+        payload["flag_format"] = f"{prefix}{{%s}}"
+
+    return payload
+
+
 def sync_challenge(
     client: CTFdClient,
     chal_dir: Path,
@@ -316,6 +352,13 @@ def sync_challenge(
         # staging 直接可見方便實測；production 一律建成隱藏，開賽時再統一開啟
         "state": "visible" if target == "staging" else "hidden",
     }
+
+    # container 題 → 建成 k3s 型別並指向 registry 上的 image；
+    # attachment/none 維持 standard。adapter 先併入，`ctfd:` 之後再 merge，
+    # 讓作者能以 ctfd: 覆蓋任何 adapter 算出來的欄位。
+    if cs.deploy_type(public) == "container":
+        payload["type"] = "k3s"
+        payload.update(k3s_payload(public, config, cs.slugify(chal_dir.name)))
 
     # public.yml 的 `ctfd:` 區塊原樣轉發給 CTFd API，本腳本不解讀內容。
     #
@@ -441,10 +484,16 @@ def describe(chal_dir: Path, public: dict, private: dict, config: dict) -> str:
         more = "…" if len(extra) > 4 else ""
         slug_line = f"    ctfd     : {shown}{more}\n"
 
+    image_line = ""
+    if cs.deploy_type(public) == "container":
+        ref = cs.image_ref(config, cs.category(public), cs.slugify(chal_dir.name), cs.image_version(public))
+        image_line = f"    image    : {ref}（type=k3s）\n"
+
     return (
         f"  {public.get('title', chal_dir.name)}\n"
         f"    路徑     : {_rel(chal_dir)}\n"
         f"{slug_line}"
+        f"{image_line}"
         f"    分類/難度: {public.get('category', '—')} / {public.get('difficulty', '—')}\n"
         f"    交付     : {kind}\n"
         f"    分數     : {resolve_points(public, config)}\n"
