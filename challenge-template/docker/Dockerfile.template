@@ -12,8 +12,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# 創建非 root 用戶（安全最佳實踐）
-RUN useradd -m -s /bin/bash ctfuser
+# 創建非 root 用戶（安全最佳實踐）。
+# ⚠️ 一定要釘「數字 UID」（-u 1000）+ 下面 `USER 1000` 寫數字：
+#    k3s 用 PSA restricted + runAsNonRoot，image 若用 `USER 名字`（非數字），
+#    Kubernetes 無法驗證它非 root → pod 起不來（CreateContainerConfigError）。
+#    仍保留具名 user（ctfuser）給檔案 ownership 好讀，只是最後 USER 用數字。
+RUN useradd -m -u 1000 -s /bin/bash ctfuser
 
 # 複製應用程式檔案
 COPY --chown=ctfuser:ctfuser . /app/
@@ -24,8 +28,8 @@ COPY --chown=ctfuser:ctfuser . /app/
 # 設定環境變數
 ENV FLAG="${FLAG_PLACEHOLDER}"
 
-# 切換到非 root 用戶
-USER ctfuser
+# 切換到非 root 用戶（用數字 UID，見上方說明）
+USER 1000
 
 # 暴露端口
 EXPOSE 8080

@@ -21,13 +21,13 @@ COPY flag.tx[t] /home/ctf/
 RUN chmod 755 /home/ctf/chall && \
     chmod 444 /home/ctf/flag.txt
 
-# 創建 ctf 用戶（安全考量）
-RUN useradd -m ctf && \
+# 創建 ctf 用戶（安全考量；釘數字 UID 1000）
+RUN useradd -m -u 1000 ctf && \
     chown -R root:ctf /home/ctf && \
     chmod 750 /home/ctf
 
-# 切換到 ctf 用戶
-USER ctf
+# 切換到 ctf 用戶（用數字 UID：k3s PSA restricted + runAsNonRoot 需數字 USER）
+USER 1000
 
 # 暴露端口
 EXPOSE 9999
