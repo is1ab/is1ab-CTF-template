@@ -201,6 +201,62 @@ def test_k3s_payload_flag_mode_per_team_is_dynamic(sync, monkeypatch):
     assert payload["flag_delivery"] == "file+env"
 
 
+# --- deploy_info → 更多 k3s 欄位（#3 adapter 擴充；全部有填才送）---
+
+def _container_public_with(**deploy_extra):
+    """container 題 public，deploy_info 可再塞欄位。"""
+    info = {"connection_type": "http", "port": 8080, "requires_build": True}
+    info.update(deploy_extra)
+    return {"category": "web", "deploy_type": "container", "deploy_info": info}
+
+
+def test_k3s_payload_sidecars_json_string(sync, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    import json
+    sidecars = [{"name": "bot", "image": "web/sqli-bot:v1"}]
+    payload = sync.k3s_payload(_container_public_with(sidecars=sidecars), {}, BASE_CONFIG, "sqli")
+    # 插件收字串後才 json.loads，故 adapter 必須送 JSON 字串
+    assert isinstance(payload["sidecars"], str)
+    assert json.loads(payload["sidecars"]) == sidecars
+
+
+def test_k3s_payload_sidecars_empty_omitted(sync, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    payload = sync.k3s_payload(_container_public_with(sidecars=[]), {}, BASE_CONFIG, "sqli")
+    assert "sidecars" not in payload  # 空 list → 不送
+
+
+def test_k3s_payload_allow_egress_sent_when_present(sync, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    on = sync.k3s_payload(_container_public_with(allow_egress=True), {}, BASE_CONFIG, "sqli")
+    assert on["allow_egress"] is True
+    off = sync.k3s_payload(_container_public_with(allow_egress=False), {}, BASE_CONFIG, "sqli")
+    # key 存在才送，包含明確關閉（False）
+    assert off["allow_egress"] is False
+
+
+def test_k3s_payload_allow_egress_omitted_when_absent(sync, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    payload = sync.k3s_payload(_container_public_with(), {}, BASE_CONFIG, "sqli")
+    assert "allow_egress" not in payload
+
+
+def test_k3s_payload_ttl_and_max_renews(sync, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    payload = sync.k3s_payload(
+        _container_public_with(ttl_minutes=45, max_renews=2), {}, BASE_CONFIG, "sqli"
+    )
+    assert payload["ttl_minutes"] == 45
+    assert payload["max_renews"] == 2
+
+
+def test_k3s_payload_ttl_and_max_renews_omitted_when_absent(sync, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    payload = sync.k3s_payload(_container_public_with(), {}, BASE_CONFIG, "sqli")
+    assert "ttl_minutes" not in payload
+    assert "max_renews" not in payload
+
+
 # --------------------------------------------------------------------------- #
 # sync-to-ctfd：sync_challenge 的 type 與 merge 行為
 # --------------------------------------------------------------------------- #

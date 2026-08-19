@@ -164,10 +164,29 @@ context = 題目根目錄、dockerfile = `docker/Dockerfile`，即
 - `memory` / `cpu` = `deploy_info.resources`（缺則不送、用插件預設）
 - `flag_format` = `config.yml` 的 `project.flag_prefix` 組（例 `is1abCTF{%s}`）
 - `flag_mode` = 依 flag 三軸自動對齊插件的驗證與注入（見下「flag 流」）
+- `sidecars` = `deploy_info.sidecars`（list，非空才送；adapter 會 `json.dumps` 成 JSON 字串，
+  因為插件的 `sidecars` 欄位收字串後才 `json.loads`）。自建 sidecar 的 image 名慣例是
+  `{slug}-{service}`（見「container 題 → k3s image build/push」的多服務 build）
+- `allow_egress` = `deploy_info.allow_egress`（bool，key 存在才送）——是否放行 pod 對外連線
+- `ttl_minutes` = `deploy_info.ttl_minutes`（int，有填才送）——instance 存活分鐘數
+- `max_renews` = `deploy_info.max_renews`（int，有填才送）——可延長次數
 
-其餘 k3s 欄位（`ttl_minutes`/`max_renews`/`flag_path`…）交給插件預設；
+其餘 k3s 欄位（`flag_path`/`run_as_user`/`restart_policy`…）交給插件預設；
 `attachment` / `none` 題維持 `type: standard`。**作者要覆蓋任何欄位，用 `public.yml` 的
 `ctfd:` 區塊**（在 adapter 之後 merge，一律優先）。
+
+> **adapter 對應的 `deploy_info` 欄位一覽**（皆選填，缺則用插件預設）：
+>
+> | `deploy_info` 欄位 | 型別 | → k3s payload | 備註 |
+> |---|---|---|---|
+> | `port` / `nc_port` | int | `port` | nc 題用 `nc_port`，否則 `port`；都沒填→插件預設 1337 |
+> | `connection_type` | str | `protocol` | http/https→`http`，其餘（含 nc）→`tcp` |
+> | `resources.memory` / `resources.cpu` | str | `memory` / `cpu` | 如 `256Mi` / `100m` |
+> | `sidecars` | list | `sidecars`（JSON 字串）| 非空才送；image 名慣例 `{slug}-{service}` |
+> | `allow_egress` | bool | `allow_egress` | key 存在才送 |
+> | `ttl_minutes` | int | `ttl_minutes` | instance 存活分鐘數 |
+> | `max_renews` | int | `max_renews` | 可延長次數 |
+> | `version` | str | （算進 `image` tag）| 見上「`deploy_info.version`」 |
 
 ### flag 流（container 題最容易踩的坑）
 

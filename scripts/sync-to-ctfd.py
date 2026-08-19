@@ -343,6 +343,25 @@ def k3s_payload(public: dict, private: dict, config: dict, slug: str) -> dict:
     else:
         payload["flag_mode"] = "static"
 
+    # --- deploy_info → 更多 k3s 欄位（全部只在 deploy_info 有填時才送，缺則用插件預設）---
+    # sidecars：list（如自建的 bot/db 服務，image 名慣例是 {slug}-{service}）。
+    #   插件的 sidecars 欄位收 JSON 字串（收到後 .strip() 再 json.loads），故這裡先 json.dumps。
+    sidecars = deploy.get("sidecars")
+    if isinstance(sidecars, list) and sidecars:
+        payload["sidecars"] = json.dumps(sidecars)
+
+    # allow_egress：bool（key 存在才送，讓作者能明確開或關對外連線）
+    if "allow_egress" in deploy:
+        payload["allow_egress"] = bool(deploy["allow_egress"])
+
+    # ttl_minutes / max_renews：int（有填才送；排除 bool 誤填，因 bool 也是 int 子類）
+    ttl = deploy.get("ttl_minutes")
+    if isinstance(ttl, int) and not isinstance(ttl, bool):
+        payload["ttl_minutes"] = ttl
+    renews = deploy.get("max_renews")
+    if isinstance(renews, int) and not isinstance(renews, bool):
+        payload["max_renews"] = renews
+
     return payload
 
 
