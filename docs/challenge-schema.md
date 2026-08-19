@@ -156,18 +156,31 @@ context = 題目根目錄、dockerfile = `docker/Dockerfile`，即
 ### sync-to-ctfd 的對接
 
 `sync-to-ctfd` 遇到 `deploy_type == container` 會把題目建成 `type: k3s` 並帶上插件欄位
-（`image` / `port` / `protocol` / `memory` / `cpu` / `flag_format`…）：
+（`image` / `port` / `protocol` / `memory` / `cpu` / `flag_format` / `flag_mode`…）：
 
 - `image` = 上述 image ref（與 build-images 同一套規則算出）
 - `port` = `nc` 題用 `deploy_info.nc_port`，否則 `deploy_info.port`（都沒填就用插件預設 1337）
 - `protocol` = `connection_type` 為 http/https → `http`，其餘（含 nc/pwn）→ `tcp`
 - `memory` / `cpu` = `deploy_info.resources`（缺則不送、用插件預設）
 - `flag_format` = `config.yml` 的 `project.flag_prefix` 組（例 `is1abCTF{%s}`）
+- `flag_mode` = 依 flag 三軸自動對齊插件的驗證與注入（見下「flag 流」）
 
-其餘 k3s 欄位（`ttl_minutes`/`max_renews`/`flag_mode`/`flag_path`…）交給插件預設；
+其餘 k3s 欄位（`ttl_minutes`/`max_renews`/`flag_path`…）交給插件預設；
 `attachment` / `none` 題維持 `type: standard`。**作者要覆蓋任何欄位，用 `public.yml` 的
-`ctfd:` 區塊**（在 adapter 之後 merge，一律優先）。動態/每隊 flag 仍由插件發放，
-`sync-to-ctfd` 不為 container 題建靜態 flag。
+`ctfd:` 區塊**（在 adapter 之後 merge，一律優先）。
+
+### flag 流（container 題最容易踩的坑）
+
+k3s 插件的 `attempt()` 依 `flag_mode` 走**兩條完全不同**的驗證路徑；adapter 依 flag 三軸
+自動選對，並讓 sync 建立/不建立 CTFd 靜態 flag 與之對齊：
+
+| flag 三軸 | `flag_mode` | pod 內的 flag | CTFd 驗證 | sync 建靜態 flag? |
+|---|---|---|---|---|
+| `flag_load: dynamic` 或 `flag_scope: per_team` | `dynamic` | 插件每 instance 用 `flag_format` 生成並**注入**（`flag_delivery=file+env`，同時給 `flag_path` 檔與 `FLAG` env）| 比對該 instance 的 flag（防互抄）| ❌ 不建 |
+| `flag_load: static` + `flag_scope: shared` | `static` | **不注入**，由 image 內建 | 比對 CTFd 靜態 flag | ✅ 依 `private.flag` 建 |
+
+- **dynamic**：題目要能**讀到注入的 flag**——讀 `FLAG` 環境變數（`Dockerfile.template` 慣例）或讀 `flag_path`（預設 `/flag`）檔案皆可（兩者都給）。**不要**在 image 內硬寫 flag，否則每 instance 生成的 flag 跟硬寫的對不上、選手交不了。
+- **static**：flag 由 image 內建，務必讓 `private.yml` 的 `flag` = image 內那個值（sync 拿它建 CTFd 靜態 flag）。全體共用同一個 flag。
 
 ## 逐條衝突裁決
 

@@ -296,8 +296,8 @@ def build_description(public: dict) -> str:
     return "\n".join(p for p in parts if p)
 
 
-def k3s_payload(public: dict, config: dict, slug: str) -> dict:
-    """把 container 題的 deploy_info 轉成 k3s_challenges 插件的建題欄位。
+def k3s_payload(public: dict, private: dict, config: dict, slug: str) -> dict:
+    """把 container 題的 deploy_info + flag 三軸轉成 k3s_challenges 插件的建題欄位。
 
     只送「有值 / 需覆蓋」的欄位，其餘留給插件預設（image 為必填一定送）。
     對接契約見 docs/challenge-schema.md「container 題 → k3s」。
@@ -329,6 +329,20 @@ def k3s_payload(public: dict, config: dict, slug: str) -> dict:
     if prefix:
         payload["flag_format"] = f"{prefix}{{%s}}"
 
+    # flag_mode 必須跟插件 attempt() 與開 instance 時的注入對齊，否則 flag 對不上：
+    #   • dynamic / per_team → 插件每 instance 用 flag_format 生成 flag 並注入 pod，
+    #     attempt() 只比對該 instance 的 flag；sync 不建 CTFd 靜態 flag（resolve_flag 回 []）。
+    #     注入用 file+env（同時給 flag_path 檔與 FLAG env），配合 template 的 ENV FLAG 慣例，
+    #     題目讀檔或讀環境變數都拿得到——只給 file 會讓讀 env 的題目拿到空值。
+    #   • static + shared → pod 不注入、flag 由 image 內建；attempt() 比對 CTFd 靜態 flag，
+    #     而該靜態 flag 由 sync 的 resolve_flag/sync_flag 依 private.flag 建立。兩邊一致。
+    load, scope, _ = cs.flag_axes(private)
+    if load == "dynamic" or scope == "per_team":
+        payload["flag_mode"] = "dynamic"
+        payload["flag_delivery"] = "file+env"
+    else:
+        payload["flag_mode"] = "static"
+
     return payload
 
 
@@ -358,7 +372,7 @@ def sync_challenge(
     # 讓作者能以 ctfd: 覆蓋任何 adapter 算出來的欄位。
     if cs.deploy_type(public) == "container":
         payload["type"] = "k3s"
-        payload.update(k3s_payload(public, config, cs.slugify(chal_dir.name)))
+        payload.update(k3s_payload(public, private, config, cs.slugify(chal_dir.name)))
 
     # public.yml 的 `ctfd:` 區塊原樣轉發給 CTFd API，本腳本不解讀內容。
     #

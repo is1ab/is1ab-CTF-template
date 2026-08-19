@@ -106,7 +106,7 @@ def test_k3s_payload_http(sync, monkeypatch):
             "resources": {"memory": "256Mi", "cpu": "100m"},
         },
     }
-    payload = sync.k3s_payload(public, BASE_CONFIG, "sql_injection")
+    payload = sync.k3s_payload(public, {}, BASE_CONFIG, "sql_injection")
     assert payload["image"] == "reg.example.com/web/sql_injection:v1"
     assert payload["protocol"] == "http"
     assert payload["port"] == 8080
@@ -127,7 +127,7 @@ def test_k3s_payload_nc_uses_nc_port_and_tcp(sync, monkeypatch):
             "requires_build": True,
         },
     }
-    payload = sync.k3s_payload(public, BASE_CONFIG, "bof")
+    payload = sync.k3s_payload(public, {}, BASE_CONFIG, "bof")
     assert payload["protocol"] == "tcp"
     assert payload["port"] == 9999  # nc 題用 nc_port
     assert payload["image"] == "reg.example.com/pwn/bof:v1"
@@ -140,7 +140,7 @@ def test_k3s_payload_omits_resources_and_port_when_absent(sync, monkeypatch):
         "deploy_type": "container",
         "deploy_info": {"connection_type": "http", "requires_build": True},
     }
-    payload = sync.k3s_payload(public, BASE_CONFIG, "x")
+    payload = sync.k3s_payload(public, {}, BASE_CONFIG, "x")
     assert "memory" not in payload
     assert "cpu" not in payload
     assert "port" not in payload  # 沒填 → 交給插件預設
@@ -151,7 +151,7 @@ def test_k3s_payload_image_local_tag_when_no_registry(sync, monkeypatch):
     config = {"project": {"flag_prefix": "is1abCTF"}, "deployment": {"docker_registry": ""}}
     public = {"category": "web", "deploy_type": "container",
               "deploy_info": {"connection_type": "http", "requires_build": True}}
-    payload = sync.k3s_payload(public, config, "sqli")
+    payload = sync.k3s_payload(public, {}, config, "sqli")
     assert payload["image"] == "web/sqli:v1"
 
 
@@ -160,7 +160,7 @@ def test_k3s_payload_no_flag_prefix_omits_flag_format(sync, monkeypatch):
     config = {"deployment": {"docker_registry": "reg.example.com"}}
     public = {"category": "web", "deploy_type": "container",
               "deploy_info": {"connection_type": "http", "requires_build": True}}
-    payload = sync.k3s_payload(public, config, "sqli")
+    payload = sync.k3s_payload(public, {}, config, "sqli")
     assert "flag_format" not in payload
 
 
@@ -168,8 +168,37 @@ def test_k3s_payload_version_bump(sync, monkeypatch):
     monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
     public = {"category": "web", "deploy_type": "container",
               "deploy_info": {"connection_type": "http", "requires_build": True, "version": "v5"}}
-    payload = sync.k3s_payload(public, BASE_CONFIG, "sqli")
+    payload = sync.k3s_payload(public, {}, BASE_CONFIG, "sqli")
     assert payload["image"] == "reg.example.com/web/sqli:v5"
+
+
+# --- flag_mode 對齊插件 attempt()/注入（見 sync-to-ctfd.k3s_payload 註解）---
+
+def _container_public():
+    return {"category": "web", "deploy_type": "container",
+            "deploy_info": {"connection_type": "http", "requires_build": True}}
+
+
+def test_k3s_payload_flag_mode_static_shared(sync, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    # private 空 → flag 三軸預設 static + shared → 用 image 內建 flag、不注入
+    payload = sync.k3s_payload(_container_public(), {}, BASE_CONFIG, "sqli")
+    assert payload["flag_mode"] == "static"
+    assert "flag_delivery" not in payload
+
+
+def test_k3s_payload_flag_mode_dynamic(sync, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    payload = sync.k3s_payload(_container_public(), {"flag_load": "dynamic"}, BASE_CONFIG, "sqli")
+    assert payload["flag_mode"] == "dynamic"
+    assert payload["flag_delivery"] == "file+env"  # 生成的 flag 同時進檔案與 env
+
+
+def test_k3s_payload_flag_mode_per_team_is_dynamic(sync, monkeypatch):
+    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
+    payload = sync.k3s_payload(_container_public(), {"flag_scope": "per_team"}, BASE_CONFIG, "sqli")
+    assert payload["flag_mode"] == "dynamic"
+    assert payload["flag_delivery"] == "file+env"
 
 
 # --------------------------------------------------------------------------- #
