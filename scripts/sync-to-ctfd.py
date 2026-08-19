@@ -324,7 +324,7 @@ def k3s_payload(public: dict, private: dict, config: dict, slug: str) -> dict:
     if resources.get("cpu"):
         payload["cpu"] = str(resources["cpu"])
 
-    # flag_format：用 config 的 project.flag_prefix 組（例 is1abCTF{%s}）
+    # flag_format：用 config 的 project.flag_prefix 前綴組出「前綴{答案}」樣式
     prefix = str(((config.get("project") or {}).get("flag_prefix") or "")).strip()
     if prefix:
         payload["flag_format"] = f"{prefix}{{%s}}"
