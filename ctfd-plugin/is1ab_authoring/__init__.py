@@ -22,10 +22,12 @@ import subprocess
 import sys
 import urllib.request
 import uuid
+import warnings
 import zipfile
 from datetime import datetime
 
 import yaml
+from sqlalchemy.exc import SAWarning
 from flask import (
     Blueprint,
     Response,
@@ -43,6 +45,7 @@ from CTFd.plugins import (
     register_plugin_assets_directory,
     register_user_page_menu_bar,
 )
+from CTFd.utils import get_config, set_config
 from CTFd.utils.decorators import admins_only, authed_only
 from CTFd.utils.user import get_current_user, is_admin
 
@@ -107,6 +110,72 @@ try:
     import ctfd_convert
 except Exception:  # pragma: no cover - 沒掛 repo 時 plugin 仍能載入
     ctfd_convert = None
+
+# 詞彙預設對齊 repo 的單一真相 challenge_schema（掛了 /repo 時）；沒掛則用上面 fallback 常數。
+try:
+    import challenge_schema as _cs
+    CATEGORIES = list(_cs.SUGGESTED_CATEGORIES)
+    DIFFICULTIES = list(_cs.DIFFICULTIES)
+except Exception:  # pragma: no cover
+    pass
+
+
+# --------------------------------------------------------------------------- #
+# 受控詞彙（類型 / 難度）：預設 = challenge_schema 的單一真相（掛 repo 時），可在後台
+# 「is1ab 設定」頁增刪、存進 CTFd config 覆蓋（純 dev 儀表板用）；上面常數只當沒掛 repo 的 fallback。
+# CI 對齊：難度 = challenge_schema.DIFFICULTIES（validate-challenge 也讀它，改一處就同步）；
+# category 在 CI 是自由填寫，後台加的類型本來就會過驗證，不必另外同步。
+# --------------------------------------------------------------------------- #
+
+def _vocab(config_key, default):
+    """讀 CTFd config 的 JSON list；沒設/壞掉→回 default（去空白、去重、保序）。"""
+    raw = get_config(config_key)
+    if raw:
+        try:
+            v = json.loads(raw)
+            if isinstance(v, list):
+                cleaned = list(dict.fromkeys(
+                    str(x).strip() for x in v if str(x).strip()))
+                if cleaned:
+                    return cleaned
+        except Exception:
+            pass
+    return list(default)
+
+
+def _categories():
+    return _vocab("is1ab_categories", CATEGORIES)
+
+
+def _difficulties():
+    return _vocab("is1ab_difficulties", DIFFICULTIES)
+
+
+# 首次導引：CTFd 裝完後，admin 還沒設過類型/配額 → 全頁導覽時自動帶到「is1ab 設定」，
+# 當作 setup 的延伸步驟。存/略過後 set is1ab_onboarded 就不再提示。
+# 安全：fail-open（任何例外都放行）、不動核心 setup 精靈、不碰資產/API/認證路徑。
+_ONBOARD_SKIP_PREFIX = (
+    "/is1ab", "/themes", "/files", "/plugins", "/api", "/setup",
+    "/login", "/logout", "/register", "/reset_password", "/confirm",
+)
+
+
+def _onboard_redirect():
+    try:
+        if request.method != "GET":
+            return
+        if not get_config("setup"):          # setup 精靈本身不碰
+            return
+        if get_config("is1ab_onboarded"):    # 已設/略過過
+            return
+        if not is_admin():                   # 只導 admin
+            return
+        path = request.path or "/"
+        if any(path.startswith(p) for p in _ONBOARD_SKIP_PREFIX):
+            return
+        return redirect(url_for("is1ab_authoring.settings_page"))
+    except Exception:                        # fail-open：絕不因此擋掉任何請求
+        return
 
 
 # --------------------------------------------------------------------------- #
@@ -226,7 +295,12 @@ def _sync_flag(challenge_id, content, flag_match):
     Flags.query.filter_by(challenge_id=challenge_id).delete()
     if content:
         db.session.add(Flags(challenge_id=challenge_id, type=ctfd_type, content=content))
-    db.session.commit()
+    # CTFd 的 Flags model 只有 polymorphic_on、沒有 static/regex 子類（核心自己也是這樣用
+    # Flags(type=...) 建，見 FlagSchema），flush 時會噴 benign 的 SAWarning。純靜音、不改行為。
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=SAWarning,
+                                message=r".*incompatible polymorphic identity.*")
+        db.session.commit()
 
 
 def _sync_tags(challenge_id, tags_csv):
@@ -446,8 +520,8 @@ def _quota_data():
         key = (c.category or "", _challenge_difficulty(c.id))
         actual[key] = actual.get(key, 0) + 1
     data = {}
-    for cat in CATEGORIES:
-        data[cat] = {d: (targets.get((cat, d), 0), actual.get((cat, d), 0)) for d in DIFFICULTIES}
+    for cat in _categories():
+        data[cat] = {d: (targets.get((cat, d), 0), actual.get((cat, d), 0)) for d in _difficulties()}
     return data
 
 
@@ -479,7 +553,7 @@ def _dashboard_matrix():
             return None
     test_by_cid = {m.challenge_id: _blob_test(m) for m in metas}
 
-    chal_cell = {cat: {d: [] for d in DIFFICULTIES} for cat in CATEGORIES}
+    chal_cell = {cat: {d: [] for d in _difficulties()} for cat in _categories()}
     uncategorized = []   # C1：落在固定格外的題（自由填分類/空難度）→ 收容，不讓它從追蹤消失
     for c in Challenges.query.order_by(Challenges.id).all():
         cat, diff = (c.category or ""), _challenge_difficulty(c.id)
@@ -491,15 +565,15 @@ def _dashboard_matrix():
                                   "author": umap.get(owner_by_cid.get(c.id)),
                                   "status": status_by_cid.get(c.id)})
 
-    asg_cell = {cat: {d: [] for d in DIFFICULTIES} for cat in CATEGORIES}
+    asg_cell = {cat: {d: [] for d in _difficulties()} for cat in _categories()}
     for a in Assignment.query.all():
         if a.category in asg_cell and a.difficulty in asg_cell[a.category]:
             asg_cell[a.category][a.difficulty].append(a)
 
     data = {}
-    for cat in CATEGORIES:
+    for cat in _categories():
         data[cat] = {}
-        for d in DIFFICULTIES:
+        for d in _difficulties():
             target = targets.get((cat, d), 0)
             slots, linked = [], set()
             for a in asg_cell[cat][d]:                      # 先放指派（出題者 + 驗題者）
@@ -530,8 +604,8 @@ def _dashboard_matrix():
 
     # KPI 彙總（E1）：跨格加總，讓 PM 一眼看「還差多少、完成幾成」
     built = completed = missing = 0
-    for cat in CATEGORIES:
-        for d in DIFFICULTIES:
+    for cat in _categories():
+        for d in _difficulties():
             cell = data[cat][d]
             cell_built = sum(1 for s in cell["slots"] if s["cid"])
             built += cell_built
@@ -926,8 +1000,8 @@ def challenge_new():
         if error:
             return render_template_string(_FORM_TMPL, challenge=None, f=f,
                                           nonce=session.get("nonce", ""), error=error, saved=False,
-                                          dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
-                                  categories=CATEGORIES,
+                                          dev_statuses=DEV_STATUSES, difficulties=_difficulties(),
+                                  categories=_categories(),
                                   status_label=DEV_STATUS_LABEL, flag_prefix=_flag_prefix(),
                                           deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
                                   flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES)
@@ -953,8 +1027,8 @@ def challenge_new():
         f["difficulty"] = request.args.get("difficulty").strip()
     return render_template_string(_FORM_TMPL, challenge=None, f=f,
                                   nonce=session.get("nonce", ""), error=None, saved=False,
-                                  dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
-                                  categories=CATEGORIES,
+                                  dev_statuses=DEV_STATUSES, difficulties=_difficulties(),
+                                  categories=_categories(),
                                   status_label=DEV_STATUS_LABEL, flag_prefix=_flag_prefix(),
                                   deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
                                   flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES)
@@ -1024,8 +1098,8 @@ def challenge_edit(challenge_id):
     return render_template_string(_FORM_TMPL, challenge=chal, f=f,
                                   nonce=session.get("nonce", ""), error=error, saved=saved,
                                   created=request.args.get("created"),
-                                  dev_statuses=DEV_STATUSES, difficulties=DIFFICULTIES,
-                                  categories=CATEGORIES,
+                                  dev_statuses=DEV_STATUSES, difficulties=_difficulties(),
+                                  categories=_categories(),
                                   status_label=DEV_STATUS_LABEL, flag_prefix=_flag_prefix(),
                                   deploy_types=DEPLOY_TYPES, connection_types=CONNECTION_TYPES,
                                   flag_loads=FLAG_LOADS, flag_scopes=FLAG_SCOPES, flag_matches=FLAG_MATCHES,
@@ -1690,13 +1764,87 @@ _ASSIGN_TMPL = """
 """
 
 
+_SETTINGS_TMPL = """
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4 mb-3"><div>
+  <h1>is1ab 設定 — 類型 / 難度</h1>
+  <p class="text-muted">出題儀表板與配額用的「類型」「難度」清單。<b>一行一個</b>（也可用逗號分隔），順序即顯示順序。裝好後隨時可改。</p>
+</div></div>
+<div class="container">
+  {% if saved %}<div class="alert alert-success">已儲存。</div>{% endif %}
+  {% if reset %}<div class="alert alert-info">已還原成預設。</div>{% endif %}
+  <form method="POST">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <div class="form-row">
+      <div class="form-group col-md-6">
+        <label>題目類型 categories（一行一個）</label>
+        <textarea class="form-control" name="categories" rows="10">{{ categories_text }}</textarea>
+        <small class="text-muted">預設：{{ default_categories|join(', ') }}</small>
+      </div>
+      <div class="form-group col-md-6">
+        <label>難度 difficulties（一行一個）</label>
+        <textarea class="form-control" name="difficulties" rows="10">{{ difficulties_text }}</textarea>
+        <small class="text-muted">預設：{{ default_difficulties|join(', ') }}</small>
+      </div>
+    </div>
+    <button class="btn btn-primary" name="action" value="save" type="submit">儲存</button>
+    <button class="btn btn-outline-secondary" name="action" value="reset" type="submit"
+            onclick="return confirm('還原成預設類型/難度？（不會刪除既有題目）')">還原預設</button>
+    <a class="btn btn-secondary" href="{{ url_for('is1ab_authoring.quota_page') }}">去設配額</a>
+    <button class="btn btn-link text-muted" name="action" value="skip" type="submit">略過（用預設，直接進後台）</button>
+  </form>
+  <hr>
+  <p class="text-muted small">
+    移除某類型/難度只會讓它<b>不再出現在儀表板與配額格</b>，<b>不會刪掉已建的題目</b>（那些題目仍在出題清單裡，只是不進方格）。<br>
+    <b>類型</b>在 CI 是自由填寫，這裡加的類型本來就會過驗證。<b>難度</b>與 CI 共用 <code>scripts/challenge_schema.py</code> 的 <code>DIFFICULTIES</code>：這裡新增一個「全新難度」若要讓題目過 <code>validate-challenge</code>，得把它也加進 <code>challenge_schema.py</code>（改一處即同步）。
+  </p>
+</div>
+{% endblock %}
+"""
+
+
+@bp.route("/is1ab/settings", methods=["GET", "POST"])
+@admins_only
+def settings_page():
+    """類型 / 難度 受控詞彙的後台編輯（存進 CTFd config，隨時可改）。"""
+    saved = reset = False
+    if request.method == "POST":
+        set_config("is1ab_onboarded", "1")   # 互動過 → 不再首次導引
+        action = request.form.get("action")
+        if action == "skip":
+            return redirect("/admin")
+        if action == "reset":
+            set_config("is1ab_categories", None)
+            set_config("is1ab_difficulties", None)
+            reset = True
+        else:
+            def _parse(field):
+                raw = request.form.get(field, "")
+                items = [x.strip() for x in raw.replace(",", "\n").splitlines()]
+                return list(dict.fromkeys(x for x in items if x))  # 去空白/去重/保序
+            cats, diffs = _parse("categories"), _parse("difficulties")
+            # 清空時不覆蓋（避免整個弄空）→ 存 None 讓它回退預設
+            set_config("is1ab_categories",
+                       json.dumps(cats, ensure_ascii=False) if cats else None)
+            set_config("is1ab_difficulties",
+                       json.dumps(diffs, ensure_ascii=False) if diffs else None)
+            saved = True
+    cats, diffs = _categories(), _difficulties()
+    return render_template_string(
+        _SETTINGS_TMPL,
+        categories_text="\n".join(cats), difficulties_text="\n".join(diffs),
+        default_categories=CATEGORIES, default_difficulties=DIFFICULTIES,
+        nonce=session.get("nonce", ""), saved=saved, reset=reset)
+
+
 @bp.route("/is1ab/quota", methods=["GET", "POST"])
 @admins_only
 def quota_page():
     saved = False
     if request.method == "POST":
-        for cat in CATEGORIES:
-            for diff in DIFFICULTIES:
+        for cat in _categories():
+            for diff in _difficulties():
                 raw = request.form.get(f"t_{cat}_{diff}", "").strip()
                 target = int(raw) if raw.isdigit() else 0
                 q = ChallengeQuota.query.filter_by(category=cat, difficulty=diff).first()
@@ -1708,7 +1856,7 @@ def quota_page():
         db.session.commit()
         saved = True
     return render_template_string(_QUOTA_TMPL, data=_quota_data(),
-                                  categories=CATEGORIES, difficulties=DIFFICULTIES,
+                                  categories=_categories(), difficulties=_difficulties(),
                                   nonce=session.get("nonce", ""), saved=saved)
 
 
@@ -1762,7 +1910,7 @@ def assignments_page():
     quota_rows.sort(key=lambda x: (x["category"], x["difficulty"]))
     return render_template_string(_ASSIGN_TMPL, rows=rows, users=Users.query.all(),
                                   quota_rows=quota_rows, status_label=DEV_STATUS_LABEL,
-                                  categories=CATEGORIES, difficulties=DIFFICULTIES,
+                                  categories=_categories(), difficulties=_difficulties(),
                                   nonce=session.get("nonce", ""))
 
 
@@ -1872,7 +2020,7 @@ def dashboard():
     dash = _dashboard_matrix()
     return render_template_string(_DASH_TMPL, data=dash["grid"], summary=dash["summary"],
                                   uncategorized=dash["uncategorized"], stalled=dash["stalled"],
-                                  categories=CATEGORIES, difficulties=DIFFICULTIES,
+                                  categories=_categories(), difficulties=_difficulties(),
                                   prs=prs, pr_error=pr_error, status_label=DEV_STATUS_LABEL,
                                   show_admin=is_admin(), me=(user.id if user else None))
 
@@ -2006,9 +2154,11 @@ def load(app):
         pass
 
     app.register_blueprint(bp)
+    app.before_request(_onboard_redirect)   # 首次導引到「is1ab 設定」（裝完 setup 後）
     register_admin_plugin_menu_bar(title="is1ab 儀表板", route="/is1ab/dashboard")
     register_admin_plugin_menu_bar(title="is1ab 出題", route="/is1ab")
     register_admin_plugin_menu_bar(title="is1ab 配額", route="/is1ab/quota")
+    register_admin_plugin_menu_bar(title="is1ab 設定", route="/is1ab/settings")
     register_admin_plugin_menu_bar(title="is1ab 指派", route="/is1ab/assignments")
     register_admin_plugin_menu_bar(title="is1ab 團隊", route="/is1ab/team")
     # 前台主導覽（登入才可見）：儀表板 / 出題 / 我的題目 / 團隊
