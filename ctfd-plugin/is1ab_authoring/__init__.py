@@ -49,6 +49,8 @@ from CTFd.utils import get_config, set_config
 from CTFd.utils.decorators import admins_only, authed_only
 from CTFd.utils.user import get_current_user, is_admin
 
+from . import vocab
+
 # 分類 / 難度 / 狀態的受控詞彙（配額與指派共用，避免自由文字對帳誤差，見審查 B4）
 CATEGORIES = ["web", "pwn", "reverse", "crypto", "forensic", "misc", "osint", "general"]
 DIFFICULTIES = ["baby", "easy", "middle", "hard", "impossible"]
@@ -128,19 +130,8 @@ except Exception:  # pragma: no cover
 # --------------------------------------------------------------------------- #
 
 def _vocab(config_key, default):
-    """讀 CTFd config 的 JSON list；沒設/壞掉→回 default（去空白、去重、保序）。"""
-    raw = get_config(config_key)
-    if raw:
-        try:
-            v = json.loads(raw)
-            if isinstance(v, list):
-                cleaned = list(dict.fromkeys(
-                    str(x).strip() for x in v if str(x).strip()))
-                if cleaned:
-                    return cleaned
-        except Exception:
-            pass
-    return list(default)
+    """讀 CTFd config 的 JSON list；沒設/壞掉→回 default（純解析在 vocab.parse_vocab）。"""
+    return vocab.parse_vocab(get_config(config_key), default)
 
 
 def _categories():
@@ -154,26 +145,17 @@ def _difficulties():
 # 首次導引：CTFd 裝完後，admin 還沒設過類型/配額 → 全頁導覽時自動帶到「is1ab 設定」，
 # 當作 setup 的延伸步驟。存/略過後 set is1ab_onboarded 就不再提示。
 # 安全：fail-open（任何例外都放行）、不動核心 setup 精靈、不碰資產/API/認證路徑。
-_ONBOARD_SKIP_PREFIX = (
-    "/is1ab", "/themes", "/files", "/plugins", "/api", "/setup",
-    "/login", "/logout", "/register", "/reset_password", "/confirm",
-)
-
-
+# 判斷邏輯在 vocab.should_onboard_redirect（純函式，可單元測試）。
 def _onboard_redirect():
     try:
-        if request.method != "GET":
-            return
-        if not get_config("setup"):          # setup 精靈本身不碰
-            return
-        if get_config("is1ab_onboarded"):    # 已設/略過過
-            return
-        if not is_admin():                   # 只導 admin
-            return
-        path = request.path or "/"
-        if any(path.startswith(p) for p in _ONBOARD_SKIP_PREFIX):
-            return
-        return redirect(url_for("is1ab_authoring.settings_page"))
+        if vocab.should_onboard_redirect(
+            method=request.method,
+            path=request.path,
+            setup_done=bool(get_config("setup")),
+            onboarded=bool(get_config("is1ab_onboarded")),
+            is_admin=is_admin(),
+        ):
+            return redirect(url_for("is1ab_authoring.settings_page"))
     except Exception:                        # fail-open：絕不因此擋掉任何請求
         return
 
@@ -1819,11 +1801,8 @@ def settings_page():
             set_config("is1ab_difficulties", None)
             reset = True
         else:
-            def _parse(field):
-                raw = request.form.get(field, "")
-                items = [x.strip() for x in raw.replace(",", "\n").splitlines()]
-                return list(dict.fromkeys(x for x in items if x))  # 去空白/去重/保序
-            cats, diffs = _parse("categories"), _parse("difficulties")
+            cats = vocab.parse_vocab_input(request.form.get("categories", ""))
+            diffs = vocab.parse_vocab_input(request.form.get("difficulties", ""))
             # 清空時不覆蓋（避免整個弄空）→ 存 None 讓它回退預設
             set_config("is1ab_categories",
                        json.dumps(cats, ensure_ascii=False) if cats else None)

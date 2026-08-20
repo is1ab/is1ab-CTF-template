@@ -1,0 +1,55 @@
+# is1ab_authoring dev CTFd —— 團隊共用「dev 出題站」stack（部署在 VM100 的 /opt/is1ab-ctf-template/ctfd-plugin/）
+#
+# 這不是比賽用 CTFd，是團隊內部的出題開發中樞。刻意用 prod 現成 image（ctfd-ctfd:latest 等，
+# 免 build、避開 VM100 對外 DNS 限制）。
+#
+# 執行（務必在本檔所在目錄，讓 compose 自動載入同目錄 .env）：
+#   cd /opt/is1ab-ctf-template/ctfd-plugin
+#   docker compose -p ctfd-dev -f docker-compose.dev-vm.yml up -d
+#
+#   - 需要同目錄一個 .env（見 .env.dev-vm.example），至少設 CTFD_DEV_SECRET_KEY。
+#   - 綁 0.0.0.0:8010 → 校內網（能路由到本機）直接連 http://<vm-ip>:8010。
+#   - 掛 docker.sock + docker binary 供 is1ab_authoring「一鍵部署」（= 容器 ≈ host root，dev-only 設計）。
+#
+# ⚠️ DB 帳密為 throwaway dev 預設（ctfd/ctfd）、DB 僅容器內部不對外；
+#    SECRET_KEY 屬敏感（能偽造 session）→ 一律由 .env 提供，不寫進 repo。
+services:
+  ctfd:
+    image: ctfd-ctfd:latest
+    restart: unless-stopped
+    user: root
+    ports:
+      - "0.0.0.0:8010:8000"
+    environment:
+      - UPLOAD_FOLDER=/var/uploads
+      - DATABASE_URL=mysql+pymysql://ctfd:${CTFD_DEV_DB_PASSWORD:-ctfd}@db/ctfd
+      - REDIS_URL=redis://cache:6379
+      - WORKERS=1
+      - SECRET_KEY=${CTFD_DEV_SECRET_KEY:?請在同目錄 .env 設 CTFD_DEV_SECRET_KEY（見 .env.dev-vm.example）}
+      - LOG_FOLDER=/var/log/CTFd
+      - ACCESS_LOG=-
+      - ERROR_LOG=-
+    volumes:
+      - ctfd_dev_uploads:/var/uploads
+      - ./is1ab_authoring:/opt/CTFd/CTFd/plugins/is1ab_authoring:ro
+      - ../:/repo
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /usr/libexec/docker/cli-plugins/docker-compose:/usr/libexec/docker/cli-plugins/docker-compose:ro
+    depends_on: [db, cache]
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=${CTFD_DEV_DB_PASSWORD:-ctfd}
+      - MARIADB_USER=ctfd
+      - MARIADB_PASSWORD=${CTFD_DEV_DB_PASSWORD:-ctfd}
+      - MARIADB_DATABASE=ctfd
+    volumes: [ctfd_dev_db:/var/lib/mysql]
+    command: [mysqld, --character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci, --wait_timeout=28800]
+  cache:
+    image: redis:4
+    restart: unless-stopped
+volumes:
+  ctfd_dev_uploads:
+  ctfd_dev_db:
