@@ -9,6 +9,9 @@ import subprocess
 import json
 import re
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import challenge_schema as cs  # noqa: E402  單一真相：難度詞彙
+
 class ChallengeValidator:
     def __init__(self):
         self.errors = []
@@ -162,8 +165,8 @@ class ChallengeValidator:
                     self.warnings.append(f"Field '{field}' needs to be updated in public.yml")
 
             # difficulty：控制詞彙 + 別名正規化（medium→middle，大小寫不敏感）
-            difficulty_aliases = {'medium': 'middle', 'mid': 'middle'}
-            valid_difficulties = ['baby', 'easy', 'middle', 'hard', 'impossible']
+            difficulty_aliases = cs.DIFFICULTY_ALIASES
+            valid_difficulties = cs.DIFFICULTIES
             raw_diff = str(data.get('difficulty') or '').strip().lower()
             norm_diff = difficulty_aliases.get(raw_diff, raw_diff)
             if norm_diff not in valid_difficulties:

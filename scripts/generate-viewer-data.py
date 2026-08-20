@@ -36,7 +36,7 @@ import yaml
 
 
 DEFAULT_STATUSES = ["planning", "developing", "testing", "completed", "deployed"]
-DEFAULT_DIFFICULTIES = ["baby", "easy", "middle", "hard", "impossible"]
+DEFAULT_DIFFICULTIES = list(cs.DIFFICULTIES)  # 單一真相：challenge_schema
 
 
 def utc_now_iso() -> str:
