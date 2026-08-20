@@ -19,6 +19,13 @@ _LEGACY_CONTAINER = {"static_container", "dynamic_container", "nc_challenge"}
 
 _DIFFICULTY_ALIASES = {"medium": "middle", "mid": "middle"}
 
+# 受控詞彙的單一真相：CI 驗證（validate-challenge）、create-challenge、generate-viewer-data
+# 與 dev 出題外掛（is1ab_authoring）的預設都應讀這裡，避免多份 hardcode 漂移。
+# difficulty 是控制詞彙（不在集合內→驗證擋）；category 自由填寫，SUGGESTED_CATEGORIES 僅供建議/儀表板預設。
+DIFFICULTIES = ["baby", "easy", "middle", "hard", "impossible"]
+DIFFICULTY_ALIASES = dict(_DIFFICULTY_ALIASES)
+SUGGESTED_CATEGORIES = ["web", "pwn", "reverse", "crypto", "forensic", "misc", "osint", "general"]
+
 
 def deploy_type(public: dict) -> str:
     """attachment | container | none（新欄位優先，舊 challenge_type 推導）。"""

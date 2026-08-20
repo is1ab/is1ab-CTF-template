@@ -9,6 +9,9 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import challenge_schema as cs  # noqa: E402  單一真相：難度/建議分類詞彙
+
 class ChallengeCreator:
     def __init__(self, config_path='config.yml'):
         self.load_config(config_path)
@@ -40,7 +43,7 @@ class ChallengeCreator:
     def validate_inputs(self, category, name, difficulty):
         """驗證輸入參數"""
         # 分類：自由填寫（非建議值只提醒不擋，見 docs/challenge-schema.md 決策 8）
-        suggested = ['web', 'pwn', 'reverse', 'crypto', 'forensic', 'misc', 'osint', 'general']
+        suggested = cs.SUGGESTED_CATEGORIES
         if not category:
             print("❌ category 不可為空")
             return False
@@ -54,7 +57,7 @@ class ChallengeCreator:
             return False
 
         # 難度：控制詞彙（medium→middle 別名由呼叫端正規化）
-        valid_difficulties = ['baby', 'easy', 'middle', 'hard', 'impossible']
+        valid_difficulties = cs.DIFFICULTIES
         if difficulty not in valid_difficulties:
             print(f"❌ Invalid difficulty: {difficulty}")
             print(f"💡 Valid difficulties: {', '.join(valid_difficulties)}")
@@ -855,7 +858,7 @@ def main():
                            help='Challenge category（自由填寫；建議 web/pwn/reverse/crypto/forensic/misc/osint/general）')
         parser.add_argument('name', help='Challenge name (use underscore for spaces)')
         parser.add_argument('difficulty',
-                           choices=['baby', 'easy', 'middle', 'hard', 'impossible'],
+                           choices=cs.DIFFICULTIES,
                            help='Challenge difficulty')
         parser.add_argument('--author', default='',
                            help='出題人（未填則使用 git user.name，再退回 config.yml team.default_author）')
