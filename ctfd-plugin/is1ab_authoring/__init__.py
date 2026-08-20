@@ -51,9 +51,8 @@ from CTFd.utils.user import get_current_user, is_admin
 
 from . import vocab
 
-# 分類 / 難度 / 狀態的受控詞彙（配額與指派共用，避免自由文字對帳誤差，見審查 B4）
-CATEGORIES = ["web", "pwn", "reverse", "crypto", "forensic", "misc", "osint", "general"]
-DIFFICULTIES = ["baby", "easy", "middle", "hard", "impossible"]
+# 分類/難度詞彙抽到 config.py（可後台增刪、對齊 challenge_schema）；狀態詞彙留此。
+from .config import CATEGORIES, DIFFICULTIES  # noqa: E402
 ASSIGN_STATUSES = ["unassigned", "assigned", "in_progress", "in_review", "done"]
 # 題目「開發進度」的單一真相（Ⓑ）。與工單 status / CTFd state / ready_for_release 是不同概念。
 DEV_STATUSES = ["planning", "developing", "testing", "completed", "deployed"]
@@ -113,33 +112,9 @@ try:
 except Exception:  # pragma: no cover - 沒掛 repo 時 plugin 仍能載入
     ctfd_convert = None
 
-# 詞彙預設對齊 repo 的單一真相 challenge_schema（掛了 /repo 時）；沒掛則用上面 fallback 常數。
-try:
-    import challenge_schema as _cs
-    CATEGORIES = list(_cs.SUGGESTED_CATEGORIES)
-    DIFFICULTIES = list(_cs.DIFFICULTIES)
-except Exception:  # pragma: no cover
-    pass
 
-
-# --------------------------------------------------------------------------- #
-# 受控詞彙（類型 / 難度）：預設 = challenge_schema 的單一真相（掛 repo 時），可在後台
-# 「is1ab 設定」頁增刪、存進 CTFd config 覆蓋（純 dev 儀表板用）；上面常數只當沒掛 repo 的 fallback。
-# CI 對齊：難度 = challenge_schema.DIFFICULTIES（validate-challenge 也讀它，改一處就同步）；
-# category 在 CI 是自由填寫，後台加的類型本來就會過驗證，不必另外同步。
-# --------------------------------------------------------------------------- #
-
-def _vocab(config_key, default):
-    """讀 CTFd config 的 JSON list；沒設/壞掉→回 default（純解析在 vocab.parse_vocab）。"""
-    return vocab.parse_vocab(get_config(config_key), default)
-
-
-def _categories():
-    return _vocab("is1ab_categories", CATEGORIES)
-
-
-def _difficulties():
-    return _vocab("is1ab_difficulties", DIFFICULTIES)
+# 受控詞彙 helper 抽到 config.py（沿用 _categories/_difficulties 名稱給既有程式用）。
+from .config import categories as _categories, difficulties as _difficulties  # noqa: E402
 
 
 # 首次導引：CTFd 裝完後，admin 還沒設過類型/配額 → 全頁導覽時自動帶到「is1ab 設定」，
