@@ -34,7 +34,8 @@ git archive --format=tar "$BRANCH" | gzip | base64 | \
     base64 -d | gzip -d | tar -xf - -C \"$REPO_DIR\"; \
     cd \"$REPO_DIR/ctfd-plugin\"; \
     test -f .env || echo \"WARN: $REPO_DIR/ctfd-plugin/.env 不存在，compose 缺 CTFD_DEV_SECRET_KEY 會失敗（見 .env.dev-vm.example）\"; \
-    docker compose -p \"$PROJECT\" -f docker-compose.dev-vm.yml up -d'"
+    docker compose -p \"$PROJECT\" -f docker-compose.dev-vm.yml up -d; \
+    docker compose -p \"$PROJECT\" -f docker-compose.dev-vm.yml restart ctfd'"
 
 echo "✓ 同步完成。驗證："
 echo "   ssh $JUMP ssh $VM 'cd $REPO_DIR/ctfd-plugin && docker compose -p $PROJECT -f docker-compose.dev-vm.yml logs --since 30s ctfd | grep -i \"plugin loaded\"'"
