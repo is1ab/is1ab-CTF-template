@@ -8,6 +8,9 @@ import subprocess
 from pathlib import Path
 from collections import defaultdict
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import challenge_schema as cs
+
 class AllChallengesValidator:
     def __init__(self, config_path='config.yml'):
         self.load_config(config_path)
@@ -81,7 +84,7 @@ class AllChallengesValidator:
                 'points': config.get('points', 0),
                 'status': config.get('status', 'unknown'),
                 'author': config.get('author', 'unknown'),
-                'challenge_type': config.get('challenge_type', 'unknown')
+                'challenge_type': cs.kind(config)
             }
         except Exception as e:
             return {

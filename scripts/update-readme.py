@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 # scripts/update-readme.py
 
+import sys
 import yaml
 import json
 from pathlib import Path
 from jinja2 import Template
 from datetime import datetime
 import argparse
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import challenge_schema as cs
 
 class ReadmeUpdater:
     def __init__(self, config_path='config.yml'):
@@ -57,7 +61,7 @@ class ReadmeUpdater:
         status_counts = {'planning': 0, 'developing': 0, 'testing': 0, 'completed': 0, 'deployed': 0}
         category_counts = {}
         difficulty_counts = {'baby': 0, 'easy': 0, 'middle': 0, 'hard': 0, 'impossible': 0}
-        type_counts = {'static_attachment': 0, 'static_container': 0, 'dynamic_attachment': 0, 'dynamic_container': 0, 'nc_challenge': 0}
+        type_counts = {'attachment': 0, 'container': 0, 'nc': 0, 'none': 0}
         source_code_counts = {'provided': 0, 'not_provided': 0}
         
         for category, challenges in self.challenges.items():
@@ -67,7 +71,7 @@ class ReadmeUpdater:
             for challenge in challenges:
                 status = challenge.get('status', 'planning')
                 difficulty = challenge.get('difficulty', 'easy')
-                challenge_type = challenge.get('challenge_type', 'static_attachment')
+                challenge_type = cs.kind(challenge)
                 source_code_provided = challenge.get('source_code_provided', False)
                 
                 if status in status_counts:
@@ -117,7 +121,7 @@ class ReadmeUpdater:
             for i in range(max_challenges):
                 if i < len(challenges):
                     status = challenges[i].get('status', 'planning')
-                    challenge_type = challenges[i].get('challenge_type', 'static_attachment')
+                    challenge_type = cs.kind(challenges[i])
                     icon = self.get_status_icon(status, challenge_type)
                     # 添加標題資訊
                     title = challenges[i].get('title', f'Challenge {chr(65 + i)}')
@@ -139,13 +143,12 @@ class ReadmeUpdater:
             'deployed': '🚀'
         }
         
-        # 根據題目類型添加額外標示
+        # 根據交付方式添加額外標示
         type_indicators = {
-            'nc_challenge': '🔌',
-            'static_container': '🐳',
-            'dynamic_container': '🔄',
-            'static_attachment': '📎',
-            'dynamic_attachment': '📋'
+            'nc': '🔌',
+            'container': '🐳',
+            'attachment': '📎',
+            'none': '📖',
         }
         
         base_icon = status_icons.get(status, '❓')
@@ -232,12 +235,11 @@ Welcome Event!
 - ✅ **已完成**: {{ stats.status_counts.completed }} 題
 - 🚀 **已部署**: {{ stats.status_counts.deployed }} 題
 
-### 題目類型分布
-- 📎 **靜態附件**: {{ stats.type_counts.static_attachment }} 題
-- 🐳 **靜態容器**: {{ stats.type_counts.static_container }} 題
-- 📋 **動態附件**: {{ stats.type_counts.dynamic_attachment }} 題
-- 🔄 **動態容器**: {{ stats.type_counts.dynamic_container }} 題
-- 🔌 **NC 題目**: {{ stats.type_counts.nc_challenge }} 題
+### 交付方式分布
+- 📎 **附件**: {{ stats.type_counts.attachment }} 題
+- 🐳 **容器**: {{ stats.type_counts.container }} 題
+- 🔌 **NC**: {{ stats.type_counts.nc }} 題
+- 📖 **純知識**: {{ stats.type_counts.none }} 題
 
 ### 難度分佈
 - 🍼 **Baby**: {{ stats.difficulty_counts.baby }} 題
@@ -268,7 +270,7 @@ Welcome Event!
 {% for author, tasks in team_assignments.items() %}
 #### {{ author }}
 {% for task in tasks -%}
-- **{{ task.category|title }}/{{ task.title }}**: {{ task.status }} ({{ task.difficulty }}) [{{ task.challenge_type }}] {'📄' if task.source_code_provided else '🔒'}
+- **{{ task.category|title }}/{{ task.title }}**: {{ task.status }} ({{ task.difficulty }}) [{{ task.deploy_type or task.challenge_type }}] {'📄' if task.source_code_provided else '🔒'}
 {% endfor %}
 {% endfor %}
 

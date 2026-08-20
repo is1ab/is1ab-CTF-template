@@ -23,6 +23,10 @@ import json
 import os
 import re
 import shutil
+import sys
+from pathlib import Path as _Path
+sys.path.insert(0, str(_Path(__file__).resolve().parent))
+import challenge_schema as cs
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,7 +36,7 @@ import yaml
 
 
 DEFAULT_STATUSES = ["planning", "developing", "testing", "completed", "deployed"]
-DEFAULT_DIFFICULTIES = ["baby", "easy", "middle", "hard", "impossible"]
+DEFAULT_DIFFICULTIES = list(cs.DIFFICULTIES)  # 單一真相：challenge_schema
 
 
 def utc_now_iso() -> str:
@@ -219,9 +223,11 @@ def build_entries(
         difficulty = str(public_data.get("difficulty") or "")
         status = str(public_data.get("status") or "planning")
         points = coerce_int(public_data.get("points"))
+        # author 為單一人員來源；owners/assignee 相容舊 schema，缺則由 author 補
+        _owners, _assignee = cs.authors(public_data)
         author = str(public_data.get("author") or "")
-        owners = [normalize_username(x) for x in coerce_str_list(public_data.get("owners"))]
-        assignee = normalize_username(str(public_data.get("assignee") or ""))
+        owners = [normalize_username(x) for x in _owners]
+        assignee = normalize_username(_assignee)
         ready_for_release = coerce_bool(public_data.get("ready_for_release"))
         updated_at = str(public_data.get("updated_at") or public_data.get("created_at") or "")
 

@@ -23,8 +23,10 @@ services:
     read_only: true
 
     # 環境變數
+    # Flag 一律由外部注入（instancer 或 .env），不可寫死在此檔案：
+    # 寫死會違反「flag 只存在 private.yml」的原則，也讓動態 flag 失效
     environment:
-      - FLAG=FLAG{buff3r_0v3rfl0w_1s_34sy}
+      - FLAG=${FLAG:-FLAG{placeholder_change_me}}
 
     # 健康檢查
     healthcheck:

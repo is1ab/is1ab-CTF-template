@@ -1,6 +1,8 @@
 # 30 分鐘建立你的第一個 CTF 題目
 
 > 從零開始的端到端教學。跟著做，30 分鐘內你就能提交第一個 PR。
+>
+> 想看完整流程（含 admin 設置、驗題、發布）？見 [docs/USER-FLOW.md](docs/USER-FLOW.md)。
 
 ---
 
@@ -45,6 +47,8 @@ cd <repo-名稱>
 ```bash
 uv sync
 make setup
+git config user.name "你的名字"             # ← 出題人標識，create-challenge 會自動抓
+git config user.email "you@example.com"
 ```
 
 你應該看到類似這樣的輸出：
@@ -57,6 +61,8 @@ make setup
 ```
 
 > **如果 `make: command not found`**：macOS 請安裝 Xcode Command Line Tools (`xcode-select --install`)，Linux 請安裝 `sudo apt install make`。
+
+> **首次接手 repo（admin）？** 在動手出題前，先啟動 `cd web-interface && uv run python app.py`，進 `http://localhost:8004/setup` 跑一次 5 步驟初始化精靈（填團隊成員、時程、配額、產生 `.github/` 模板）。詳見 [docs/USER-FLOW.md Phase 0](docs/USER-FLOW.md#phase-0--一次性設置admin)。
 
 ---
 
@@ -84,6 +90,8 @@ make new-challenge ARGS="crypto my_first_challenge baby"
 
 > 格式：`make new-challenge ARGS="<category> <name> <difficulty>"`
 > difficulty 可選：`baby`、`easy`、`middle`、`hard`、`impossible`
+>
+> Author 自動從 `git config user.name` 抓（步驟 3 設過了）。要覆蓋的話加 `--author "Alice"`。
 
 你應該看到：
 
@@ -232,8 +240,9 @@ git push -u origin challenge/crypto/my_first_challenge
 1. 打開你的 GitHub repo
 2. 你會看到提示「Compare & pull request」，點擊它
 3. PR 標題格式：`feat(crypto): add my_first_challenge`
-4. 填寫描述，說明題目的內容和難度
-5. 點擊「Create pull request」
+4. PR template 會自動跳出（含雙 checklist）
+5. **把「出題人 Checklist」六項打勾**（`make validate` 通過、Docker 可起、Writeup 完成等）
+6. 點擊「Create pull request」
 
 ### 14. CI 自動檢查
 
@@ -246,7 +255,9 @@ git push -u origin challenge/crypto/my_first_challenge
 | **security-scan** | 掃描 flag 和敏感資料洩漏 | 移除公開檔案中的 flag |
 | **docker-build** | 測試 Docker 建置（如有） | 修正 Dockerfile |
 
-所有檢查通過後，等待 reviewer 審核即可。
+CI 通過後，**等任一團隊成員擔任驗題人**：拉下 branch、解題、確認 flag 對得上、勾「驗題人 Checklist」、Approve → Merge。
+
+> 沒有固定指派 reviewer。在 chat 群組吼一聲「PR #X 求驗」通常最快。詳細：[USER-FLOW.md Phase 2](docs/USER-FLOW.md#phase-2--驗題任一隊友)。
 
 ---
 
@@ -256,6 +267,7 @@ git push -u origin challenge/crypto/my_first_challenge
 
 | 目標 | 文件 |
 |---|---|
+| 端到端流程總覽（含 admin 設置、驗題、發布） | [USER-FLOW.md](docs/USER-FLOW.md) |
 | 學習不同題目類型的開發方式 | [題目開發指南](wiki/Challenge-Development.md) |
 | 參考完整的範例題目 | [challenges/examples/](challenges/examples/) |
 | 了解提示系統的設計 | [提示系統指南](wiki/Hints-System-Guide.md) |

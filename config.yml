@@ -72,7 +72,14 @@ challenge_quota:
 
 # 團隊設定
 team:
-  default_author: ""  # 替換為預設題目作者名稱
+  # 團隊成員清單（新 canonical）：Web /setup 精靈第 2 步維護，app.py 優先讀此欄。
+  # 每筆：github_username（必填）/ display_name / specialty。
+  members: []
+    # - github_username: "alice"
+    #   display_name: "Alice"
+    #   specialty: "web"
+  default_author: ""  # 預設出題人（fallback）：Web 表單帶入、CLI 未帶 --author 時使用
+  # 以下為舊欄位，仍相容：members 為空時 app.py 會自動遷移成 members，設定頁也讀寫。
   reviewers:  # 替換為實際 reviewer 的 GitHub 用戶名
     - ""
     - ""

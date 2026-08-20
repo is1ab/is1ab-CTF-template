@@ -83,6 +83,9 @@ pr_author = os.environ["PR_AUTHOR"].lstrip("@").strip()
 with open(public_yml, "r", encoding="utf-8") as f:
     data = yaml.safe_load(f) or {}
 
+# 新 schema：author 為單一人員來源；相容舊 owners/assignee
+author = str(data.get("author") or "").lstrip("@").strip()
+
 owners = data.get("owners") or []
 if isinstance(owners, str):
     owners = [owners]
@@ -90,13 +93,16 @@ owners = [str(x).lstrip("@").strip() for x in owners if str(x).strip()]
 
 assignee = str(data.get("assignee") or "").lstrip("@").strip()
 
-if assignee and assignee not in owners:
-    print("::error::public.yml policy: assignee must be included in owners")
+# 允許的出題人集合：author + 舊 owners/assignee（去重去空）
+allowed = {u for u in ([author] + owners + [assignee]) if u}
+
+if not allowed:
+    print(f"::error::public.yml 缺 author（{public_yml}）")
     sys.exit(1)
 
-# Require PR author to be in owners OR be the assignee
-if pr_author not in owners and (assignee and pr_author != assignee):
-    print(f"::error::PR author @{pr_author} must be in owners (or be assignee) in {public_yml}")
+# PR 作者必須是題目作者（或舊 schema 的 owners/assignee 之一）
+if pr_author not in allowed:
+    print(f"::error::PR author @{pr_author} 必須是題目 author（{public_yml}，allowed={sorted(allowed)}）")
     sys.exit(1)
 
 print("✅ Ownership policy passed")

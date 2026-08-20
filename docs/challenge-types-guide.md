@@ -85,7 +85,8 @@ my_challenge/
 │   ├── docker-compose.yml
 │   └── bin/            # 編譯後的執行檔
 └── solution/
-    └── exploit.py
+    ├── exploit.py          # 官方解（--connection-info 契約；flag 印在 stdout 最後一行）
+    └── requirements.txt    # 解題腳本的第三方相依（verify-solution 會隔離安裝）
 ```
 
 參考範例：`challenges/examples/pwn/buffer_overflow/`
@@ -105,10 +106,22 @@ my_challenge/
 │   ├── Dockerfile
 │   └── docker-compose.yml
 └── solution/
-    └── exploit.py
+    ├── exploit.py          # 官方解（--connection-info 契約；flag 印在 stdout 最後一行）
+    └── requirements.txt    # 解題腳本的第三方相依（verify-solution 會隔離安裝）
 ```
 
 參考範例：`challenges/examples/web/sql_injection/`
+
+---
+
+## 官方解與相依（solution/）
+
+每題的官方解放在 `solution/exploit.py`，`make verify-solution` 會用它自動驗題（起服務 → 跑官方解 → 比對 flag）。
+
+- **契約**：吃 `--connection-info "nc <host> <port>"`（也吃 `HOST`/`PORT` 環境變數），把 flag **印在 stdout 最後一行**，尚未實作時 `exit 4`。
+- **第三方相依**：寫在 `solution/requirements.txt`（一行一個，如 `requests`、`pwntools`）。`verify-solution` 會用 `uv` 在**隔離環境**安裝，不污染專案 venv，CI／他人機器也能重現——**不要**手動 `pip install` 進專案。
+
+`make new-challenge` 會自動建好 `solution/exploit.py` 契約 stub 與 `requirements.txt` 範本。
 
 ---
 

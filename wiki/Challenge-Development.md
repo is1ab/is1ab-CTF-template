@@ -101,10 +101,10 @@ allowed_files:
   - "docker/**"
   - "attachments/*"
 
-# 部署設定
-deployment:
-  type: "dynamic"  # static/dynamic
+# 部署設定（欄位名稱是 deploy_info，不是 deployment）
+deploy_info:
   port: 3000
+  requires_build: true
   resources:
     memory: "128Mi"
     cpu: "100m"

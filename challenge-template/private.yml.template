@@ -1,112 +1,40 @@
 # =============================================================================
 # 🔒 CTF Challenge Private Configuration
 # =============================================================================
-# ⚠️  此檔案包含敏感資訊，永遠不會同步到 public repository
-# ⚠️  請確保此檔案在 .gitignore 中（若使用分離式管理）
+# ⚠️ 含敏感資訊，永不同步到 public repo。欄位定義見 docs/challenge-schema.md。
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Flag 資訊 (敏感)
-# -----------------------------------------------------------------------------
+# ---- 必填 --------------------------------------------------------------------
 flag: "${FLAG_PLACEHOLDER}"
-flag_type: "static"  # static | dynamic | regex
+# 多個可接受 flag（任一命中即解）可用陣列：
+# flag:
+#   - "is1abCTF{alt_1}"
+#   - "is1abCTF{alt_2}"
 
-# Flag 類型說明：
-# - static: 固定 flag，所有參賽者相同
-# - dynamic: 動態 flag，每隊/每人不同
-# - regex: 正規表達式驗證 flag
+# ---- flag 三軸（選填，皆有預設；三者正交）-----------------------------------
+flag_load: "static"     # static（內建）| dynamic（部署時從 .env/generator 注入）
+flag_scope: "shared"    # shared（統一）| per_team（唯一，隱含 flag_load=dynamic）
+flag_match: "exact"     # exact | regex（→ 對應 CTFd flag type）
 
-# 動態 flag 設定（僅 flag_type: dynamic 時使用）
-dynamic_flag:
-  template: "is1abCTF{${TEAM_ID}_${RANDOM_SUFFIX}}"
-  salt: "${RANDOM_SALT}"
+# 動態 flag 設定（僅 flag_load: dynamic）
+# dynamic_flag:
+#   template: "is1abCTF{${TEAM_ID}_${RANDOM_SUFFIX}}"
+#   salt: "${RANDOM_SALT}"
 
-# -----------------------------------------------------------------------------
-# 解題資訊 (敏感)
-# -----------------------------------------------------------------------------
-flag_description: |
-  TODO: 描述 flag 的位置和獲取方式
-  例如：Flag 位於資料庫的 admin 表中，需要通過 SQL 注入獲取
-
-solution_steps:
-  - step: 1
-    title: "識別漏洞"
-    description: |
-      TODO: 描述第一步驟
-      
-  - step: 2
-    title: "利用漏洞"
-    description: |
-      TODO: 描述第二步驟
-      
-  - step: 3
-    title: "獲取 Flag"
-    description: |
-      TODO: 描述最終步驟
-
-# 預估解題時間
-estimated_solve_time: "30 分鐘"
-
-# -----------------------------------------------------------------------------
-# 測試憑證 (敏感)
-# -----------------------------------------------------------------------------
-test_credentials:
-  admin:
-    username: "admin"
-    password: "${ADMIN_PASSWORD}"
-  user:
-    username: "test"
-    password: "test123"
-
-# -----------------------------------------------------------------------------
-# 內部筆記 (敏感)
-# -----------------------------------------------------------------------------
+# ---- 其他選填 ----------------------------------------------------------------
+# 開發筆記（敏感）
 internal_notes: |
-  開發者筆記：
-  - TODO: 添加開發筆記
-  
-  測試要點：
-  - TODO: 添加測試檢查項目
-  
-  已知問題：
-  - 無
+  TODO: 開發筆記、測試要點、已知問題
 
-# -----------------------------------------------------------------------------
-# 測試案例 (敏感)
-# -----------------------------------------------------------------------------
-test_cases:
-  - name: "基本解題測試"
-    description: "驗證標準解法可行"
-    payload: "TODO: 測試 payload"
-    expected_result: "成功獲取 flag"
-    
-verified_solutions:
-  - method: "手動利用"
-    time_estimate: "15-30 分鐘"
-    difficulty: "初級"
-
-# -----------------------------------------------------------------------------
-# 部署敏感設定 (敏感)
-# -----------------------------------------------------------------------------
-deploy_secrets:
-  database_password: "${DB_PASSWORD}"
-  secret_key: "${SECRET_KEY}"
-  api_keys: []
-
-# -----------------------------------------------------------------------------
-# 元資料
-# -----------------------------------------------------------------------------
-last_tested: "${CURRENT_DATE}"
-tested_by: "${AUTHOR}"
-test_result: "pending"
+# 驗題記錄
+testing:
+  tested_by: "${AUTHOR}"
+  last_tested: "${CURRENT_DATE}"
+  test_status: "pending"   # pending | passed | failed
 
 # =============================================================================
-# ⚠️  警告：此檔案中的所有內容都是敏感資訊
+# 解題說明放哪（不塞進 YAML）：
+#   • 可自動驗證的官方解 → solution/exploit.py（契約見 scripts/verify-solution.py）
+#   • 解題文件 / flag 位置 / 測試帳密 → writeup/README.md
+#   • 密鑰（DB 密碼 / secret_key 等）→ .env / secret manager，絕不進 YAML 或 CTFd DB
 # =============================================================================
-# 以下欄位永遠不會出現在 public.yml 中：
-# - flag, flag_type, dynamic_flag
-# - flag_description, solution_steps
-# - test_credentials, deploy_secrets
-# - internal_notes, test_cases, verified_solutions
-# =============================================================================
-

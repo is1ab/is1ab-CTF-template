@@ -1212,11 +1212,12 @@ def challenges_list():
 def create_challenge_form():
     """創建挑戰表單頁面"""
     if not ctf_manager.is_setup_complete():
-        return render_template(
-            "setup.html",
-            config=ctf_manager.config,
-            missing=ctf_manager.get_setup_missing_items(),
-        )
+        # 尚未完成初始設定 → 導去 setup 精靈。
+        # （原本 render "setup.html" 不存在——實際模板是 setup/*.html——會 500；
+        #   與 /setup 路由同一種處理，見 setup_index。）
+        from flask import redirect, url_for
+
+        return redirect(url_for("setup_step", step="project"))
     return render_template("create_challenge.html", config=ctf_manager.config)
 
 
