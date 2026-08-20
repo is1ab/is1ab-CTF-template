@@ -45,7 +45,7 @@
 | `status` | str | viewer | `planning \| developing \| testing \| completed \| deployed` |
 | `ready_for_release` | bool | build、release、scan | 預設 `false` |
 | `created_at` / `updated_at` | str(date) | viewer | |
-| `deploy_info` | map | sync、部署 | `port / url / requires_build / nc_port / timeout / connection_type / resources{memory,cpu}` |
+| `deploy_info` | map | sync、部署 | `port / url / requires_build / version / nc_port / timeout / connection_type / resources{memory,cpu}` |
 | `hints` | list[{level,cost,content}] | sync、CTFd | |
 | `allowed_files` | list[glob] | sync-to-public、prepare-public-release | 公開 repo 檔案白名單（有安全用途，保留） |
 
@@ -118,6 +118,109 @@
 > 注入的**機制**依交付方式而異（附件題靠 build/generator 產檔、容器題靠啟動注入/服務端），
 > 但 schema 用同一組軸表達，不再為每種交付各開一個 enum。拆軸後還多出舊 enum 表達不了的組合（如 `dynamic`+`shared`、任意交付 × `regex`）。
 > 真實 2025 題庫 30 題全落在 `container`/`attachment` 兩類、flag 全 static/shared——動態軸與 `none` 是留給未來的彈性。
+
+## container 題 → k3s image build/push（build-images + sync-to-ctfd）
+
+`deploy_type: container` 的題目由 CTFd 的 `k3s_challenges` 插件用 k3s pod 起容器，
+所以同步前要先把題目 build 成 image、push 到私有 registry，sync 再把 image ref 指進去。
+
+### registry 與 image ref
+
+- **registry 位址**：`config.yml` 的 `deployment.docker_registry`，可用環境變數 `IS1AB_REGISTRY` 覆蓋。
+- **image ref 慣例**：`{registry}/{category}/{slug}:{version}`
+  - `slug` = 題目目錄名（轉小寫、docker 合法字元）
+  - `version` = `deploy_info.version`（見下）
+  - **registry 未設時**：退回純本地 tag `{category}/{slug}:{version}`，`build-images` 只 build 不 push（會警告，不會 crash）。
+
+### `deploy_info.version`
+
+| 欄位 | 型別 | 預設 | 說明 |
+|---|---|---|---|
+| `version` | str | `v1` | 即 image tag。**改 image（換底包、改題邏輯）時 bump**（`v1`→`v2`…），讓部署端拉到新版而不是吃到快取的舊 image。 |
+
+### build-images（`make build-images ARGS="…"`）
+
+只處理 `deploy_type == container` 且 `deploy_info.requires_build` 的題目，其餘略過：
+
+```bash
+make build-images                                  # build + push 全部（略過 examples/）
+make build-images ARGS="--path challenges/web/x"   # 只做單一題目
+make build-images ARGS="--dry-run"                 # 只印會做什麼，不呼叫 docker
+make build-images ARGS="--no-push"                 # 只 build 不 push
+```
+
+build 慣例同範例 `docker/docker-compose.yml`（`context: ..`、`dockerfile: docker/Dockerfile`）：
+context = 題目根目錄、dockerfile = `docker/Dockerfile`，即
+`docker build -f <chal>/docker/Dockerfile -t <ref> <chal>`。
+
+#### 多服務（自建 sidecar image）
+
+若 `docker/docker-compose.yml` 有**多個帶 `build:` 的 service**，`build-images` 會逐一 build+push：
+
+- **主 image**（`build:` 指向 `docker/Dockerfile` 的 service）→ `{registry}/{cat}/{slug}:{version}`，
+  context/dockerfile 一律用上面的慣例，與只有單一服務時算出完全一致的 ref。
+- **其他帶 `build:` 的 service（自建 sidecar）** → `{registry}/{cat}/{slug}-{service}:{version}`，
+  context/dockerfile 依 compose 的 `build:` 解析。
+  作者在 `public.yml` 的 `deploy_info.sidecars` 就用這個 **`{slug}-{service}`** image 名引用。
+- 引用 **stock image**（如 `redis`，沒有 `build:`）的 service 直接略過。
+- **無 compose 或只有單一 `build:`** → 維持上面的單一 Dockerfile 行為。
+
+### sync-to-ctfd 的對接
+
+`sync-to-ctfd` 遇到 `deploy_type == container` 會把題目建成 `type: k3s` 並帶上插件欄位
+（`image` / `port` / `protocol` / `memory` / `cpu` / `flag_format` / `flag_mode`…）：
+
+- `image` = 上述 image ref（與 build-images 同一套規則算出）
+- `port` = `nc` 題用 `deploy_info.nc_port`，否則 `deploy_info.port`（都沒填就用插件預設 1337）
+- `protocol` = `connection_type` 為 http/https → `http`，其餘（含 nc/pwn）→ `tcp`
+- `memory` / `cpu` = `deploy_info.resources`（缺則不送、用插件預設）
+- `flag_format` = `config.yml` 的 `project.flag_prefix` 組（例 `is1abCTF{%s}`）
+- `flag_mode` = 依 flag 三軸自動對齊插件的驗證與注入（見下「flag 流」）
+- `sidecars` = `deploy_info.sidecars`（list，非空才送；adapter 會 `json.dumps` 成 JSON 字串，
+  因為插件的 `sidecars` 欄位收字串後才 `json.loads`）。自建 sidecar 的 image 名慣例是
+  `{slug}-{service}`（見「container 題 → k3s image build/push」的多服務 build）
+- `allow_egress` = `deploy_info.allow_egress`（bool，key 存在才送）——是否放行 pod 對外連線
+- `ttl_minutes` = `deploy_info.ttl_minutes`（int，有填才送）——instance 存活分鐘數
+- `max_renews` = `deploy_info.max_renews`（int，有填才送）——可延長次數
+- `run_as_user` = `deploy_info.run_as_user`（int），**未填一律預設 `1000`**（見下「⚠️ 數字 UID」）
+
+> **⚠️ container 題 image 必須用「數字 UID」跑非 root。** k3s 用 PSA **restricted** +
+> `runAsNonRoot: true`。image 若用 `USER 名字`（非數字），Kubernetes 無法驗證它非 root
+> → **pod 起不來**（`CreateContainerConfigError: has non-numeric user`）。兩道防線：
+> ① `Dockerfile.template` 已釘 `useradd -u 1000` + `USER 1000`，`make new-challenge` 產的
+> 新題天生合規；② adapter **一律送 `run_as_user`（預設 1000）**，就算 image 忘了用數字
+> USER，pod 也會以 uid 1000 跑。自帶特殊 base image 且要別的 uid，用 `deploy_info.run_as_user`
+> 或 `ctfd:` 覆蓋（並確保 image 內檔案 owned by 該 uid）。
+
+其餘 k3s 欄位（`flag_path`/`restart_policy`…）交給插件預設；
+`attachment` / `none` 題維持 `type: standard`。**作者要覆蓋任何欄位，用 `public.yml` 的
+`ctfd:` 區塊**（在 adapter 之後 merge，一律優先）。
+
+> **adapter 對應的 `deploy_info` 欄位一覽**（皆選填，缺則用插件預設）：
+>
+> | `deploy_info` 欄位 | 型別 | → k3s payload | 備註 |
+> |---|---|---|---|
+> | `port` / `nc_port` | int | `port` | nc 題用 `nc_port`，否則 `port`；都沒填→插件預設 1337 |
+> | `connection_type` | str | `protocol` | http/https→`http`，其餘（含 nc）→`tcp` |
+> | `resources.memory` / `resources.cpu` | str | `memory` / `cpu` | 如 `256Mi` / `100m` |
+> | `sidecars` | list | `sidecars`（JSON 字串）| 非空才送；image 名慣例 `{slug}-{service}` |
+> | `allow_egress` | bool | `allow_egress` | key 存在才送 |
+> | `ttl_minutes` | int | `ttl_minutes` | instance 存活分鐘數 |
+> | `max_renews` | int | `max_renews` | 可延長次數 |
+> | `version` | str | （算進 `image` tag）| 見上「`deploy_info.version`」 |
+
+### flag 流（container 題最容易踩的坑）
+
+k3s 插件的 `attempt()` 依 `flag_mode` 走**兩條完全不同**的驗證路徑；adapter 依 flag 三軸
+自動選對，並讓 sync 建立/不建立 CTFd 靜態 flag 與之對齊：
+
+| flag 三軸 | `flag_mode` | pod 內的 flag | CTFd 驗證 | sync 建靜態 flag? |
+|---|---|---|---|---|
+| `flag_load: dynamic` 或 `flag_scope: per_team` | `dynamic` | 插件每 instance 用 `flag_format` 生成並**注入**（`flag_delivery=file+env`，同時給 `flag_path` 檔與 `FLAG` env）| 比對該 instance 的 flag（防互抄）| ❌ 不建 |
+| `flag_load: static` + `flag_scope: shared` | `static` | **不注入**，由 image 內建 | 比對 CTFd 靜態 flag | ✅ 依 `private.flag` 建 |
+
+- **dynamic**：題目要能**讀到注入的 flag**——讀 `FLAG` 環境變數（`Dockerfile.template` 慣例）或讀 `flag_path`（預設 `/flag`）檔案皆可（兩者都給）。**不要**在 image 內硬寫 flag，否則每 instance 生成的 flag 跟硬寫的對不上、選手交不了。
+- **static**：flag 由 image 內建，務必讓 `private.yml` 的 `flag` = image 內那個值（sync 拿它建 CTFd 靜態 flag）。全體共用同一個 flag。
 
 ## 逐條衝突裁決
 

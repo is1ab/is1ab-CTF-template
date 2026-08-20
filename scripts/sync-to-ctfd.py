@@ -296,6 +296,82 @@ def build_description(public: dict) -> str:
     return "\n".join(p for p in parts if p)
 
 
+def k3s_payload(public: dict, private: dict, config: dict, slug: str) -> dict:
+    """把 container 題的 deploy_info + flag 三軸轉成 k3s_challenges 插件的建題欄位。
+
+    只送「有值 / 需覆蓋」的欄位，其餘留給插件預設（image 為必填一定送）。
+    對接契約見 docs/challenge-schema.md「container 題 → k3s」。
+
+    slug 用題目目錄名（與 build-images 一致），確保 image tag 兩邊算得出同一個。
+    """
+    deploy = public.get("deploy_info") or {}
+    payload: dict[str, Any] = {
+        "image": cs.image_ref(config, cs.category(public), slug, cs.image_version(public)),
+    }
+
+    # port：nc 題用 nc_port，其餘用 port；都沒填就交給插件預設（1337）
+    port = deploy.get("nc_port") if cs.is_nc(public) else deploy.get("port")
+    if isinstance(port, int):
+        payload["port"] = port
+
+    # protocol：http/https → "http"，其餘（含 nc/pwn）→ "tcp"
+    payload["protocol"] = "http" if cs.connection_type(public) in ("http", "https") else "tcp"
+
+    # 資源限制：deploy_info.resources 有填才送，缺則用插件預設
+    resources = deploy.get("resources") or {}
+    if resources.get("memory"):
+        payload["memory"] = str(resources["memory"])
+    if resources.get("cpu"):
+        payload["cpu"] = str(resources["cpu"])
+
+    # flag_format：用 config 的 project.flag_prefix 前綴組出「前綴{答案}」樣式
+    prefix = str(((config.get("project") or {}).get("flag_prefix") or "")).strip()
+    if prefix:
+        payload["flag_format"] = f"{prefix}{{%s}}"
+
+    # flag_mode 必須跟插件 attempt() 與開 instance 時的注入對齊，否則 flag 對不上：
+    #   • dynamic / per_team → 插件每 instance 用 flag_format 生成 flag 並注入 pod，
+    #     attempt() 只比對該 instance 的 flag；sync 不建 CTFd 靜態 flag（resolve_flag 回 []）。
+    #     注入用 file+env（同時給 flag_path 檔與 FLAG env），配合 template 的 ENV FLAG 慣例，
+    #     題目讀檔或讀環境變數都拿得到——只給 file 會讓讀 env 的題目拿到空值。
+    #   • static + shared → pod 不注入、flag 由 image 內建；attempt() 比對 CTFd 靜態 flag，
+    #     而該靜態 flag 由 sync 的 resolve_flag/sync_flag 依 private.flag 建立。兩邊一致。
+    load, scope, _ = cs.flag_axes(private)
+    if load == "dynamic" or scope == "per_team":
+        payload["flag_mode"] = "dynamic"
+        payload["flag_delivery"] = "file+env"
+    else:
+        payload["flag_mode"] = "static"
+
+    # --- deploy_info → 更多 k3s 欄位（全部只在 deploy_info 有填時才送，缺則用插件預設）---
+    # sidecars：list（如自建的 bot/db 服務，image 名慣例是 {slug}-{service}）。
+    #   插件的 sidecars 欄位收 JSON 字串（收到後 .strip() 再 json.loads），故這裡先 json.dumps。
+    sidecars = deploy.get("sidecars")
+    if isinstance(sidecars, list) and sidecars:
+        payload["sidecars"] = json.dumps(sidecars)
+
+    # allow_egress：bool（key 存在才送，讓作者能明確開或關對外連線）
+    if "allow_egress" in deploy:
+        payload["allow_egress"] = bool(deploy["allow_egress"])
+
+    # ttl_minutes / max_renews：int（有填才送；排除 bool 誤填，因 bool 也是 int 子類）
+    ttl = deploy.get("ttl_minutes")
+    if isinstance(ttl, int) and not isinstance(ttl, bool):
+        payload["ttl_minutes"] = ttl
+    renews = deploy.get("max_renews")
+    if isinstance(renews, int) and not isinstance(renews, bool):
+        payload["max_renews"] = renews
+
+    # run_as_user：k3s 用 PSA restricted + runAsNonRoot，pod 一定要有「數字 UID」才驗得過
+    # 非 root（image 用 `USER 名字` 會讓 pod 起不來：CreateContainerConfigError）。所以這裡
+    # **一律送**數字 UID，預設 1000（對齊 Dockerfile.template 釘的 uid 1000）；作者可用
+    # deploy_info.run_as_user 覆蓋。這樣就算題目 image 忘了用數字 USER，pod 仍以 uid 1000 跑。
+    ruid = deploy.get("run_as_user")
+    payload["run_as_user"] = ruid if (isinstance(ruid, int) and not isinstance(ruid, bool)) else 1000
+
+    return payload
+
+
 def sync_challenge(
     client: CTFdClient,
     chal_dir: Path,
@@ -316,6 +392,13 @@ def sync_challenge(
         # staging 直接可見方便實測；production 一律建成隱藏，開賽時再統一開啟
         "state": "visible" if target == "staging" else "hidden",
     }
+
+    # container 題 → 建成 k3s 型別並指向 registry 上的 image；
+    # attachment/none 維持 standard。adapter 先併入，`ctfd:` 之後再 merge，
+    # 讓作者能以 ctfd: 覆蓋任何 adapter 算出來的欄位。
+    if cs.deploy_type(public) == "container":
+        payload["type"] = "k3s"
+        payload.update(k3s_payload(public, private, config, cs.slugify(chal_dir.name)))
 
     # public.yml 的 `ctfd:` 區塊原樣轉發給 CTFd API，本腳本不解讀內容。
     #
@@ -441,10 +524,16 @@ def describe(chal_dir: Path, public: dict, private: dict, config: dict) -> str:
         more = "…" if len(extra) > 4 else ""
         slug_line = f"    ctfd     : {shown}{more}\n"
 
+    image_line = ""
+    if cs.deploy_type(public) == "container":
+        ref = cs.image_ref(config, cs.category(public), cs.slugify(chal_dir.name), cs.image_version(public))
+        image_line = f"    image    : {ref}（type=k3s）\n"
+
     return (
         f"  {public.get('title', chal_dir.name)}\n"
         f"    路徑     : {_rel(chal_dir)}\n"
         f"{slug_line}"
+        f"{image_line}"
         f"    分類/難度: {public.get('category', '—')} / {public.get('difficulty', '—')}\n"
         f"    交付     : {kind}\n"
         f"    分數     : {resolve_points(public, config)}\n"

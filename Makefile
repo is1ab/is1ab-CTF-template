@@ -1,4 +1,4 @@
-.PHONY: help setup new-challenge validate validate-all scan build verify-solution deploy-staging deploy-staging-dry deploy-production test viewer clean
+.PHONY: help setup new-challenge validate validate-all scan build build-images verify-solution deploy-staging deploy-staging-dry deploy-production test viewer clean
 
 ARGS ?=
 
@@ -27,6 +27,9 @@ scan: ## 執行敏感資料掃描
 
 build: ## 建置公開發布版本
 	./scripts/build.sh $(ARGS)
+
+build-images: ## build 並 push 題目 container image 到 registry（例如 make build-images ARGS="--path challenges/web/my_chall"）
+	uv run python scripts/build-images.py $(ARGS)
 
 verify-solution: ## 驗題：跑起題目、執行官方解、比對 flag（例如 make verify-solution ARGS="challenges/web/my_chall"）
 	uv run python scripts/verify-solution.py $(if $(ARGS),$(ARGS),challenges/)

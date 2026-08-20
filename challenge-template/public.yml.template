@@ -40,8 +40,15 @@ deploy_info:
   # port: 8080
   # nc_port: 9999                  # connection_type=nc 時
   # timeout: 60
-  requires_build: true
+  requires_build: true             # true 才會被 build-images 打包成 image
+  version: "v1"                    # image tag；改 image（換底包/改題）時 bump 成 v2、v3…
   # resources: { memory: "256Mi", cpu: "100m" }
+  # --- 進階 k3s 欄位（container 題；有填才會覆蓋插件預設）------------------------
+  # sidecars: []                   # 自建 sidecar 服務清單；image 名慣例 {slug}-{service}
+  #                                #（見 docker/docker-compose.yml 多服務 build）
+  # allow_egress: false            # 是否放行 pod 對外連線
+  # ttl_minutes: 30                # instance 存活分鐘數
+  # max_renews: 4                  # 可延長次數
 
 # 提示（level/cost/content）
 hints:
