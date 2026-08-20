@@ -22,12 +22,10 @@ import subprocess
 import sys
 import urllib.request
 import uuid
-import warnings
 import zipfile
 from datetime import datetime
 
 import yaml
-from sqlalchemy.exc import SAWarning
 from flask import (
     Blueprint,
     Response,
@@ -51,13 +49,11 @@ from CTFd.utils.user import get_current_user, is_admin
 
 from . import vocab
 
-# 分類 / 難度 / 狀態的受控詞彙（配額與指派共用，避免自由文字對帳誤差，見審查 B4）
-CATEGORIES = ["web", "pwn", "reverse", "crypto", "forensic", "misc", "osint", "general"]
-DIFFICULTIES = ["baby", "easy", "middle", "hard", "impossible"]
+# 分類/難度詞彙抽到 config.py（可後台增刪、對齊 challenge_schema）；狀態詞彙留此。
+from .config import CATEGORIES, DIFFICULTIES  # noqa: E402
 ASSIGN_STATUSES = ["unassigned", "assigned", "in_progress", "in_review", "done"]
 # 題目「開發進度」的單一真相（Ⓑ）。與工單 status / CTFd state / ready_for_release 是不同概念。
 DEV_STATUSES = ["planning", "developing", "testing", "completed", "deployed"]
-STALE_DAYS = 7   # developing/testing 超過幾天沒動 → 視為停滯（該催）
 # 進度顯示：dev_status → (中文標籤, bootstrap badge 色)
 DEV_STATUS_LABEL = {
     "planning":   ("規劃",   "secondary"),
@@ -113,33 +109,9 @@ try:
 except Exception:  # pragma: no cover - 沒掛 repo 時 plugin 仍能載入
     ctfd_convert = None
 
-# 詞彙預設對齊 repo 的單一真相 challenge_schema（掛了 /repo 時）；沒掛則用上面 fallback 常數。
-try:
-    import challenge_schema as _cs
-    CATEGORIES = list(_cs.SUGGESTED_CATEGORIES)
-    DIFFICULTIES = list(_cs.DIFFICULTIES)
-except Exception:  # pragma: no cover
-    pass
 
-
-# --------------------------------------------------------------------------- #
-# 受控詞彙（類型 / 難度）：預設 = challenge_schema 的單一真相（掛 repo 時），可在後台
-# 「is1ab 設定」頁增刪、存進 CTFd config 覆蓋（純 dev 儀表板用）；上面常數只當沒掛 repo 的 fallback。
-# CI 對齊：難度 = challenge_schema.DIFFICULTIES（validate-challenge 也讀它，改一處就同步）；
-# category 在 CI 是自由填寫，後台加的類型本來就會過驗證，不必另外同步。
-# --------------------------------------------------------------------------- #
-
-def _vocab(config_key, default):
-    """讀 CTFd config 的 JSON list；沒設/壞掉→回 default（純解析在 vocab.parse_vocab）。"""
-    return vocab.parse_vocab(get_config(config_key), default)
-
-
-def _categories():
-    return _vocab("is1ab_categories", CATEGORIES)
-
-
-def _difficulties():
-    return _vocab("is1ab_difficulties", DIFFICULTIES)
+# 受控詞彙 helper 抽到 config.py（沿用 _categories/_difficulties 名稱給既有程式用）。
+from .config import categories as _categories, difficulties as _difficulties  # noqa: E402
 
 
 # 首次導引：CTFd 裝完後，admin 還沒設過類型/配額 → 全頁導覽時自動帶到「is1ab 設定」，
@@ -161,75 +133,28 @@ def _onboard_redirect():
 
 
 # --------------------------------------------------------------------------- #
-# Model
+# Model —— 定義已抽到 models.py（拆檔）；import 進來讓 db.create_all 建表、其餘程式沿用同名。
 # --------------------------------------------------------------------------- #
 
-class ChallengeMetadata(db.Model):
-    __tablename__ = "is1ab_challenge_metadata"
+from .models import (  # noqa: E402
+    Assignment,
+    ChallengeComment,
+    ChallengeMetadata,
+    ChallengeQuota,
+)
 
-    id = db.Column(db.Integer, primary_key=True)
-    challenge_id = db.Column(
-        db.Integer, db.ForeignKey("challenges.id", ondelete="CASCADE"),
-        unique=True, nullable=False,
-    )
-    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)  # F1
-    collaborators = db.Column(db.Text, default="")       # Phase 6：可共同編輯的 user id（逗號分隔）
-    dev_status = db.Column(db.String(32), default="developing")  # Ⓑ 開發進度單一真相 → public.yml.status
-    dev_status_at = db.Column(db.DateTime, nullable=True)  # 最後異動時間（停滯偵測用）
-    uid = db.Column(db.String(16), nullable=True)        # Ⓓ 隱形亂碼綁定鍵
-    repo_path = db.Column(db.String(255), nullable=True)  # Ⓓ 可讀目錄 <cat>/<slug>
-    blob = db.Column("metadata_yaml", db.Text, default="")
+# flag / tag 同步抽到 flags.py（純寫入 CTFd 原生表，沿用同名給既有程式用）。
+from .flags import _sync_flag, _sync_tags  # noqa: E402,F401
 
-    def __init__(self, challenge_id, owner_id=None, uid=None, repo_path=None, blob="",
-                 collaborators="", dev_status="developing"):
-        self.challenge_id = challenge_id
-        self.owner_id = owner_id
-        self.collaborators = collaborators
-        self.dev_status = dev_status
-        self.dev_status_at = datetime.utcnow()
-        self.uid = uid
-        self.repo_path = repo_path
-        self.blob = blob
-
-
-# --------------------------------------------------------------------------- #
-# PM 分配與指派 model（spec §9.6）
-# --------------------------------------------------------------------------- #
-
-class ChallengeQuota(db.Model):
-    """各 category×difficulty 的目標題數。"""
-
-    __tablename__ = "is1ab_quota"
-    id = db.Column(db.Integer, primary_key=True)
-    category = db.Column(db.String(32), nullable=False)
-    difficulty = db.Column(db.String(32), nullable=False)
-    target = db.Column(db.Integer, default=0)
-    __table_args__ = (db.UniqueConstraint("category", "difficulty", name="uq_quota_cat_diff"),)
-
-
-class Assignment(db.Model):
-    """出題工單：PM 指派誰出什麼、誰驗；題目建立後回填 challenge_id。"""
-
-    __tablename__ = "is1ab_assignment"
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(255), default="")
-    category = db.Column(db.String(32), default="")
-    difficulty = db.Column(db.String(32), default="")
-    author_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    reviewer_ids = db.Column(db.Text, default="")     # 逗號分隔的 user id
-    challenge_id = db.Column(db.Integer, db.ForeignKey("challenges.id"), nullable=True)
-    status = db.Column(db.String(32), default="unassigned")
-
-
-class ChallengeComment(db.Model):
-    """題目留言：任何登入者皆可留言（審題 / 討論 / 回饋）。"""
-
-    __tablename__ = "is1ab_comment"
-    id = db.Column(db.Integer, primary_key=True)
-    challenge_id = db.Column(db.Integer, db.ForeignKey("challenges.id"), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    body = db.Column(db.Text, default="")
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
+# 儀表板彙總抽到 dashboard.py（純讀取聚合，不 import __init__）；連同它獨用的
+# _challenge_difficulty / _users_map / STALE_DAYS 一併搬過去，route 沿用同名 re-import。
+from .dashboard import (  # noqa: E402,F401
+    STALE_DAYS,
+    _challenge_difficulty,
+    _dashboard_matrix,
+    _quota_data,
+    _users_map,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -269,27 +194,6 @@ def _can_manage_acl(meta):
         return True
     user = get_current_user()
     return bool(user and meta and meta.owner_id == user.id)
-
-
-def _sync_flag(challenge_id, content, flag_match):
-    """建 CTFd flag。flag_match（exact/regex）或直接的 CTFd type 皆可：只有 regex→regex，其餘→static。"""
-    ctfd_type = "regex" if str(flag_match).lower() == "regex" else "static"
-    Flags.query.filter_by(challenge_id=challenge_id).delete()
-    if content:
-        db.session.add(Flags(challenge_id=challenge_id, type=ctfd_type, content=content))
-    # CTFd 的 Flags model 只有 polymorphic_on、沒有 static/regex 子類（核心自己也是這樣用
-    # Flags(type=...) 建，見 FlagSchema），flush 時會噴 benign 的 SAWarning。純靜音、不改行為。
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=SAWarning,
-                                message=r".*incompatible polymorphic identity.*")
-        db.session.commit()
-
-
-def _sync_tags(challenge_id, tags_csv):
-    Tags.query.filter_by(challenge_id=challenge_id).delete()
-    for value in [t.strip() for t in (tags_csv or "").split(",") if t.strip()]:
-        db.session.add(Tags(challenge_id=challenge_id, value=value))
-    db.session.commit()
 
 
 def _sync_hints(challenge_id, hints_text):
@@ -480,139 +384,6 @@ def _build_export(challenge_id):
     priv_yaml = dump(private) if private else ""
     repo_path = (meta.repo_path if meta else "") or f"{_slugify(chal.category)}/{_slugify(chal.name)}"
     return pub_yaml, priv_yaml, repo_path, None
-
-
-def _challenge_difficulty(challenge_id):
-    """從題目的 metadata blob 讀 difficulty（配額對帳用）。"""
-    meta = _get_meta(challenge_id)
-    if not meta or not meta.blob:
-        return ""
-    try:
-        data = yaml.safe_load(meta.blob) or {}
-    except yaml.YAMLError:
-        return ""
-    return str(data.get("difficulty", "")).strip() if isinstance(data, dict) else ""
-
-
-def _quota_data():
-    """回傳 {category: {difficulty: (target, actual)}}。"""
-    targets = {(q.category, q.difficulty): q.target for q in ChallengeQuota.query.all()}
-    actual = {}
-    for c in Challenges.query.all():
-        key = (c.category or "", _challenge_difficulty(c.id))
-        actual[key] = actual.get(key, 0) + 1
-    data = {}
-    for cat in _categories():
-        data[cat] = {d: (targets.get((cat, d), 0), actual.get((cat, d), 0)) for d in _difficulties()}
-    return data
-
-
-def _users_map():
-    return {u.id: u.name for u in Users.query.all()}
-
-
-def _dashboard_matrix():
-    """回傳 {category: {difficulty: {'slots': [...], 'target': N}}}。
-
-    每格拆成 target 個 slot（配額幾題就幾個位）。每個 slot：
-      - 已有題目 → 題目連結（+ 出題者小字）
-      - 只有指派、還沒建題 → 出題者名稱（未建）
-      - 都沒有（配額還沒補滿）→ 缺
-    """
-    targets = {(q.category, q.difficulty): q.target for q in ChallengeQuota.query.all()}
-    umap = _users_map()
-    chal_by_id = {c.id: c for c in Challenges.query.all()}
-    metas = ChallengeMetadata.query.all()
-    owner_by_cid = {m.challenge_id: m.owner_id for m in metas}
-    status_by_cid = {m.challenge_id: m.dev_status for m in metas}
-
-    def _blob_test(m):
-        try:
-            b = yaml.safe_load(m.blob) if m.blob else {}
-            t = (b or {}).get("testing") if isinstance(b, dict) else {}
-            return (t or {}).get("test_status") if isinstance(t, dict) else None
-        except Exception:
-            return None
-    test_by_cid = {m.challenge_id: _blob_test(m) for m in metas}
-
-    chal_cell = {cat: {d: [] for d in _difficulties()} for cat in _categories()}
-    uncategorized = []   # C1：落在固定格外的題（自由填分類/空難度）→ 收容，不讓它從追蹤消失
-    for c in Challenges.query.order_by(Challenges.id).all():
-        cat, diff = (c.category or ""), _challenge_difficulty(c.id)
-        if cat in chal_cell and diff in chal_cell[cat]:
-            chal_cell[cat][diff].append(c)
-        else:
-            uncategorized.append({"cid": c.id, "cname": c.name,
-                                  "category": cat or "（空）", "difficulty": diff or "（空）",
-                                  "author": umap.get(owner_by_cid.get(c.id)),
-                                  "status": status_by_cid.get(c.id)})
-
-    asg_cell = {cat: {d: [] for d in _difficulties()} for cat in _categories()}
-    for a in Assignment.query.all():
-        if a.category in asg_cell and a.difficulty in asg_cell[a.category]:
-            asg_cell[a.category][a.difficulty].append(a)
-
-    data = {}
-    for cat in _categories():
-        data[cat] = {}
-        for d in _difficulties():
-            target = targets.get((cat, d), 0)
-            slots, linked = [], set()
-            for a in asg_cell[cat][d]:                      # 先放指派（出題者 + 驗題者）
-                chal = chal_by_id.get(a.challenge_id) if a.challenge_id else None
-                if chal is None and a.author_id:            # 自動關聯：同格、同出題者、未被關聯的題 → 消除幽靈格
-                    chal = next((c for c in chal_cell[cat][d]
-                                 if c.id not in linked and owner_by_cid.get(c.id) == a.author_id), None)
-                if chal:
-                    linked.add(chal.id)
-                # 出題者：優先指派者，其次題目擁有者
-                author = umap.get(a.author_id) or (umap.get(owner_by_cid.get(chal.id)) if chal else None)
-                slots.append({"author": author, "author_id": a.author_id,
-                              "reviewers": [umap.get(int(x)) for x in (a.reviewer_ids or "").split(",") if x],
-                              "cid": chal.id if chal else None,
-                              "cname": chal.name if chal else None,
-                              "status": status_by_cid.get(chal.id) if chal else None,
-                              "review": test_by_cid.get(chal.id) if chal else None})
-            for c in chal_cell[cat][d]:                     # 再放沒對應指派的題（顯示擁有者 + 進度）
-                if c.id not in linked:
-                    slots.append({"author": umap.get(owner_by_cid.get(c.id)), "author_id": None,
-                                  "reviewers": [], "cid": c.id, "cname": c.name,
-                                  "status": status_by_cid.get(c.id),
-                                  "review": test_by_cid.get(c.id)})
-            while len(slots) < target:                      # 補滿到配額數 → 缺
-                slots.append({"author": None, "author_id": None, "reviewers": [],
-                              "cid": None, "cname": None, "status": None})
-            data[cat][d] = {"slots": slots, "target": target}
-
-    # KPI 彙總（E1）：跨格加總，讓 PM 一眼看「還差多少、完成幾成」
-    built = completed = missing = 0
-    for cat in _categories():
-        for d in _difficulties():
-            cell = data[cat][d]
-            cell_built = sum(1 for s in cell["slots"] if s["cid"])
-            built += cell_built
-            completed += sum(1 for s in cell["slots"]
-                             if s["status"] in ("completed", "deployed"))
-            missing += max(0, cell["target"] - cell_built)
-    # 停滯偵測（E2）：developing/testing 超過 STALE_DAYS 天沒動 → 該催了
-    now = datetime.utcnow()
-    stalled = []
-    for m in metas:
-        if m.dev_status in ("developing", "testing") and m.dev_status_at:
-            age = (now - m.dev_status_at).days
-            if age >= STALE_DAYS:
-                ch = chal_by_id.get(m.challenge_id)
-                if ch:
-                    stalled.append({"cid": ch.id, "cname": ch.name, "days": age,
-                                    "author": umap.get(m.owner_id), "status": m.dev_status})
-    stalled.sort(key=lambda x: -x["days"])
-
-    total_target = sum(targets.values())
-    denom = max(total_target, built)   # 配額未設滿時，用已建題數當分母，避免完成率爆表
-    summary = {"target": total_target, "built": built, "completed": completed,
-               "missing": missing, "uncat": len(uncategorized), "stalled": len(stalled),
-               "rate": (round(completed * 100 / denom) if denom else 0)}
-    return {"grid": data, "summary": summary, "uncategorized": uncategorized, "stalled": stalled}
 
 
 def _open_prs():
