@@ -153,17 +153,24 @@ class BuildPlan:
         self.service = service
 
     def build_cmd(self) -> List[str]:
-        return ["docker", "build", "-f", str(self.dockerfile), "-t", self.ref, str(self.context)]
+        # 一律釘 linux/amd64:正式節點是 x86_64,開發機若是 Apple Silicon 會 build 出 arm64,
+        # 到 k3s 上執行時二進位不相容(pwn 尤其致命)。
+        return ["docker", "build", "--platform=linux/amd64",
+                "-f", str(self.dockerfile), "-t", self.ref, str(self.context)]
 
     def push_cmd(self) -> List[str]:
         return ["docker", "push", self.ref]
+
+    def digest_cmd(self) -> List[str]:
+        # push 後 RepoDigests 才會有值;回傳如 reg/cat/slug@sha256:...
+        return ["docker", "inspect", "--format", "{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}", self.ref]
 
 
 def plan_challenge(chal_dir: Path, config: dict) -> BuildPlan:
     """算出單題主 image 的 ref 與 build context / dockerfile 路徑。"""
     public = load_public(chal_dir)
     ref = cs.image_ref(
-        config, cs.category(public), cs.slugify(chal_dir.name), cs.image_version(public)
+        config, cs.category(public), cs.slugify(chal_dir.name), cs.image_tag(chal_dir, public)
     )
     dockerfile = chal_dir / "docker" / "Dockerfile"
     return BuildPlan(chal_dir=chal_dir, ref=ref, dockerfile=dockerfile, context=chal_dir)
@@ -228,7 +235,7 @@ def compose_build_targets(chal_dir: Path, config: dict) -> List[BuildPlan]:
 
     compose_dir = compose_path.parent
     public = load_public(chal_dir)
-    version = cs.image_version(public)
+    version = cs.image_tag(chal_dir, public)
     cat = cs.category(public)
     slug = cs.slugify(chal_dir.name)
     canonical_dockerfile = (chal_dir / "docker" / "Dockerfile").resolve()
@@ -286,14 +293,25 @@ def _run(cmd: List[str]) -> None:
         raise RuntimeError(f"指令失敗（exit {result.returncode}）：{' '.join(cmd)}")
 
 
+def _run_capture(cmd: List[str]) -> str:
+    """跑外部指令並回傳 stdout（strip）；非 0 拋 RuntimeError。"""
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"指令失敗（exit {result.returncode}）：{' '.join(cmd)}")
+    return result.stdout.strip()
+
+
 def build_one(
     plan: BuildPlan,
     *,
     dry_run: bool,
     push: bool,
     has_registry: bool,
-) -> None:
-    """build（並視情況 push）單一題目。dry_run 時只印不做。"""
+) -> Optional[str]:
+    """build（並視情況 push）單一題目。dry_run 時只印不做。
+
+    push 成功後回傳該 image 的不可變 @sha256 digest ref（供 sync 以 digest 引用）；
+    dry-run、未 push 或未設 registry 時回 None。"""
     if not plan.dockerfile.exists():
         raise RuntimeError(f"找不到 Dockerfile：{_rel(plan.dockerfile)}")
 
@@ -305,17 +323,24 @@ def build_one(
         _run(build_cmd)
 
     if not push:
-        return
+        return None
     if not has_registry:
         log_warning("  未設 registry，只 build 不 push（設 config.deployment.docker_registry 或 IS1AB_REGISTRY 以啟用 push）")
-        return
+        return None
 
     push_cmd = plan.push_cmd()
     if dry_run:
         log_info(f"  [dry-run] {' '.join(push_cmd)}")
+        return None
+    log_info(f"  push  → {plan.ref}")
+    _run(push_cmd)
+    # push 後取回不可變 digest（sync 以此引用，確保 prod 拉到的與 staging 驗過的逐 byte 相同）
+    digest = _run_capture(plan.digest_cmd())
+    if digest:
+        log_info(f"  digest→ {digest}")
     else:
-        log_info(f"  push  → {plan.ref}")
-        _run(push_cmd)
+        log_warning("  取不到 @sha256 digest（RepoDigests 為空？）")
+    return digest or None
 
 
 # --------------------------------------------------------------------------- #
@@ -364,6 +389,7 @@ def main() -> int:
     log_info(f"找到 {len(challenges)} 個題目{'（dry-run）' if args.dry_run else ''}\n")
 
     built, skipped, failed = 0, 0, 0
+    digests: list[tuple[str, str]] = []  # (ref, ref@sha256:...)
 
     for chal_dir in challenges:
         title = _rel(chal_dir)
@@ -386,7 +412,9 @@ def main() -> int:
             for plan in targets:
                 tag = f"{title} [{plan.service}]" if plan.service else title
                 log_step(f"{tag} → {plan.ref}")
-                build_one(plan, dry_run=args.dry_run, push=push, has_registry=has_registry)
+                digest = build_one(plan, dry_run=args.dry_run, push=push, has_registry=has_registry)
+                if digest:
+                    digests.append((plan.ref, digest))
             suffix = f"（{len(targets)} image）" if len(targets) > 1 else ""
             log_success(f"{title} 完成{suffix}")
             built += 1
@@ -395,6 +423,10 @@ def main() -> int:
             failed += 1
 
     print(f"\n完成：{built} build / {skipped} 略過 / {failed} 失敗")
+    if digests:
+        print("\n不可變 digest（sync 應以此引用，確保 prod 與 staging 逐 byte 一致）：")
+        for ref, digest in digests:
+            print(f"  {ref}\n    → {digest}")
     return 1 if failed else 0
 
 

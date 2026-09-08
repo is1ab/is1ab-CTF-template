@@ -106,7 +106,7 @@ def test_k3s_payload_http(sync, monkeypatch):
             "resources": {"memory": "256Mi", "cpu": "100m"},
         },
     }
-    payload = sync.k3s_payload(public, {}, BASE_CONFIG, "sql_injection")
+    payload = sync.k3s_payload(public, {}, BASE_CONFIG, "reg.example.com/web/sql_injection:v1")
     assert payload["image"] == "reg.example.com/web/sql_injection:v1"
     assert payload["protocol"] == "http"
     assert payload["port"] == 8080
@@ -127,7 +127,7 @@ def test_k3s_payload_nc_uses_nc_port_and_tcp(sync, monkeypatch):
             "requires_build": True,
         },
     }
-    payload = sync.k3s_payload(public, {}, BASE_CONFIG, "bof")
+    payload = sync.k3s_payload(public, {}, BASE_CONFIG, "reg.example.com/pwn/bof:v1")
     assert payload["protocol"] == "tcp"
     assert payload["port"] == 9999  # nc 題用 nc_port
     assert payload["image"] == "reg.example.com/pwn/bof:v1"
@@ -151,7 +151,7 @@ def test_k3s_payload_image_local_tag_when_no_registry(sync, monkeypatch):
     config = {"project": {"flag_prefix": "is1abCTF"}, "deployment": {"docker_registry": ""}}
     public = {"category": "web", "deploy_type": "container",
               "deploy_info": {"connection_type": "http", "requires_build": True}}
-    payload = sync.k3s_payload(public, {}, config, "sqli")
+    payload = sync.k3s_payload(public, {}, config, "web/sqli:v1")
     assert payload["image"] == "web/sqli:v1"
 
 
@@ -164,12 +164,6 @@ def test_k3s_payload_no_flag_prefix_omits_flag_format(sync, monkeypatch):
     assert "flag_format" not in payload
 
 
-def test_k3s_payload_version_bump(sync, monkeypatch):
-    monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
-    public = {"category": "web", "deploy_type": "container",
-              "deploy_info": {"connection_type": "http", "requires_build": True, "version": "v5"}}
-    payload = sync.k3s_payload(public, {}, BASE_CONFIG, "sqli")
-    assert payload["image"] == "reg.example.com/web/sqli:v5"
 
 
 # --- flag_mode 對齊插件 attempt()/注入（見 sync-to-ctfd.k3s_payload 註解）---
@@ -318,13 +312,15 @@ DYNAMIC_PRIVATE = {"flag_load": "dynamic", "flag_scope": "per_team"}
 def test_sync_challenge_container_becomes_k3s(sync, monkeypatch):
     monkeypatch.delenv("IS1AB_REGISTRY", raising=False)
     client = FakeClient()
+    chal = Path("challenges/web/my_chall")
     sync.sync_challenge(
-        client, Path("challenges/web/my_chall"),
+        client, chal,
         _container_public(), DYNAMIC_PRIVATE, BASE_CONFIG, "staging",
     )
     _, payload = client.posted[0]
     assert payload["type"] == "k3s"
-    assert payload["image"] == "reg.example.com/web/my_chall:v1"
+    # image tag 由內容雜湊算(與 build-images 同一支 image_tag)
+    assert payload["image"] == f"reg.example.com/web/my_chall:{cs.content_hash(chal)}"
     assert payload["protocol"] == "http"
     assert payload["port"] == 8080
 
@@ -388,15 +384,17 @@ def test_plan_challenge_computes_ref_and_cmds(bi, tmp_path, monkeypatch):
     )
     config = {"deployment": {"docker_registry": "reg.example.com"}}
     plan = bi.plan_challenge(chal, config)
-    assert plan.ref == "reg.example.com/web/sql_injection:v1"
+    ref = f"reg.example.com/web/sql_injection:{cs.content_hash(chal)}"
+    assert plan.ref == ref
     assert plan.dockerfile == chal / "docker" / "Dockerfile"
     assert plan.context == chal
-    # build 慣例：-f docker/Dockerfile、context = 題目根
+    # build 慣例：--platform 釘 amd64、-f docker/Dockerfile、context = 題目根
     assert plan.build_cmd() == [
-        "docker", "build", "-f", str(chal / "docker" / "Dockerfile"),
-        "-t", "reg.example.com/web/sql_injection:v1", str(chal),
+        "docker", "build", "--platform=linux/amd64",
+        "-f", str(chal / "docker" / "Dockerfile"),
+        "-t", ref, str(chal),
     ]
-    assert plan.push_cmd() == ["docker", "push", "reg.example.com/web/sql_injection:v1"]
+    assert plan.push_cmd() == ["docker", "push", ref]
 
 
 def test_plan_challenge_local_tag_without_registry(bi, tmp_path, monkeypatch):
@@ -480,14 +478,15 @@ def test_compose_build_targets_multi_service(bi, tmp_path, monkeypatch):
     assert len(targets) == 2
     by_service = {t.service: t for t in targets}
 
+    tag = cs.content_hash(chal)
     main = by_service[None]
-    assert main.ref == "reg.example.com/web/xss_bot:v1"
+    assert main.ref == f"reg.example.com/web/xss_bot:{tag}"
     # 主 image 一律用現行慣例：context=題目根、dockerfile=docker/Dockerfile
     assert main.context == chal
     assert main.dockerfile == chal / "docker" / "Dockerfile"
 
     bot = by_service["bot"]
-    assert bot.ref == "reg.example.com/web/xss_bot-bot:v1"  # {slug}-{service}
+    assert bot.ref == f"reg.example.com/web/xss_bot-bot:{tag}"  # {slug}-{service}，與主 image 同 tag
     # bot 的 context/dockerfile 依 compose 解析（context: ./bot、預設 Dockerfile）
     assert bot.context == (chal / "docker" / "bot").resolve()
     assert bot.dockerfile == (chal / "docker" / "bot" / "Dockerfile").resolve()

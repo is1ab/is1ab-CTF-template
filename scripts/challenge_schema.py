@@ -11,8 +11,10 @@ canonical 定義見 docs/challenge-schema.md。新舊對應：
 避免兩邊算出來的 image tag 不一致）。
 """
 
+import hashlib
 import os
 import re
+from pathlib import Path
 
 _LEGACY_ATTACH = {"static_attachment", "dynamic_attachment"}
 _LEGACY_CONTAINER = {"static_container", "dynamic_container", "nc_challenge"}
@@ -148,3 +150,42 @@ def image_ref(config: dict, category_name: str, slug: str, version: str) -> str:
     name = f"{cat}/{slug}:{version}"
     reg = registry(config)
     return f"{reg}/{name}" if reg else name
+
+
+# 內容雜湊排除:不進 image、或不該影響「產物身分」的東西
+_HASH_EXCLUDE_TOP = {"solution", "writeup", "__pycache__", ".git"}
+_HASH_EXCLUDE_NAMES = {"private.yml", "private.yaml", ".DS_Store"}
+
+
+def content_hash(chal_dir, length: int = 12) -> str:
+    """題目 build context 的內容雜湊(取代人工 bump version)。
+
+    對「會進 image／決定產物身分」的檔案算 sha256:排序後把相對路徑與內容都餵進去。
+    刻意排除 solution/、writeup/(不進 image)、private.yml(flag/私密,改它不該換產物)、
+    __pycache__/.git 等雜訊。內容變 tag 就變,沒得忘記 bump。
+    """
+    chal_dir = Path(chal_dir)
+    h = hashlib.sha256()
+    for p in sorted(chal_dir.rglob("*")):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(chal_dir)
+        if rel.parts[0] in _HASH_EXCLUDE_TOP:
+            continue
+        if rel.name in _HASH_EXCLUDE_NAMES:
+            continue
+        h.update(str(rel.as_posix()).encode())
+        h.update(b"\0")
+        h.update(p.read_bytes())
+        h.update(b"\0")
+    return h.hexdigest()[:length]
+
+
+def image_tag(chal_dir, public: dict) -> str:
+    """image tag:作者若明確填 deploy_info.version 用它;否則用內容雜湊(建議)。
+
+    設計原則:內容雜湊當 tag,內容變 tag 就變、免人工 bump;仍保留 version 明確覆寫。
+    build-images 與 sync-to-ctfd 都呼叫這支,確保兩邊算出同一個 tag。
+    """
+    v = str((public.get("deploy_info") or {}).get("version") or "").strip()
+    return v or content_hash(chal_dir)

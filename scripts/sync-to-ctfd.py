@@ -296,17 +296,17 @@ def build_description(public: dict) -> str:
     return "\n".join(p for p in parts if p)
 
 
-def k3s_payload(public: dict, private: dict, config: dict, slug: str) -> dict:
+def k3s_payload(public: dict, private: dict, config: dict, image: str) -> dict:
     """把 container 題的 deploy_info + flag 三軸轉成 k3s_challenges 插件的建題欄位。
 
     只送「有值 / 需覆蓋」的欄位，其餘留給插件預設（image 為必填一定送）。
     對接契約見 docs/challenge-schema.md「container 題 → k3s」。
 
-    slug 用題目目錄名（與 build-images 一致），確保 image tag 兩邊算得出同一個。
+    image 由呼叫端以 cs.image_tag（內容雜湊）算好傳入，與 build-images 用同一支,確保兩邊一致。
     """
     deploy = public.get("deploy_info") or {}
     payload: dict[str, Any] = {
-        "image": cs.image_ref(config, cs.category(public), slug, cs.image_version(public)),
+        "image": image,
     }
 
     # port：nc 題用 nc_port，其餘用 port；都沒填就交給插件預設（1337）
@@ -398,7 +398,10 @@ def sync_challenge(
     # 讓作者能以 ctfd: 覆蓋任何 adapter 算出來的欄位。
     if cs.deploy_type(public) == "container":
         payload["type"] = "k3s"
-        payload.update(k3s_payload(public, private, config, cs.slugify(chal_dir.name)))
+        image = cs.image_ref(
+            config, cs.category(public), cs.slugify(chal_dir.name), cs.image_tag(chal_dir, public)
+        )
+        payload.update(k3s_payload(public, private, config, image))
 
     # public.yml 的 `ctfd:` 區塊原樣轉發給 CTFd API，本腳本不解讀內容。
     #
@@ -526,7 +529,7 @@ def describe(chal_dir: Path, public: dict, private: dict, config: dict) -> str:
 
     image_line = ""
     if cs.deploy_type(public) == "container":
-        ref = cs.image_ref(config, cs.category(public), cs.slugify(chal_dir.name), cs.image_version(public))
+        ref = cs.image_ref(config, cs.category(public), cs.slugify(chal_dir.name), cs.image_tag(chal_dir, public))
         image_line = f"    image    : {ref}（type=k3s）\n"
 
     return (
