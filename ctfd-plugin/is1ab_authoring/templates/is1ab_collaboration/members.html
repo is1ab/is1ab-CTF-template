@@ -1,0 +1,28 @@
+{% extends "is1ab_collaboration/layout.html" %}
+{% block work_content %}
+<h1>成員與角色</h1>
+<p>從已註冊帳號授予工作角色；一人可兼任多角，不需要 GitHub 帳號。未啟用者無法使用出題工作區。</p>
+{% for u in users %}
+{% set m = members.get(u.id) %}
+<section class="card mb-3"><div class="card-body">
+  <h2 class="h5">{{ u.name }}{% if u.type == 'admin' %} <span class="badge badge-dark">CTFd 管理員</span>{% endif %}</h2>
+  {% if u.type != 'admin' %}
+  <form method="post">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <input type="hidden" name="user_id" value="{{ u.id }}">
+    <input type="hidden" name="version" value="{{ m.version if m else 0 }}">
+    {% set retry = error and request.form.get('user_id') == u.id|string %}
+    {% set selected = request.form.getlist('roles') if retry else (m.roles.split(',') if m else []) %}
+    <fieldset><legend class="h6">工作角色（可複選）</legend>
+    <div class="d-flex flex-wrap" style="gap:1rem">
+    {% for role, label in role_labels.items() %}
+      <label><input type="checkbox" name="roles" value="{{ role }}" {% if role in selected %}checked{% endif %}> {{ label }}</label>
+    {% endfor %}</div></fieldset>
+    <label class="d-block"><input type="checkbox" name="active" {% if (request.form.get('active') == 'on' if retry else m and m.active) %}checked{% endif %}> 啟用工作區權限</label>
+    <button class="btn btn-primary" type="submit">儲存 {{ u.name }} 的角色</button>
+    {% if m %}<small class="text-muted d-block mt-2" style="overflow-wrap:anywhere">平台身分：{{ m.person_id }}</small>{% endif %}
+  </form>
+  {% else %}<p class="mb-0 text-muted">管理員可設定成員。驗自己的題目仍會被拒絕。</p>{% endif %}
+</div></section>
+{% endfor %}
+{% endblock %}

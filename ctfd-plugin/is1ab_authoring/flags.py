@@ -13,7 +13,7 @@ from sqlalchemy.exc import SAWarning
 from CTFd.models import Flags, Tags, db
 
 
-def _sync_flag(challenge_id, content, flag_match):
+def _sync_flag(challenge_id, content, flag_match, commit=True):
     """建 CTFd flag。flag_match（exact/regex）或直接的 CTFd type 皆可：只有 regex→regex，其餘→static。"""
     ctfd_type = "regex" if str(flag_match).lower() == "regex" else "static"
     Flags.query.filter_by(challenge_id=challenge_id).delete()
@@ -24,11 +24,11 @@ def _sync_flag(challenge_id, content, flag_match):
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=SAWarning,
                                 message=r".*incompatible polymorphic identity.*")
-        db.session.commit()
+        db.session.commit() if commit else db.session.flush()
 
 
-def _sync_tags(challenge_id, tags_csv):
+def _sync_tags(challenge_id, tags_csv, commit=True):
     Tags.query.filter_by(challenge_id=challenge_id).delete()
     for value in [t.strip() for t in (tags_csv or "").split(",") if t.strip()]:
         db.session.add(Tags(challenge_id=challenge_id, value=value))
-    db.session.commit()
+    db.session.commit() if commit else db.session.flush()

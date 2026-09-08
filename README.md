@@ -158,3 +158,7 @@ MIT License — 詳見 [LICENSE](LICENSE)。
 
 - [Troubleshooting](docs/troubleshooting.md) | [完整 FAQ](wiki/FAQ-and-Troubleshooting.md)
 - [提交 Issue](https://github.com/is1ab/is1ab-CTF-template/issues) | [討論區](https://github.com/is1ab/is1ab-CTF-template/discussions)
+
+### 出題協作（staging）
+
+成員角色、PM 工單、本人接案、提案確認、多人編輯保護，以及固定題面的送審／退修流程，請見 [出題協作操作與權限](docs/authoring-collaboration.md)。主作者送審、驗題人結案，待辦自動顯示下一步；題面確認後仍需正式試解。此階段尚未接通正式試解與 production 發布。

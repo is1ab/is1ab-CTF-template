@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container my-4">
+  <nav class="mb-3 d-flex flex-wrap" style="gap:.5rem" aria-label="出題工作導覽">
+    <a class="btn btn-outline-primary" href="{{ url_for('is1ab_collaboration.work') }}">我的待辦{% if can_manage %}／全場進度{% endif %}</a>
+    {% if is_author or is_pm %}<a class="btn btn-success" href="{{ url_for('is1ab_collaboration.new') }}">新增提案／工單</a>{% endif %}
+    {% if can_manage %}<a class="btn btn-outline-secondary" href="/is1ab/dashboard">題目配額與進度</a>{% endif %}
+    {% if admin %}<a class="btn btn-outline-secondary" href="{{ url_for('is1ab_collaboration.members') }}">成員與角色</a>{% endif %}
+    <a class="btn btn-outline-secondary" href="{{ url_for('is1ab_authoring.my_page') }}">我的題目</a>
+  </nav>
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ category }}" role="status">{{ message }}</div>
+  {% endfor %}
+  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+  {% block work_content %}{% endblock %}
+</div>
+{% endblock %}

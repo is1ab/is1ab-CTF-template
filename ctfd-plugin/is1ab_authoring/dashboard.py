@@ -100,9 +100,6 @@ def _dashboard_matrix():
             slots, linked = [], set()
             for a in asg_cell[cat][d]:                      # 先放指派（出題者 + 驗題者）
                 chal = chal_by_id.get(a.challenge_id) if a.challenge_id else None
-                if chal is None and a.author_id:            # 自動關聯：同格、同出題者、未被關聯的題 → 消除幽靈格
-                    chal = next((c for c in chal_cell[cat][d]
-                                 if c.id not in linked and owner_by_cid.get(c.id) == a.author_id), None)
                 if chal:
                     linked.add(chal.id)
                 # 出題者：優先指派者，其次題目擁有者

@@ -1,0 +1,46 @@
+{% extends 'is1ab_collaboration/layout.html' %}
+{% macro hidden(action) %}<input type="hidden" name="nonce" value="{{ nonce }}"><input type="hidden" name="version" value="{{ r.version }}"><input type="hidden" name="action" value="{{ action }}">{% endmacro %}
+{% block work_content %}
+<h1 class="h3">{{ doc.name }} · 審閱 #{{ r.id }}</h1>
+<p>送審時間 {{ r.created_at.strftime('%Y-%m-%d %H:%M UTC') }} · {{ doc.category }}</p>
+<div class="alert alert-{{ 'warning' if not current else 'secondary' }}">
+{% if not current %}草稿或指派已更新。此版本保留供追溯，請主作者重新送審。
+{% elif confirmed %}此版題面已確認，仍待產物與同版試解驗證。
+{% else %}請審閱此版題面並留下具體回饋。此流程不會取得正式驗題或發布資格。{% endif %}</div>
+<div class="d-flex flex-wrap mb-3" style="gap:.5rem">
+<a class="btn btn-outline-primary" href="{{ url_for('is1ab_review.rounds',challenge_id=r.challenge_id) }}">所有版本／重新送審</a>
+<a class="btn btn-outline-primary" href="{{ url_for('is1ab_collaboration.detail',assignment_id=r.assignment_id) }}">工單與人員</a>
+{% if editor %}<a class="btn btn-primary" href="{{ url_for('is1ab_authoring.challenge_edit',challenge_id=r.challenge_id) }}">修改草稿</a>{% endif %}
+</div>
+<section class="card mb-3"><div class="card-body"><h2 class="h5">此版題面</h2>
+<div style="white-space:pre-wrap;overflow-wrap:anywhere">{{ doc.description }}</div>
+{% if doc.tags %}<p class="mt-3">標籤：{{ doc.tags|join('、') }}</p>{% endif %}
+{% if doc.hints %}<details class="mt-3"><summary>審閱提示內容（此頁不是獨立盲測）</summary><ul>{% for h in doc.hints %}<li>{{ h.cost }} 分 · {{ h.content }}</li>{% endfor %}</ul></details>{% endif %}
+</div></section>
+<section class="card mb-3"><div class="card-body"><h2 class="h5">待處理問題</h2>
+{% for issue in issues %}<div class="border rounded p-3 mb-3">
+<p><strong>#{{ issue.id }} · {{ '待處理' if issue.state == 'open' else '已由驗題人確認結案' }}</strong> · {{ names.get(issue.created_by,'已移除帳號') }}{% if issue.origin_issue_id %} · 延續問題 #{{ issue.origin_issue_id }}{% endif %}</p>
+<p style="white-space:pre-wrap;overflow-wrap:anywhere">{{ issue.body }}</p>
+{% if issue.response %}<p style="white-space:pre-wrap;overflow-wrap:anywhere">作者回覆：{{ issue.response }}</p>{% endif %}
+{% if current and (reviewer or editor) %}
+<form method="post">{{ hidden('respond' if editor and not reviewer else 'resolve') }}<input type="hidden" name="issue_id" value="{{ issue.id }}">
+<label for="issue-{{ issue.id }}">{{ '回覆處理方式' if editor and not reviewer else '確認結果／原因' }}</label>
+<textarea id="issue-{{ issue.id }}" name="body" class="form-control mb-2" rows="2" maxlength="4000" required>{{ request.form.get('body','') if error and request.form.get('issue_id') == issue.id|string else '' }}</textarea>
+{% if editor and not reviewer %}<button class="btn btn-outline-primary">回覆問題</button>{% else %}<button class="btn btn-outline-primary" name="action_override" value="{{ 'resolve' if issue.state == 'open' else 'reopen' }}">{{ '確認結案' if issue.state == 'open' else '重新開啟問題' }}</button>{% endif %}
+</form>{% endif %}</div>{% else %}<p>目前沒有問題紀錄。</p>{% endfor %}
+{% if current and reviewer %}<form method="post">{{ hidden('issue') }}
+<label for="new-issue">新增問題（請說明位置、影響與希望如何修正）</label>
+<textarea id="new-issue" name="body" class="form-control mb-2" rows="3" maxlength="4000" required>{{ request.form.get('body','') if error and request.form.get('action') == 'issue' else '' }}</textarea>
+<button class="btn btn-outline-danger">回報需修改</button></form>{% endif %}
+</div></section>
+{% if current and reviewer %}<section class="card mb-3"><div class="card-body"><h2 class="h5">此版審閱回饋</h2>
+<form method="post">{{ hidden('feedback') }}
+<label for="feedback">題敘清晰度、考點與難度建議</label>
+<textarea id="feedback" name="body" class="form-control mb-2" rows="3" maxlength="4000" required>{{ request.form.get('body','') if error and request.form.get('action') == 'feedback' else '' }}</textarea>
+<label class="d-block"><input type="checkbox" name="confirm" {% if error and request.form.get('confirm') == 'on' %}checked{% endif %}> 確認此版題面已審閱（須無未結問題；不代表正式驗題通過）</label>
+<button class="btn btn-primary">儲存此版回饋</button></form>
+</div></section>{% endif %}
+<h2 class="h5">回饋紀錄</h2>
+{% for f in feedback %}<div class="border rounded p-3 mb-2"><strong>{{ names.get(f.reviewer_id,'已移除帳號') }}</strong> · {{ f.created_at.strftime('%Y-%m-%d %H:%M UTC') }} · {{ '題面確認' if f.editorial_confirmed else '回饋' }}<p style="white-space:pre-wrap;overflow-wrap:anywhere">{{ f.detail }}</p></div>{% else %}<p>尚無回饋。</p>{% endfor %}
+{% if error and not current %}<label for="retained">尚未送出的內容（可複製到新版）</label><textarea id="retained" class="form-control mb-3" rows="4" readonly>{{ request.form.get('body','') }}</textarea>{% endif %}
+{% endblock %}

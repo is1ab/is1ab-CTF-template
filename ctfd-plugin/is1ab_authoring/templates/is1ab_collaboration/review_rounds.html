@@ -1,0 +1,21 @@
+{% extends 'is1ab_collaboration/layout.html' %}
+{% block work_content %}
+<h1 class="h3">{{ challenge.name }}：送審與版本</h1>
+<p>送出後保留當時的題面；修改草稿不會改寫已送出的版本。</p>
+<div class="alert alert-secondary">目前提供題面審閱與退修。附件、執行環境、官解與同版試解尚未驗證，完成題面審閱不代表可以發布。</div>
+<div class="d-flex flex-wrap mb-3" style="gap:.5rem">
+<a class="btn btn-outline-primary" href="{{ url_for('is1ab_authoring.challenge_view',challenge_id=challenge.id) }}">查看草稿</a>
+{% if can_submit %}<a class="btn btn-outline-primary" href="{{ url_for('is1ab_authoring.challenge_edit',challenge_id=challenge.id) }}">修改草稿</a>{% endif %}</div>
+{% if can_submit %}
+<form method="post" class="card mb-4"><div class="card-body">
+<h2 class="h5">送出目前草稿</h2>
+<p>由主作者送出；需要裁判已確認提案，且作者與驗題人都已接案。</p>
+<input type="hidden" name="nonce" value="{{ nonce }}"><input type="hidden" name="draft_version" value="{{ revision.version }}"><input type="hidden" name="assignment_version" value="{{ plan.version if plan else '' }}">
+<button class="btn btn-primary">送出題面審閱</button>
+</div></form>{% endif %}
+<h2 class="h5">送審紀錄</h2>
+{% for item in rounds %}<div class="card mb-2"><div class="card-body">
+<a href="{{ url_for('is1ab_review.detail',round_id=item.row.id) }}">審閱 #{{ item.row.id }}</a> · {{ item.row.created_at.strftime('%Y-%m-%d %H:%M UTC') }}
+<span class="d-block">{{ '目前送審版' if item.current else '歷史版本；不適用目前草稿或指派' }}</span>
+</div></div>{% else %}<p>尚未送審。請主作者完成題面後送出。</p>{% endfor %}
+{% endblock %}

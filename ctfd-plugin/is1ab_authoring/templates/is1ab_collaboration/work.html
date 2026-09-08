@@ -1,0 +1,19 @@
+{% extends "is1ab_collaboration/layout.html" %}
+{% block work_content %}
+<h1>{% if can_manage %}全場工作進度{% else %}我的待辦{% endif %}</h1>
+<p>提案確認、本人接案與題目驗證分開顯示；兼任角色的工作都在同一頁。</p>
+{% for row in rows %}{% set a = row.a %}{% set p = row.p %}
+<article class="card mb-3"><div class="card-body">
+  <h2 class="h5"><a href="{{ url_for('is1ab_collaboration.detail', assignment_id=a.id) }}">#{{ a.id }} {{ a.title or '待補提案名稱' }}</a></h2>
+  <p><span class="badge badge-info">{{ decisions.get(p.decision, p.decision) }}</span> {{ a.category }}／{{ a.difficulty }}
+    {% if row.overdue %}<span class="badge badge-danger">已過截止日，請確認進度</span>{% endif %}</p>
+  <p>截止：{{ p.due_date or '待確認' }} · 預估製作：{{ p.estimated_hours if p.estimated_hours is not none else '待確認' }} 小時</p>
+  <ul>{% for person in row.participants if person.status != 'removed' %}
+    <li>{{ names.get(person.user_id, '已移除帳號') }} · {{ role_labels[person.role] }} · {{ acceptance_labels[person.status] }}{% if person.reason %}：{{ person.reason }}{% endif %}</li>
+  {% endfor %}</ul>
+  <a class="btn btn-outline-primary" href="{{ url_for('is1ab_collaboration.detail', assignment_id=a.id) }}">查看／接案</a>
+  <p class="mt-2 mb-0">{{ row.review_summary }}</p>
+  {% if a.challenge_id %}<span class="text-muted ml-2">已建立題目 #{{ a.challenge_id }}</span>{% endif %}
+</div></article>
+{% else %}<div class="alert alert-light">目前沒有待辦。出題人可新增提案，或等待 PM 指派。</div>{% endfor %}
+{% endblock %}

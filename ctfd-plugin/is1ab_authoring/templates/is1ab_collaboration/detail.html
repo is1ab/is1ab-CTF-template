@@ -1,0 +1,62 @@
+{% extends "is1ab_collaboration/layout.html" %}
+{% macro hidden(action) %}<input type="hidden" name="nonce" value="{{ nonce }}"><input type="hidden" name="version" value="{{ p.version }}"><input type="hidden" name="action" value="{{ action }}">{% endmacro %}
+{% block work_content %}
+<h1 class="h3">#{{ a.id }} {{ a.title or '待補提案名稱' }}</h1>
+<p><span class="badge badge-info">{{ decisions.get(p.decision, p.decision) }}</span> {{ a.category }}／{{ a.difficulty }} · 截止 {{ p.due_date or '待確認' }}</p>
+<div class="alert alert-secondary">{{ review_summary }}。正式同版試解、產物核准與上線功能尚未接通。</div>
+<section class="card mb-3"><div class="card-body"><h2 class="h5">目前提案</h2>
+  <p style="white-space:pre-wrap;overflow-wrap:anywhere">{{ p.goal or '待作者補充考點與目標' }}</p>
+  <p style="white-space:pre-wrap;overflow-wrap:anywhere">{{ p.resources or '尚未填寫資源需求' }}</p>
+  <p>預估製作：{{ p.estimated_hours if p.estimated_hours is not none else '待確認' }} 小時</p>
+  {% if p.decision_reason %}<p>裁判說明：{{ p.decision_reason }}</p>{% endif %}
+  {% if a.challenge_id and can_view_challenge %}<a class="btn btn-outline-primary" href="{{ url_for('is1ab_authoring.challenge_view', challenge_id=a.challenge_id) }}">查看題目 #{{ a.challenge_id }}</a> <a class="btn btn-outline-primary" href="{{ url_for('is1ab_review.rounds',challenge_id=a.challenge_id) }}">送審與版本</a>
+  {% elif a.challenge_id %}<p>確認接案後可查看題目；若角色已撤銷，請由 PM 協調。</p>
+  {% elif p.decision == 'approved' and viewer.id == a.author_id and is_author %}<a class="btn btn-success" href="{{ url_for('is1ab_authoring.challenge_new', assignment_id=a.id) }}">依此工單建立題目</a>{% endif %}
+</div></section>
+<section class="card mb-3"><div class="card-body"><h2 class="h5">人員與接案</h2>
+{% for person in participants if person.status != 'removed' %}
+  <div class="border-bottom pb-3 mb-3"><p>{{ names.get(person.user_id, '已移除帳號') }} · {{ role_labels[person.role] }} · {{ acceptance_labels[person.status] }}{% if person.reason %}：{{ person.reason }}{% endif %}</p>
+  {% if viewer.id == person.user_id and p.decision != 'withdrawn' %}
+  <form method="post">{{ hidden('accept') }}<input type="hidden" name="role" value="{{ person.role }}">
+    <label for="reason-{{ person.role }}">說明（退回協調時必填）</label>
+    <input id="reason-{{ person.role }}" class="form-control mb-2" name="reason" maxlength="2000" value="{{ request.form.get('reason', '') if error and request.form.get('action') == 'accept' and request.form.get('role') == person.role else '' }}">
+    <button class="btn btn-primary" name="status" value="accepted">確認接案</button>
+    <button class="btn btn-outline-secondary" name="status" value="declined">退回 PM 協調</button>
+  </form>{% endif %}</div>
+{% endfor %}
+</div></section>
+{% if viewer.id == a.author_id and is_author %}
+<section class="card mb-3"><div class="card-body"><h2 class="h5">修改／送出提案</h2>
+  <p>修改後需重新確認提案；已建立題目的內容不會被此表覆寫。</p>
+  <form method="post">{{ hidden('proposal') }}{% set retry = error and request.form.get('action') == 'proposal' %}
+    <div class="form-group"><label for="title">名稱</label><input id="title" class="form-control" name="title" maxlength="255" required value="{{ request.form.get('title', '') if retry else a.title }}"></div>
+    <div class="form-group"><label for="goal">考點與目標（請勿貼 flag／官解）</label><textarea id="goal" class="form-control" name="goal" rows="3" required maxlength="4000">{{ request.form.get('goal', '') if retry else p.goal }}</textarea></div>
+    <div class="form-group"><label for="resources">資源／維護需求</label><textarea id="resources" class="form-control" name="resources" rows="3" maxlength="4000">{{ request.form.get('resources', '') if retry else p.resources }}</textarea></div>
+    <button class="btn btn-primary">送出提案確認</button>
+  </form>
+</div></section>{% endif %}
+{% if is_pm %}
+<section class="card mb-3"><div class="card-body"><h2 class="h5">PM：指派與時程</h2>
+<form method="post">{{ hidden('assign') }}{% set retry = error and request.form.get('action') == 'assign' %}
+  <div class="form-group"><label for="author">出題人</label><select id="author" class="form-control" name="author_id" required>{% for u in authors %}<option value="{{ u.id }}" {% if (request.form.get('author_id') == u.id|string if retry else a.author_id == u.id) %}selected{% endif %}>{{ u.name }}</option>{% endfor %}</select></div>
+  <fieldset class="form-group"><legend class="h6">驗題人（可複選，作者與共同作者不得驗本題）</legend><div class="d-flex flex-wrap" style="gap:1rem">
+    {% for u in reviewers %}<label><input type="checkbox" name="reviewers" value="{{ u.id }}" {% if (u.id|string in request.form.getlist('reviewers') if retry else u.id|string in (a.reviewer_ids or '').split(',')) %}checked{% endif %}> {{ u.name }}</label>{% endfor %}
+  </div></fieldset>
+  <div class="form-row"><div class="form-group col-md-6"><label for="due">送審截止日期</label><input id="due" type="date" class="form-control" name="due_date" value="{{ request.form.get('due_date', '') if retry else p.due_date or '' }}"></div>
+  <div class="form-group col-md-6"><label for="hours">預估製作工時</label><input id="hours" class="form-control" type="number" min="0" max="10000" step="0.5" name="estimated_hours" value="{{ request.form.get('estimated_hours', '') if retry else (p.estimated_hours if p.estimated_hours is not none else '') }}"></div></div>
+  <button class="btn btn-primary">儲存指派與時程</button>
+</form>
+{% if not a.challenge_id %}<hr><form method="post">{{ hidden('link') }}
+  <label for="challenge-id">連結既有題目 ID（作者須相同）</label><input id="challenge-id" class="form-control mb-2" type="number" min="1" name="challenge_id" required value="{{ request.form.get('challenge_id', '') if error and request.form.get('action') == 'link' else '' }}">
+  <button class="btn btn-outline-primary">確認連結既有題目</button>
+</form>{% endif %}
+</div></section>{% endif %}
+{% if is_judge and viewer.id not in author_ids %}
+<section class="card mb-3"><div class="card-body"><h2 class="h5">裁判：提案確認</h2>
+<form method="post">{{ hidden('decision') }}
+  <div class="form-group"><label for="decision">決定</label><select id="decision" class="form-control" name="decision">{% for state in ['approved', 'changes_requested', 'standby', 'withdrawn'] %}<option value="{{ state }}" {% if error and request.form.get('decision') == state %}selected{% endif %}>{{ decisions[state] }}</option>{% endfor %}</select></div>
+  <div class="form-group"><label for="decision-reason">理由／下一步</label><textarea id="decision-reason" class="form-control" name="reason" rows="2" maxlength="2000" required>{{ request.form.get('reason', '') if error and request.form.get('action') == 'decision' else '' }}</textarea></div>
+  <button class="btn btn-primary">儲存提案決定</button>
+</form></div></section>{% endif %}
+<details class="mb-4"><summary>變更紀錄</summary><ul class="mt-2">{% for event in events %}<li style="overflow-wrap:anywhere">{{ event.created_at }} · {{ names.get(event.actor_id, '已移除帳號') }} · {{ event_labels.get(event.action, '更新工單') }}{% set info = event_detail(event) %}<small class="d-block">{% if info.get('status') %}{{ acceptance_labels.get(info.status, '') }} · {% endif %}{% if info.get('decision') %}{{ decisions.get(info.decision, '') }} · {% endif %}{{ info.get('reason', '') }}{% if info.get('due_date') %} 截止 {{ info.due_date }}{% endif %}</small></li>{% else %}<li>尚無變更紀錄。</li>{% endfor %}</ul></details>
+{% endblock %}

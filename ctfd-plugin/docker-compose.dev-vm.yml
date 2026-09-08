@@ -9,7 +9,6 @@
 #
 #   - 需要同目錄一個 .env（見 .env.dev-vm.example），至少設 CTFD_DEV_SECRET_KEY。
 #   - 綁 0.0.0.0:8010 → 校內網（能路由到本機）直接連 http://<vm-ip>:8010。
-#   - 掛 docker.sock + docker binary 供 is1ab_authoring「一鍵部署」（= 容器 ≈ host root，dev-only 設計）。
 #
 # ⚠️ DB 帳密為 throwaway dev 預設（ctfd/ctfd）、DB 僅容器內部不對外；
 #    SECRET_KEY 屬敏感（能偽造 session）→ 一律由 .env 提供，不寫進 repo。
@@ -25,6 +24,7 @@ services:
       - DATABASE_URL=mysql+pymysql://ctfd:${CTFD_DEV_DB_PASSWORD:-ctfd}@db/ctfd
       - REDIS_URL=redis://cache:6379
       - WORKERS=1
+      - IS1AB_REVIEW_FINGERPRINT_KEY=${IS1AB_REVIEW_FINGERPRINT_KEY:-}
       - SECRET_KEY=${CTFD_DEV_SECRET_KEY:?請在同目錄 .env 設 CTFD_DEV_SECRET_KEY（見 .env.dev-vm.example）}
       - LOG_FOLDER=/var/log/CTFd
       - ACCESS_LOG=-
@@ -33,9 +33,6 @@ services:
       - ctfd_dev_uploads:/var/uploads
       - ./is1ab_authoring:/opt/CTFd/CTFd/plugins/is1ab_authoring:ro
       - ../:/repo
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /usr/bin/docker:/usr/bin/docker:ro
-      - /usr/libexec/docker/cli-plugins/docker-compose:/usr/libexec/docker/cli-plugins/docker-compose:ro
     depends_on: [db, cache]
   db:
     image: mariadb:10.11
